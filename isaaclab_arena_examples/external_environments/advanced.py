@@ -5,8 +5,9 @@
 
 """Advanced example: externally-defined environment with a custom task and embodiment.
 
-Builds on the basic example by defining a custom task and a custom embodiment
-variant (with modified controller gains) in the same file::
+Builds on the basic example by defining a custom task, a custom embodiment
+variant (with modified controller gains), and two custom episode recorder terms
+in the same file::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 100 \\
@@ -22,11 +23,11 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # ---------------------------------------------------------------------------
@@ -68,9 +69,6 @@ class SuccessAfterNStepsTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError
 
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
-
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
 
@@ -97,6 +95,16 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
             actuator = self.scene_config.robot.actuators[actuator_name]
             actuator.stiffness = 200.0
             actuator.damping = 40.0
+
+
+# ---------------------------------------------------------------------------
+# Custom episode recorder terms
+# ---------------------------------------------------------------------------
+
+
+def record_object_final_height(env, env_id: int, object_name: str) -> float:
+    """Records the height [m] of an object when the episode ends."""
+    return float(env.arena_world.get_pose_w(object_name)[env_id, 2])
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +147,14 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
             embodiment=embodiment,
             scene=scene,
             task=task,
+            episode_recorder_terms={
+                "object_final_height": EpisodeRecorderTermCfg(
+                    func=record_object_final_height, params={"object_name": pick_up_object.name}
+                ),
+                "object_peak_speed": EpisodeRecorderTermCfg(
+                    func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
+                ),
+            },
         )
 
     @staticmethod

@@ -9,21 +9,14 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from dataclasses import dataclass
 from prettytable import PrettyTable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.evaluation.report_data import success_rate_from_values
 from isaaclab_arena.evaluation.run_status import RunStatus
 
 if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-
-
-@dataclass
-class _EpisodeCounts:
-    num_episodes: int = 0
-    num_successes: int = 0
-    num_unknown: int = 0
 
 
 def build_categorical_variation_table(result: ArenaExperimentResult) -> PrettyTable:
@@ -38,7 +31,7 @@ def build_categorical_variation_table(result: ArenaExperimentResult) -> PrettyTa
         is N/A when no boolean outcomes are recorded. Each variation is grouped independently;
         numeric and vector values are omitted.
     """
-    counts: dict[tuple[str, str, str], _EpisodeCounts] = defaultdict(_EpisodeCounts)
+    success_values_by_group: dict[tuple[str, str, str], list[bool | None]] = defaultdict(list)
     for run_name, run in result.runs.items():
         # A failed Run can keep the episodes it finished before failing; leave them out.
         if run["status"] == RunStatus.COMPLETED.value:
@@ -48,25 +41,18 @@ def build_categorical_variation_table(result: ArenaExperimentResult) -> PrettyTa
                         if isinstance(value, (str, bool)):
                             # JSON labels distinguish a boolean from a string with the same spelling.
                             label = json.dumps(value, ensure_ascii=False)
-                            group = counts[(run_name, variation, label)]
-                            group.num_episodes += 1
-                            success = episode.get("success")
-                            if success is True:
-                                group.num_successes += 1
-                            elif success is not False:
-                                group.num_unknown += 1
+                            success_values_by_group[(run_name, variation, label)].append(episode.get("success"))
 
     table = PrettyTable(["Run", "Variation", "Value", "Episodes", "Successes", "Unknown", "Success Rate"])
-    for (run_name, variation, label), group in sorted(counts.items()):
-        num_known = group.num_episodes - group.num_unknown
-        success_rate = f"{group.num_successes / num_known:.1%}" if num_known else "N/A"
+    for (run_name, variation, label), success_values in sorted(success_values_by_group.items()):
+        group_success_rate = success_rate_from_values(success_values)
         table.add_row([
             run_name,
             variation,
             label,
-            group.num_episodes,
-            group.num_successes,
-            group.num_unknown,
-            success_rate,
+            len(success_values),
+            sum(success is True for success in success_values),
+            sum(success is None for success in success_values),
+            "N/A" if group_success_rate is None else f"{group_success_rate:.1%}",
         ])
     return table

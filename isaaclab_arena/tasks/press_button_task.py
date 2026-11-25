@@ -14,8 +14,6 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -63,11 +61,6 @@ class PressButtonTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(

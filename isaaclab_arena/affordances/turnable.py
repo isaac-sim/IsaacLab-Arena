@@ -52,14 +52,16 @@ class Turnable(AffordanceBase):
 
     def __init__(
         self,
-        turnable_joint_name: str,
-        min_level_angle_deg: float,
-        max_level_angle_deg: float,
-        num_levels: int,
+        turnable_joint_name: str | None = None,
+        min_level_angle_deg: float | None = None,
+        max_level_angle_deg: float | None = None,
+        num_levels: int | None = None,
         **kwargs,
     ):
         """
         Initialize a turnable object.
+
+        Arguments left as None take the class attribute of the same name, so subclasses can declare them there.
 
         Args:
             turnable_joint_name: Name of the revolute joint that can be turned
@@ -69,6 +71,10 @@ class Turnable(AffordanceBase):
             **kwargs: Additional arguments passed to AffordanceBase
         """
         super().__init__(**kwargs)
+        turnable_joint_name = turnable_joint_name if turnable_joint_name is not None else self.turnable_joint_name
+        min_level_angle_deg = min_level_angle_deg if min_level_angle_deg is not None else self.min_level_angle_deg
+        max_level_angle_deg = max_level_angle_deg if max_level_angle_deg is not None else self.max_level_angle_deg
+        num_levels = num_levels if num_levels is not None else self.num_levels
         self.turnable_joint_name = turnable_joint_name
 
         assert min_level_angle_deg >= 0.0, "min_level_angle must be non-negative"

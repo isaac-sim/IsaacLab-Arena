@@ -40,9 +40,6 @@ This task can be passed to the ``ArenaEnvBuilder`` to create an environment
        def has_reached_step_count(self, env):
            return env.episode_length_buf >= self.num_steps_for_success
 
-       def get_metrics(self) -> list[MetricBase]:
-           return [SuccessRateMetric()]
-
 Imports and the required ``get_scene_cfg()``, ``get_events_cfg()``, and ``get_mimic_env_cfg()``
 methods are omitted here. See the
 `complete example <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py>`_
@@ -79,13 +76,24 @@ The ``@register_asset`` decorator registers the class with the
 ``AssetRegistry`` under its ``registry_name``, ``"franka_ik_soft"``, so it can be fetched
 the same way as any built-in embodiment (see :ref:`putting_it_all_together` below for an example).
 
+.. _recording-per-episode-values:
+
+Recording a Custom Value per Episode
+------------------------------------
+
+The example also records two values for each episode through ``episode_recorder_terms``, shown below. It
+defines ``record_object_final_height``, a function for a value read when the episode ends, and uses Arena's
+``ObjectPeakSpeed``, a class derived from ``EpisodeRecorderTerm`` for a value that builds up during the
+episode. Each episode's line in the episode results holds the values under the terms' names, for example
+``"object_final_height": 0.12, "object_peak_speed": 0.83``.
+
 .. _putting_it_all_together:
 
 Putting It All Together
 -----------------------
 
-Here we create an example environment, like in :doc:`external_environments`, but this time
-that composes the custom task and custom embodiment.
+Here we create an example environment, like in :doc:`external_environments`. This time it passes
+the custom task, the custom embodiment, and the two episode recorder terms to ``IsaacLabArenaEnvironment``.
 
 .. code-block:: python
 
@@ -126,6 +134,14 @@ that composes the custom task and custom embodiment.
                embodiment=embodiment,
                scene=scene,
                task=task,
+               episode_recorder_terms={
+                   "object_final_height": EpisodeRecorderTermCfg(
+                       func=record_object_final_height, params={"object_name": pick_up_object.name}
+                   ),
+                   "object_peak_speed": EpisodeRecorderTermCfg(
+                       func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
+                   ),
+               },
            )
 
        @staticmethod

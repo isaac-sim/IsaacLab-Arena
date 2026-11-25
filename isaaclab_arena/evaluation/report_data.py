@@ -16,6 +16,7 @@ import math
 import pathlib
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -36,7 +37,7 @@ DEFAULT_POLICY_SUFFIXES = ()
 _METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name", "progress"})
 _PREDICATE_ARGUMENTS_PATTERN = re.compile(r"\(.*\)$")
 _CONSECUTIVE_STEPS_PATTERN = re.compile(r"TrueForConsecutiveStepsCfg\((?P<predicate>.*), required_steps=\d+\)")
-_SUBTASK_CRITERIA_PATTERN = re.compile(r"^subtask_\d+/(?P<family>.+)$")
+_SUBTASK_CRITERIA_PATTERN = re.compile(r"^subtask_(?P<index>\d+)/(?P<family>.+)$")
 UNGROUPED_TASK = "(ungrouped)"
 
 
@@ -258,8 +259,7 @@ class JobSummary:
 
     @property
     def success_rate(self) -> float | None:
-        scored = self.num_scored_episodes
-        return None if scored == 0 else self.num_successes / scored
+        return success_rate_from_values(episode.success for episode in self.episodes)
 
     @property
     def progress_fractions(self) -> list[float]:
@@ -578,6 +578,62 @@ def _events_by_criteria_and_index(record: dict[str, Any]) -> dict[str, dict[int,
         if criteria_name is not None and index is not None:
             result.setdefault(criteria_name, {})[index] = event
     return result
+
+
+def success_rate_from_values(success_values: Iterable[bool | None]) -> float | None:
+    """Return the fraction of successful episodes among those recorded with a success value.
+
+    Args:
+        success_values: Each episode's success value; None means the episode was recorded without one.
+
+    Returns:
+        The success rate, or None when no episode has a success value.
+    """
+    scored_success_values = [success for success in success_values if success is not None]
+    if not scored_success_values:
+        return None
+    return sum(success is True for success in scored_success_values) / len(scored_success_values)
+
+
+def subtask_completion(record: dict[str, Any]) -> dict[int, bool]:
+    """Return whether each subtask of a composite task was completed in an episode, keyed by subtask index.
+
+    A subtask counts as completed when all its ``subtask_<i>/...`` criteria sets are complete. A record of a task
+    without subtasks gives an empty dict.
+
+    Args:
+        record: One episode's record from the episode results.
+    """
+    completion_by_subtask: dict[int, bool] = {}
+    for criteria_name, criteria in _progress_criteria(record).items():
+        match = _SUBTASK_CRITERIA_PATTERN.match(criteria_name)
+        if match is None:
+            continue
+        subtask_index = int(match.group("index"))
+        criteria_is_complete = isinstance(criteria, dict) and criteria.get("is_complete") is True
+        completion_by_subtask[subtask_index] = completion_by_subtask.get(subtask_index, True) and criteria_is_complete
+    return completion_by_subtask
+
+
+def subtask_success_rates(records: Iterable[dict[str, Any]]) -> dict[int, float | None]:
+    """Return each subtask's success rate over the episodes, keyed by subtask index in ascending order.
+
+    An episode that did not record a subtask does not count toward that subtask's rate. Records of tasks without
+    subtasks give an empty dict.
+
+    Args:
+        records: The episodes' records from the episode results.
+    """
+    completion_by_episode = [subtask_completion(record) for record in records]
+    subtask_indices: set[int] = set()
+    for completion_by_subtask in completion_by_episode:
+        subtask_indices.update(completion_by_subtask)
+    return {
+        subtask_index: success_rate_from_values(
+            completion_by_subtask.get(subtask_index) for completion_by_subtask in completion_by_episode
+        )
+        for subtask_index in sorted(subtask_indices)
+    }
 
 
 def _mean(values: list[float]) -> float | None:

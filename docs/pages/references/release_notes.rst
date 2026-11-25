@@ -5,6 +5,7 @@ Release Notes
    :hidden:
 
    migration_guide_v0_4
+   migration_guide_v0_5
 
 v0.4.0
 ------

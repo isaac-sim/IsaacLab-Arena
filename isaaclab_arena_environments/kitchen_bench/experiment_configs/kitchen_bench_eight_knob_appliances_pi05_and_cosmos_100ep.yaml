@@ -1,0 +1,90 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 2
+    seed: 42
+    camera_resolution_mode: POLICY_DEFAULT
+  rollout_limit:
+    num_episodes: 100
+runs:
+  stand_mixer003_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml
+    policy: &openpi_policy
+      type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+      policy_variant: pi05
+      remote_host: 127.0.0.1
+      remote_port: 8000
+      openpi_embodiment_adapter: droid
+      policy_device: cuda:0
+  stand_mixer003_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml
+    policy: &cosmos_policy
+      type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
+      cosmos_embodiment_adapter: droid
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 8000
+  palatial_toaster_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml
+    policy: *openpi_policy
+  palatial_toaster_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml
+    policy: *cosmos_policy
+  forgecad_toaster_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml
+    policy: *openpi_policy
+  forgecad_toaster_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml
+    policy: *cosmos_policy
+  toaster_oven001_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml
+    policy: *openpi_policy
+  toaster_oven001_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml
+    policy: *cosmos_policy
+  toaster002_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml
+    policy: *openpi_policy
+  toaster002_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml
+    policy: *cosmos_policy
+  blender008_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal.yaml
+    policy: *openpi_policy
+  blender008_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal.yaml
+    policy: *cosmos_policy
+  blender003_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml
+    policy: *openpi_policy
+  blender003_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml
+    policy: *cosmos_policy
+  forgecad_air_fryer_pi05:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml
+    policy: *openpi_policy
+  forgecad_air_fryer_cosmos:
+    environment:
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml
+    policy: *cosmos_policy

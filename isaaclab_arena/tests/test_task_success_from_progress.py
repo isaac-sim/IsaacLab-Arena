@@ -49,7 +49,7 @@ def _make_environment_and_manager(
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
     from isaaclab_arena.tasks.terminations import task_success_from_progress
 
@@ -71,7 +71,7 @@ def _make_environment_and_manager(
     env._completed_episode_count = 0
     env._variation_recorder = None
     env._variation_replay_scheduler = None
-    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None)
+    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None, reset=lambda env_ids: {})
     if success_criteria is None:
         success_criteria = [
             CompletionCriteria(
@@ -87,11 +87,9 @@ def _make_environment_and_manager(
         subtasks_are_sequential=subtasks_are_sequential,
         desired_subtask_success_state=desired_subtask_success_state,
     )
-    recorder_cfg = ProgressTrackingRecorderCfg()
-    recorder = recorder_cfg.class_type(recorder_cfg, env)
     manager = TerminationManager({"success": TerminationTermCfg(func=task_success_from_progress)}, env)
     env.termination_manager = manager
-    return env, manager, recorder
+    return env, manager
 
 
 def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation_app):
@@ -106,7 +104,7 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
         )
         for predicate_name, subtask_index in zip(predicate_names, [0, 0, 1])
     ]
-    env, manager, recorder = _make_environment_and_manager(
+    env, manager = _make_environment_and_manager(
         predicate_names,
         success_criteria=success_criteria,
         subtasks_are_sequential=True,
@@ -136,7 +134,7 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
     assert manager.get_term("success").tolist() == [True, True]
 
     previous_calls = dict(env.predicate_calls)
-    recorder.record_post_step()
+    env.update_task_progress()
     assert env.predicate_calls == previous_calls
     assert set(env.extras["progress_tracking"]["states"][0].criteria_by_name) == set(predicate_names)
 
@@ -165,7 +163,7 @@ def _test_flat_subtask_none_state_skips_history_and_current_condition(simulation
         )
         for subtask_index, predicate_name in enumerate(predicate_names)
     ]
-    env, manager, _ = _make_environment_and_manager(
+    env, manager = _make_environment_and_manager(
         predicate_names,
         success_criteria=success_criteria,
         desired_subtask_success_state=[False, None],
@@ -190,7 +188,7 @@ def _test_flat_subtask_none_state_skips_history_and_current_condition(simulation
 def _test_success_advances_once_and_reporting_is_passive(simulation_app):
     from isaaclab_arena.recording.progress_terms import record_progress_results
 
-    env, manager, recorder = _make_environment_and_manager(["settle", "lift", "place"])
+    env, manager = _make_environment_and_manager(["settle", "lift", "place"])
     for step_number, completed_predicate in enumerate(["settle", "lift", "place"], start=1):
         _advance_step(env)
         manager.compute()
@@ -200,7 +198,7 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
         assert manager.get_term("success").tolist() == [step_number == 3, step_number == 3]
         assert env.predicate_calls[completed_predicate] == 1
         for _ in range(2):
-            assert recorder.record_post_step() == (None, None)
+            env.update_task_progress()
             progress = env.extras["progress_tracking"]
             assert [len(events) for events in progress["events"]] == [step_number, step_number]
             assert [state.all_complete for state in progress["states"]] == [step_number == 3, step_number == 3]
@@ -208,7 +206,7 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
         assert sum(env.predicate_calls.values()) == step_number
 
     # The episode recorder sees the final predicate on the same step as success.
-    recorded_progress = record_progress_results(env, env_id=0)["progress"]
+    recorded_progress = record_progress_results(env, env_id=0)
     assert set(recorded_progress) == {"overall_score", "all_complete", "criteria_by_name", "events"}
     assert recorded_progress["all_complete"]
     assert recorded_progress["overall_score"] == 1.0
@@ -227,12 +225,12 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
 
 
 def _test_placement_cannot_bypass_lift(simulation_app):
-    env, manager, recorder = _make_environment_and_manager(["settle", "lift", "place"])
+    env, manager = _make_environment_and_manager(["settle", "lift", "place"])
     env.predicate_results["lift"][0] = False
     for _ in range(4):
         _advance_step(env)
         manager.compute()
-        recorder.record_post_step()
+        env.update_task_progress()
         assert not manager.get_term("success")[0]
     assert manager.get_term("success").tolist() == [False, True]
     assert [len(events) for events in env.extras["progress_tracking"]["events"]] == [1, 3]
@@ -243,7 +241,7 @@ def _test_placement_cannot_bypass_lift(simulation_app):
     assert manager.get_term("success").tolist() == [False, True]
     _advance_step(env)
     manager.compute()
-    recorder.record_post_step()
+    env.update_task_progress()
     assert manager.get_term("success").all()
     assert [event.step for event in env.extras["progress_tracking"]["events"][0]] == [1, 5, 6]
     return True
@@ -260,7 +258,7 @@ def _test_environment_reset_clears_only_selected_progress_and_rest_poses(simulat
         (None, [True, True]),
         (slice(None), [True, True]),
     ]:
-        env, manager, recorder = _make_environment_and_manager(["settle", "place"])
+        env, manager = _make_environment_and_manager(["settle", "place"])
         progress_tracker = env.progress_tracker
         assert progress_tracker is not None
         resting_positions = torch.tensor([[0.0, 0.0, 0.2], [1.0, 0.0, 0.3]])
@@ -274,13 +272,13 @@ def _test_environment_reset_clears_only_selected_progress_and_rest_poses(simulat
         assert env.progress_tracker is progress_tracker
         assert progress_tracker.is_complete().tolist() == [not was_reset for was_reset in reset_mask]
         env.episode_length_buf[reset_mask] = 0
-        recorder.record_post_step()
-        progress = env.extras["progress_tracking"]
+        states = progress_tracker.get_state()
+        events = progress_tracker.get_events()
         positions, has_settled = get_object_initial_rest_state(env, "object")
         for environment_index, was_reset in enumerate(reset_mask):
-            assert progress["states"][environment_index].all_complete == (not was_reset)
-            assert progress["states"][environment_index].overall_score == (0.0 if was_reset else 1.0)
-            assert len(progress["events"][environment_index]) == (0 if was_reset else 2)
+            assert states[environment_index].all_complete == (not was_reset)
+            assert states[environment_index].overall_score == (0.0 if was_reset else 1.0)
+            assert len(events[environment_index]) == (0 if was_reset else 2)
             assert bool(has_settled[environment_index]) == (not was_reset)
             if was_reset:
                 assert torch.isnan(positions[environment_index]).all()
@@ -300,7 +298,7 @@ def _test_environment_reset_clears_only_selected_progress_and_rest_poses(simulat
         assert manager.get_term("success").tolist() == [not was_reset for was_reset in reset_mask]
         _advance_step(env)
         manager.compute()
-        recorder.record_post_step()
+        env.update_task_progress()
         assert manager.get_term("success").all()
         event_steps = [[event.step for event in events] for events in env.extras["progress_tracking"]["events"]]
         assert event_steps == [[1, 2], [1, 2]]
@@ -308,7 +306,7 @@ def _test_environment_reset_clears_only_selected_progress_and_rest_poses(simulat
 
 
 def _test_success_results_remain_stable_after_updates_and_reset(simulation_app):
-    env, manager, _ = _make_environment_and_manager(["settle", "place"])
+    env, manager = _make_environment_and_manager(["settle", "place"])
     success_cfg = manager.get_term_cfg("success")
     _advance_step(env)
     first_result = success_cfg.func(env, **success_cfg.params)
@@ -392,7 +390,7 @@ def _test_success_requires_task_progress(simulation_app):
 
     from isaaclab_arena.tasks.terminations import task_success_from_progress
 
-    env, _, _ = _make_environment_and_manager(["place"])
+    env, _ = _make_environment_and_manager(["place"])
     env._progress_tracker = None
     with pytest.raises(AssertionError, match="Task progress is not configured"):
         task_success_from_progress(env)
@@ -400,7 +398,7 @@ def _test_success_requires_task_progress(simulation_app):
 
 
 def _test_termination_manager_reset_does_not_clear_task_progress(simulation_app):
-    env, manager, _ = _make_environment_and_manager(["place"])
+    env, manager = _make_environment_and_manager(["place"])
     _advance_step(env)
     assert manager.compute().all()
     manager.reset([0])
@@ -612,10 +610,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
 
     description = IsaacLabArenaEnvironment(name="pick_and_place_success_builder", scene=Scene(), task=task)
     builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False, device="cpu"))
-    with (
-        patch.object(task, "get_viewer_cfg", return_value=ViewerCfg()),
-        patch.object(task, "get_metrics", return_value=[]),
-    ):
+    with patch.object(task, "get_viewer_cfg", return_value=ViewerCfg()):
         env_cfg, _ = builder.build_env_cfg()
     assert env_cfg.task_description == "Put the object on the destination"
     assert env_cfg.terminations.success.func is task_success_from_progress
