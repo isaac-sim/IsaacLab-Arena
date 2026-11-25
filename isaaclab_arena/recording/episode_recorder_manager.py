@@ -29,11 +29,12 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     func: Callable[..., Any] = MISSING
     """The callable that returns this term's output for one finished episode.
 
-    Invoked as ``func(env, env_id, **params)`` when an episode ends. Returns a JSON value, such as a number
-    or a dict. It is stored in the episode's record under the term's name; ``None`` leaves the term out of
-    that record. A NaN or infinite float is written as null, with a warning. It may also be an
-    ``EpisodeRecorderTerm`` subclass, which the manager creates once; its ``post_step()`` runs after every
-    control step and its ``reset()`` when an episode starts.
+    A function is invoked as ``func(env, env_id, **params)`` when an episode ends. It returns a JSON value,
+    such as a number or a dict, which is stored in the episode's record under the term's name; ``None`` leaves
+    the term out of that record. A NaN or infinite float is written as null, with a warning. It may also be
+    an ``EpisodeRecorderTerm`` subclass, which the manager creates once with this cfg; its ``post_step()``
+    runs after every control step, its ``reset()`` when an episode starts, and ``term(env, env_id)`` when
+    the episode ends.
     """
 
 
@@ -59,7 +60,7 @@ class EpisodeRecorderTerm(ManagerTermBase):
     def __call__(self, env, env_id: int) -> Any:
         """Return a JSON value for env_id's finished episode, or None to leave this term out of the record.
 
-        Declare a parameter for each ``cfg.params`` entry.
+        Read ``cfg.params`` in ``__init__``; the manager does not pass them here.
         """
 
 
@@ -146,7 +147,10 @@ class EpisodeRecorderManager(ManagerBase):
                     f"Episode recorder term '{term_name}' would overwrite the core record field of the same name;"
                     " choose another name."
                 )
-                output = term_cfg.func(self._env, env_id, **term_cfg.params)
+                if isinstance(term_cfg.func, EpisodeRecorderTerm):
+                    output = term_cfg.func(self._env, env_id)
+                else:
+                    output = term_cfg.func(self._env, env_id, **term_cfg.params)
                 if output is None:
                     continue
                 self._assert_json_value(term_name, output)

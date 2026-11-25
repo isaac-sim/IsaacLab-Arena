@@ -46,8 +46,8 @@ def _test_displacement_is_the_largest_distance_from_the_first_step(simulation_ap
         object_positions.position_w[1, 2] = 1.00 if 100 <= step < 200 else 0.90
         term.post_step()
 
-    assert term(env, 0, object_name="box") == pytest.approx(0.3, abs=1e-5)
-    assert term(env, 1, object_name="box") == pytest.approx(0.1, abs=1e-5)
+    assert term(env, 0) == pytest.approx(0.3, abs=1e-5)
+    assert term(env, 1) == pytest.approx(0.1, abs=1e-5)
     return True
 
 
@@ -68,8 +68,8 @@ def _test_reset_starts_a_new_episode_for_the_selected_envs(simulation_app):
     object_positions.position_w[:, 0] = 0.21
     term.post_step()
 
-    assert abs(term(env, 0, object_name="box") - 0.01) < 1e-5
-    assert abs(term(env, 1, object_name="box") - 0.21) < 1e-5
+    assert abs(term(env, 0) - 0.01) < 1e-5
+    assert abs(term(env, 1) - 0.21) < 1e-5
     return True
 
 
@@ -101,13 +101,13 @@ def _test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness(
     for openness_env_0, openness_env_1 in ((0.25, 0.2), (0.6, 0.1), (0.2, 0.0)):
         env.openness[:] = torch.tensor([openness_env_0, openness_env_1])
         term.post_step()
-    assert term(env, 0, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.4)
-    assert term(env, 1, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.2)
+    assert term(env, 0) == pytest.approx(0.4)
+    assert term(env, 1) == pytest.approx(0.2)
 
     term.reset(torch.tensor([0]))
     term.post_step()
-    assert term(env, 0, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.0)
-    assert term(env, 1, openable_object=openable_object, reset_openness=0.2) == pytest.approx(0.2)
+    assert term(env, 0) == pytest.approx(0.0)
+    assert term(env, 1) == pytest.approx(0.2)
     return True
 
 

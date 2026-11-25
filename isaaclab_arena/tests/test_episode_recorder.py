@@ -193,7 +193,7 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
             if object_peak_speed_cfg is not None:
                 for env_id in base_env.reset_env_ids.tolist():
                     # post_step ran before the reset, so a new episode must start from zero.
-                    assert object_peak_speed_cfg.func(base_env, env_id, object_name=object_name) == 0.0
+                    assert object_peak_speed_cfg.func(base_env, env_id) == 0.0
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
     with open(output_path, encoding="utf-8") as f:

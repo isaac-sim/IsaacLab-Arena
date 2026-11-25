@@ -30,9 +30,7 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
     def reset(self, env_ids=None):
         self._peak_speed[slice(None) if env_ids is None else env_ids] = 0.0
 
-    def __call__(self, env, env_id: int, object_name: str) -> float:
-        # The manager passes every cfg.params entry as a keyword argument, so object_name must be
-        # accepted here even though __init__ already read it.
+    def __call__(self, env, env_id: int) -> float:
         return float(self._peak_speed[env_id])
 
 
@@ -65,9 +63,7 @@ class ObjectDisplacement(EpisodeRecorderTerm):
         self._has_start_position[selected_envs] = False
         self._largest_displacement[selected_envs] = 0.0
 
-    def __call__(self, env, env_id: int, object_name: str) -> float:
-        # The manager passes every cfg.params entry as a keyword argument, so object_name must be
-        # accepted here even though __init__ already read it.
+    def __call__(self, env, env_id: int) -> float:
         return float(self._largest_displacement[env_id])
 
 
@@ -93,6 +89,5 @@ class RevoluteJointMovement(EpisodeRecorderTerm):
     def reset(self, env_ids=None):
         self._largest_movement[slice(None) if env_ids is None else env_ids] = 0.0
 
-    def __call__(self, env, env_id: int, openable_object, reset_openness: float) -> float:
-        # The manager passes every cfg.params entry as a keyword argument, so both must be accepted here.
+    def __call__(self, env, env_id: int) -> float:
         return float(self._largest_movement[env_id])
