@@ -49,11 +49,11 @@ def _isaaclab_pin(package: str) -> str:
 
 def test_isaaclab_uv_overrides_match_submodule():
     """Arena mirrors the source checkout's backend and torch overrides exactly."""
+    # Isaac Sim's schema pin already satisfies Lab; Arena does not override it.
     packages = {
         "mujoco",
         "mujoco-warp",
         "newton",
-        "newton-usd-schemas",
         "torch",
         "torchvision",
         "usd-exchange",
