@@ -320,7 +320,7 @@ jobs:
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton and not live_remote" \
             isaaclab_arena/tests/ \
             isaaclab_arena_benchmarking/tests/ \
             isaaclab_arena_policies/isaaclab_arena_vlm_agent/tests/
@@ -340,6 +340,14 @@ jobs:
         run: |
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
+
+      # Tests that call a live remote service (e.g. the Lightwheel API) directly. A warm cache
+      # does not help them, so a service outage would fail every pull request; run them nightly.
+      - name: Run live remote service tests
+        if: github.event_name == 'schedule'
+        run: |
+          isaaclab.sh -p -m pytest -sv --durations=0 -m live_remote \
+            isaaclab_arena/tests/
 
 
   tests_with_subprocess:

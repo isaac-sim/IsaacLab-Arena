@@ -12,7 +12,32 @@ from unittest.mock import Mock, patch
 import pytest
 
 from isaaclab_arena.assets.sources.base import UsdSource
-from isaaclab_arena.assets.sources.lightwheel import LightwheelFloorplanUsdSource, LightwheelUsdSource
+from isaaclab_arena.assets.sources.lightwheel import (
+    LightwheelFloorplanUsdSource,
+    LightwheelObjectUsdSource,
+    LightwheelSource,
+)
+
+BLOCK_LIGHTWHEEL_SDK = {"lightwheel_sdk": None, "lightwheel_sdk.loader": None}
+"""sys.modules entries that make ``import lightwheel_sdk`` raise ImportError."""
+
+
+@pytest.fixture(autouse=True)
+def empty_lightwheel_cache(tmp_path, monkeypatch):
+    """Point the Lightwheel cache at an empty directory so tests never see the developer's real cache."""
+    cache_root = tmp_path / "empty_lightwheel_cache"
+    cache_root.mkdir()
+    monkeypatch.setattr("isaaclab_arena.assets.sources.lightwheel.lightwheel_cache_root", lambda: cache_root)
+    return cache_root
+
+
+def _make_loader_modules(**loaders):
+    loader_module = ModuleType("lightwheel_sdk.loader")
+    for name, loader in loaders.items():
+        setattr(loader_module, name, loader)
+    package = ModuleType("lightwheel_sdk")
+    package.loader = loader_module
+    return {"lightwheel_sdk": package, "lightwheel_sdk.loader": loader_module}
 
 
 def test_object_acquires_usd_source_path(tmp_path):
@@ -53,7 +78,9 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     loader_module.object_loader = loader
     package = ModuleType("lightwheel_sdk")
     package.loader = loader_module
-    source = LightwheelUsdSource(registry_type="objects", registry_name=["broccoli"], file_type="USD")
+    source = LightwheelObjectUsdSource(
+        registry_type="objects", file_name="Broccoli015", file_type="USD", registry_name=["broccoli"]
+    )
 
     assert loader.acquire_by_registry.call_count == 0
     with patch.dict(
@@ -67,8 +94,9 @@ def test_lightwheel_source_is_lazy_and_memoizes_acquisition():
     assert first == "/cache/broccoli.usd"
     loader.acquire_by_registry.assert_called_once_with(
         registry_type="objects",
-        registry_name=["broccoli"],
+        file_name="Broccoli015",
         file_type="USD",
+        registry_name=["broccoli"],
     )
 
 
@@ -106,6 +134,51 @@ def test_lightwheel_floorplan_source_is_lazy_and_memoizes_acquisition():
     )
 
 
+def test_lightwheel_object_source_returns_cached_path_without_importing_sdk(empty_lightwheel_cache, capsys):
+    object_dir = empty_lightwheel_cache / "object" / "Microwave039"
+    object_dir.mkdir(parents=True)
+    (object_dir / "Microwave039.usd").write_text("")
+    (object_dir / "version.txt").write_text("1")
+    source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+
+    with patch.dict("sys.modules", BLOCK_LIGHTWHEEL_SDK):
+        assert source.to_local_usd_path() == str(object_dir / "Microwave039.usd")
+    assert "Lightwheel cache hit: lightwheel-object/microwave039" in capsys.readouterr().out
+
+
+def test_lightwheel_object_source_calls_sdk_on_cache_miss(capsys):
+    loader = SimpleNamespace(
+        acquire_by_registry=Mock(return_value=("/cache/microwave.usd", "microwave", {})),
+        client=SimpleNamespace(base_timeout=10),
+    )
+    source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Microwave039", file_type="USD")
+
+    with patch.dict("sys.modules", _make_loader_modules(object_loader=loader)):
+        assert source.to_local_usd_path() == "/cache/microwave.usd"
+    assert "Lightwheel cache miss: lightwheel-object/microwave039" in capsys.readouterr().out
+
+    loader.acquire_by_registry.assert_called_once_with(
+        registry_type="fixtures", file_name="Microwave039", file_type="USD"
+    )
+
+
+def test_lightwheel_object_source_requires_a_file_name():
+    with pytest.raises(AssertionError, match="needs a file_name"):
+        LightwheelObjectUsdSource(registry_type="objects", file_name="", file_type="USD")
+
+
+def test_lightwheel_floorplan_source_returns_cached_path_without_importing_sdk(empty_lightwheel_cache):
+    floorplan_root = empty_lightwheel_cache / "floorplan"
+    scene_dir = floorplan_root / "robocasa-robocasakitchen-6-10"
+    scene_dir.mkdir(parents=True)
+    (scene_dir / "scene.usd").write_text("")
+    (floorplan_root / "usd_version.json").write_text('{"robocasa-robocasakitchen-6-10": "1"}')
+    source = LightwheelFloorplanUsdSource(scene="robocasakitchen", layout_id=6, style_id=10, backend="robocasa")
+
+    with patch.dict("sys.modules", BLOCK_LIGHTWHEEL_SDK):
+        assert source.to_local_usd_path() == str(scene_dir / "scene.usd")
+
+
 @pytest.mark.parametrize("file_path", [None, ""])
 @pytest.mark.parametrize("kind", ["object", "floorplan"])
 def test_lightwheel_source_rejects_missing_path_without_caching_it(kind, file_path):
@@ -114,7 +187,7 @@ def test_lightwheel_source_rejects_missing_path_without_caching_it(kind, file_pa
     loader_module = ModuleType("lightwheel_sdk.loader")
     if kind == "object":
         loader_module.object_loader = SimpleNamespace(acquire_by_registry=acquire)
-        source = LightwheelUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
+        source = LightwheelObjectUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
     else:
         loader_module.floorplan_loader = SimpleNamespace(get_usd=acquire)
         source = LightwheelFloorplanUsdSource(scene="robocasakitchen", layout_id=6, style_id=10, backend="robocasa")
@@ -146,7 +219,7 @@ def test_library_objects_reuse_their_class_level_lightwheel_source(tmp_path):
     loader_module.object_loader = loader
     package = ModuleType("lightwheel_sdk")
     package.loader = loader_module
-    source = LightwheelUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
+    source = LightwheelObjectUsdSource(registry_type="objects", file_name="Asset001", file_type="USD")
 
     class SourcedObject(LibraryObject):
         registry_name = "sourced_object"
@@ -178,3 +251,8 @@ def test_extract_asset_usd_path_resolves_source_without_constructing_asset():
 
     assert _extract_asset_usd_path(SourcedAsset) == "/cache/asset.usd"
     source.to_local_usd_path.assert_called_once_with()
+
+
+def test_lightwheel_source_cannot_be_instantiated_without_the_four_hooks():
+    with pytest.raises(TypeError):
+        LightwheelSource()
