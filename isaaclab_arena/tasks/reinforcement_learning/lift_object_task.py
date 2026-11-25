@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import torch
 from dataclasses import MISSING
 from functools import partial
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
@@ -14,6 +16,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
+from isaaclab.utils.math import combine_frame_transforms
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
@@ -23,11 +26,13 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.reinforcement_learning.rewards import lift_object_rewards, rewards
-from isaaclab_arena.tasks.reinforcement_learning.terminations import lift_object_rl_success
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.pose import PoseRange
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 @register_task
@@ -127,7 +132,7 @@ class LiftObjectTaskRL(TaskBase):
                     name="lift_object",
                     predicate_sequence=[
                         partial(
-                            lift_object_rl_success,
+                            object_at_commanded_position,
                             object_cfg=SceneEntityCfg(self.lift_object.name),
                             robot_cfg=SceneEntityCfg(self.embodiment.get_scene_key()),
                             rl_training=self.rl_training_mode,
@@ -269,3 +274,43 @@ class LiftObjectRewardCfg:
             },
             weight=5.0,
         )
+
+
+def object_at_commanded_position(
+    env: "IsaacLabArenaManagerBasedRLEnv",
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    rl_training: bool = False,
+    command_name: str = "object_pose",
+    position_tolerance: float = 0.05,
+) -> torch.Tensor:
+    """Check whether the object is within a distance tolerance of the commanded goal position.
+
+    The goal is read from the command manager in the robot base frame. During RL training, success
+    never terminates the episode, so this returns False for every environment.
+
+    Args:
+        env: The RL environment instance.
+        object_cfg: The configuration of the object to track.
+        robot_cfg: The robot configuration (needed to transform the goal to world frame).
+        rl_training: If True, always returns False (disables success termination for RL training).
+        command_name: The name of the command that holds the goal position.
+        position_tolerance: Distance tolerance for success (m).
+
+    Returns:
+        A boolean tensor of shape (num_envs,) indicating success.
+    """
+    if rl_training:
+        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+
+    arena_world = env.arena_world
+    T_W_B = arena_world.get_pose_w(robot_cfg.name)
+    t_W_O = arena_world.get_position_w(object_cfg.name)
+
+    command = env.command_manager.get_command(command_name)
+    t_B_G = command[:, :3]
+
+    t_W_G, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], t_B_G)
+
+    distance = torch.linalg.norm(t_W_G - t_W_O, dim=1)
+    return distance < position_tolerance
