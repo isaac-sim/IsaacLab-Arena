@@ -310,25 +310,6 @@ Sequential tasks
 ``SequentialTaskBase`` was removed. Use ``CompositeTaskBase`` with ``subtasks_are_sequential=True``.
 Pass a flat list of subtasks; nested composite tasks are not supported (#1255).
 
-Lift object task
-~~~~~~~~~~~~~~~~
-
-``LiftObjectTask`` was removed. It succeeded when the object came within 5 cm of a fixed point above its
-initial pose. ``LiftObjectTaskRL`` behaves the same but now subclasses ``TaskBase`` directly. To require an
-object to reach a fixed region, use ``GoalPoseTask`` with a ``target_z_range``.
-
-RL tasks and their reward terms moved under ``isaaclab_arena/tasks/reinforcement_learning/``:
-
-.. code-block:: python
-
-    # Before
-    from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
-    from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
-
-    # After
-    from isaaclab_arena.tasks.reinforcement_learning.lift_object_task import LiftObjectTaskRL
-    from isaaclab_arena.tasks.reinforcement_learning.rewards import lift_object_rewards, rewards
-
 Scene access at run time
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
