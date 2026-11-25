@@ -14,7 +14,7 @@ from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.relations.relations import RequiresReachability
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
@@ -50,10 +50,6 @@ class TaskBase(ABC):
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> Any:
         raise NotImplementedError("Function not implemented yet.")
 
-    @abstractmethod
-    def get_metrics(self) -> list[MetricBase]:
-        raise NotImplementedError("Function not implemented yet.")
-
     def get_observation_cfg(self) -> Any:
         return None
 
@@ -72,6 +68,13 @@ class TaskBase(ABC):
 
     def get_recorder_term_cfg(self) -> RecorderManagerBaseCfg:
         return None
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Return the task's per-episode recorder terms, keyed by term name.
+
+        A composite task adds ``_subtask_<i>`` to its subtasks' term names.
+        """
+        return {}
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()

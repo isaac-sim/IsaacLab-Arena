@@ -221,8 +221,7 @@ class Object(RootedObjectBase):
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
             spawn=self._get_spawn_cfg(activate_contact_sensors=True),
-            **self.asset_cfg_addon,
-            actuators={},
+            **{"actuators": {}, **deepcopy(self.asset_cfg_addon)},
         )
         return self._add_initial_pose_to_cfg(object_cfg)
 

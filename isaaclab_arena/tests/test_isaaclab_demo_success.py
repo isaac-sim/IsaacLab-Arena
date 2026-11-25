@@ -65,7 +65,6 @@ def _test_external_success(simulation_app, mode):
         sim=SimpleNamespace(device="cpu"),
         terminations=termination_cfg,
         recorders=recorder_cfg,
-        metrics=None,
         episode_recorders=None,
         task_progress=TaskProgressCfg(
             success_criteria=[
@@ -105,7 +104,7 @@ def _test_external_success(simulation_app, mode):
         env.load_managers()
     recorder = env.recorder_manager
     assert env.progress_tracker is not None
-    assert "progress_tracking" in recorder.active_terms
+    assert "post_step_hook" in recorder.active_terms
     assert env.cfg.recorders.dataset_export_mode == DatasetExportMode.EXPORT_NONE
     assert not success_cfg.func(env, **success_cfg.params).any(), "A query before stepping must not advance progress"
     assert not predicate_calls

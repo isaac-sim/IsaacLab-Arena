@@ -18,14 +18,13 @@ from isaaclab.utils.configclass import configclass
 import isaaclab_arena_environments.mdp as mdp
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_peak_speed_exceeded import ObjectPeakSpeedExceededRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.events import randomize_poses_and_align_auxiliary_assets
 from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -127,11 +126,13 @@ class AssemblyTask(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         return FactoryAssemblyMimicEnvCfg()
 
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            ObjectPeakSpeedExceededRateMetric(self.held_asset),
-        ]
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record the highest speed the object reached in each episode, in m/s."""
+        return {
+            "object_peak_speed": EpisodeRecorderTermCfg(
+                func=ObjectPeakSpeed, params={"object_name": self.held_asset.name}
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         """Get viewer configuration to look at the held asset.

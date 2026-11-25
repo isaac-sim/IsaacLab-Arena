@@ -104,30 +104,24 @@ Test the policy in a single environment with visualization via the GUI run:
      --embodiment gr1_joint \
      --object ranch_dressing_hope_robolab
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
-You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
+At the end of the evaluation, the policy runner writes the evaluation report, which shows the number of finished
+episodes and the success rate for this sequential task.
+Each episode's subtask completion is recorded in the ``progress`` field of its episode results record.
+You should see similar results. The success rate shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
 
-Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
+Note that the success rate is computed over the entire evaluation process, and is affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. tab-set::
 
    .. tab-item:: Best Quality
 
-      .. code-block:: text
-
-         Metrics: Metrics: {'success_rate': 1.0, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
+      5 episodes with a success rate of 1.0.
 
    .. tab-item:: Low Hardware Requirements
 
       Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
-
-      .. code-block:: text
-
-         Metrics: Metrics: {'success_rate': 0.75, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
+      4 episodes with a success rate of 0.75.
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -160,15 +154,9 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
-All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
+At the end of the evaluation, the evaluation report shows 50 finished episodes with a success rate of 0.98.
+The success rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
-
-.. code-block:: text
-
-   Metrics: {'success_rate': 0.98, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
 
 .. note::
 
@@ -204,13 +192,7 @@ Test the policy in 10 parallel environments with visualization via the GUI run:
 
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
-At then end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, ``object_peak_speed_exceeded_rate`` for the first subtask,
-and the ``revolute_joint_moved_rate`` for the second subtask, and the subtask success rate for each subtask.
-
-.. code-block:: text
-
-   Metrics: {'success_rate': 0.8666666666666667, 'object_peak_speed_exceeded_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+At the end of the evaluation, the evaluation report shows 30 finished episodes with a success rate of 0.87.
 
 The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
 when evaluated on structurally similar sauce bottles.
@@ -240,36 +222,21 @@ Run the batch evaluation:
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/gr1_sequential_static_manip_gr00t_experiment.yaml
 
-This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the runs and metrics.
+This will automatically evaluate the policy with the given configuration.
+You should see the following output on the console with the runs and their success rates.
 
 .. code-block:: text
 
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
-   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |
-   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+   |                        Run Name                        |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate | Subtask Success Rates |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+   |          gr1_put_jug_in_fridge_and_close_door          | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.1000    |     0.2000, 0.2000    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    500    |     None     |      1       |         10        |    0.9000    |     0.9000, 0.9000    |
+   +--------------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   gr1_put_jug_in_fridge_and_close_door:
-     num_episodes                           10
-     object_peak_speed_exceeded_rate_subtask_0     1.0000
-     revolute_joint_moved_rate_subtask_1     1.0000
-     subtask_success_rate           [0.2, 0.2]
-     success_rate                       0.1000
-
-   gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-     num_episodes                           10
-     object_peak_speed_exceeded_rate_subtask_0     1.0000
-     revolute_joint_moved_rate_subtask_1     1.0000
-     subtask_success_rate           [0.9, 0.9]
-     success_rate                       0.9000
-   ======================================================================
+``Subtask Success Rates`` lists each subtask's success rate in order: placing the object, then closing the door.
+In a sequential task a subtask only counts once the ones before it are complete. This task also requires both
+subtasks to still hold when the episode ends, so its success rate can be lower than the subtask rates.
 
 With the policy trained on using ranch dressing bottle as object of interest,
 the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.

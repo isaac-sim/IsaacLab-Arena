@@ -10,13 +10,15 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
-from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
+from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg, RecorderTermCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
-from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-from isaaclab_arena.metrics.metrics_manager import MetricsManager
-from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
-from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager, env_ids_to_tensor
+from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+from isaaclab_arena.recording.arena_recorder_manager import (
+    ArenaRecorderManager,
+    PostStepHookRecorderCfg,
+    env_ids_to_tensor,
+)
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -29,6 +31,11 @@ if TYPE_CHECKING:
         IsaacLabArenaManagerBasedRLEnvCfg,
     )
     from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
+
+
+def _has_recorder_terms(recorder_cfg: RecorderManagerBaseCfg) -> bool:
+    """Return whether a recorder configuration declares any recorder terms."""
+    return any(isinstance(value, RecorderTermCfg) for value in vars(recorder_cfg).values())
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -137,23 +144,36 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 tracked_events=progress_cfg.tracked_events,
             )
             self._task_progress_step = self.common_step_counter
+        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+        # Isaac Lab calls record_post_step only while a recorder term is active, so add a term that records
+        # nothing. Class-based episode recorder terms always need it. Task progress needs it only when the success
+        # term does not advance progress every step, as in Isaac Lab's replay_demos.py, which disables all
+        # terminations. While this term is the only active one, Isaac Lab computes the observations a second time
+        # every step.
+        # TODO(cvolk, 2026-11-18): Remove this block with PostStepHookRecorder once Arena's Isaac Lab includes
+        # https://github.com/isaac-sim/IsaacLab/pull/8822, which is on Isaac Lab main but not on the release/3.0.0
+        # branch Arena pins. Covered by test_post_step_hook_recorder_is_still_needed in
+        # test_arena_recorder_manager.py, which fails once that is the case and lists what to remove.
+        if self.cfg.task_progress is not None or self.episode_recorder_manager.has_post_step_terms:
             if not recorder_cfg or isinstance(recorder_cfg, dict):
                 recorder_terms = recorder_cfg or {}
                 recorder_cfg = RecorderManagerBaseCfg(dataset_export_mode=DatasetExportMode.EXPORT_NONE)
                 # Lab requires RecorderManagerBaseCfg whenever any recorder term is active.
                 for term_name, term_cfg in recorder_terms.items():
                     setattr(recorder_cfg, term_name, term_cfg)
-            recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
+            elif not _has_recorder_terms(recorder_cfg):
+                # PostStepHookRecorder records nothing, so on its own it must not create an empty dataset file.
+                recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
+            recorder_cfg.post_step_hook = PostStepHookRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
-        self.metrics_manager = MetricsManager(self.cfg.metrics, self)
-        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
 
     def update_task_progress(self) -> None:
-        """Advance configured task progress at most once per control step."""
+        """Advance task progress at most once per control step and publish it in ``extras["progress_tracking"]``."""
         if self._progress_tracker is not None and self._task_progress_step != self.common_step_counter:
             self._progress_tracker.step(self, step_index=self.episode_length_buf)
             self._task_progress_step = self.common_step_counter
+            self.extras["progress_tracking"] = self._progress_tracker.get_progress_snapshot()
 
     def get_language_instruction(self) -> str | None:
         """Return the language instruction that is passed to the policy."""
@@ -236,15 +256,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # the surviving episodes a second time during the same control step.
         if self._progress_tracker is not None:
             self._progress_tracker.reset(episode_start_env_ids)
+        self.episode_recorder_manager.reset(episode_start_env_ids)
         self._object_initial_rest_pose_recorder.reset(episode_start_env_ids)
-
-    def compute_metrics(self) -> MetricsDataCollection:
-        """Compute all registered metrics.
-
-        Returns:
-            A MetricsDataCollection instance.
-        """
-        return self.metrics_manager.compute()
 
 
 class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):

@@ -6,7 +6,7 @@ require: a command manager that samples a new goal each episode, reward terms,
 and goal-conditioned observations.
 
 An RL task is a ``TaskBase`` subclass that defines the usual task parts (scene config,
-termination conditions, metrics) and also overrides the RL hooks that ``TaskBase``
+termination conditions) and also overrides the RL hooks that ``TaskBase``
 leaves empty:
 
 .. code-block:: python

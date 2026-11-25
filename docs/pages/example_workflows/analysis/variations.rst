@@ -63,25 +63,21 @@ that shifted camera to control the arm through the pick-and-place attempt.
 Review the evaluation report
 ----------------------------
 
-After the final episode, the runner prints the aggregate metrics and the address of the evaluation
-report. The run shown on this page produced:
+After the final episode, the runner prints the Run's recorded episodes and success rate, then the
+address of the evaluation report. The run shown on this page produced:
 
 .. code-block:: text
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   droid_pnp_camera_sensitivity_openpi:
-     num_episodes                           10
-     object_peak_speed_exceeded_rate    0.9000
-     success_rate                       1.0000
-   ======================================================================
-
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   |               Run Name              |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   | droid_pnp_camera_sensitivity_openpi | completed |  pi0_remote |    1     |    None   |      10      |      1       |         10        |    1.0000    |
+   +-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+   ...
    Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: ${CAMERA_SENSITIVITY_OUTPUT_DIR}/index.html (+2 linked page(s))
    Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 
-Your metrics may differ. On the host, open
+Your results may differ. On the host, open
 `http://localhost:8001/index.html <http://localhost:8001/index.html>`__ in a browser. The landing
 page summarizes the runs in the experiment and their episode success rates. Select the task to
 open its run overview:

@@ -39,7 +39,7 @@ def _create_episode_limit_env(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.metrics.success_rate import SuccessRecorderCfg
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.recorders import EpisodeIdentityRecorderCfg
     from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -75,7 +75,6 @@ def _create_episode_limit_env(
         record_steps = RecorderTermCfg(class_type=EpisodeStepRecorder)
         record_actions = PreStepActionsRecorderCfg()
         record_identity = EpisodeIdentityRecorderCfg()
-        record_success = SuccessRecorderCfg()
 
     @configclass
     class EpisodeLimitEventsCfg:
@@ -108,7 +107,28 @@ def _create_episode_limit_env(
         variation.enable()
         embodiment.add_variation(variation)
 
-    arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene(), embodiment=embodiment)
+    class StepCount(EpisodeRecorderTerm):
+        """Counts the control steps of each env's current episode."""
+
+        def __init__(self, cfg, env):
+            super().__init__(cfg, env)
+            self._steps = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
+
+        def post_step(self):
+            self._steps += 1
+
+        def reset(self, env_ids=None):
+            self._steps[slice(None) if env_ids is None else env_ids] = 0
+
+        def __call__(self, env, env_id):
+            return {"steps": int(self._steps[env_id])}
+
+    arena_environment = IsaacLabArenaEnvironment(
+        name="episode_limit",
+        scene=Scene(),
+        embodiment=embodiment,
+        episode_recorder_terms={"step_count": EpisodeRecorderTermCfg(func=StepCount)},
+    )
     builder = ArenaEnvBuilder(
         arena_environment,
         ArenaEnvBuilderCfg(
@@ -158,8 +178,7 @@ def _assert_recorded_episodes(output_dir, records, episode_lengths):
             record = records_by_identity[identity]
             episode_length = episode_lengths[env_id]
             assert demo["actions"].shape[0] == record["episode_length"] == episode_length
-            assert demo["success"].shape == (1,)
-            assert bool(demo["success"][0]) is record["success"]
+            assert bool(demo.attrs["success"]) is record["success"]
             np.testing.assert_array_equal(demo["initial_state/episode_length"][:], [0])
             np.testing.assert_array_equal(demo["initial_state/identity/env_id"][:], [env_id])
             np.testing.assert_array_equal(demo["states/episode_length"][:], np.arange(1, episode_length + 1))
@@ -238,6 +257,7 @@ def _test_episode_limit(
     for record in records:
         assert record["episode_length"] == episode_lengths[record["env_id"]]
         assert record["success"] is (record["env_id"] % 2 == 0)
+        assert record["step_count"] == {"steps": record["episode_length"]}
     if record_trajectories:
         _assert_recorded_episodes(output_dir, records, episode_lengths)
     else:

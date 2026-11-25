@@ -21,9 +21,8 @@ from isaaclab.utils.math import combine_frame_transforms
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
+from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -50,6 +49,7 @@ class LiftObjectTaskRL(TaskBase):
         target_x_delta: tuple[float, float] = (-0.1, 0.1),
         target_y_delta: tuple[float, float] = (-0.25, 0.25),
         target_z_delta: tuple[float, float] = (0.2, 0.4),
+        goal_position_tolerance: float = 0.05,
     ):
         """Initialize the Lift Object RL task.
 
@@ -63,6 +63,7 @@ class LiftObjectTaskRL(TaskBase):
             target_y_delta: Target range deltas for y [min_delta, max_delta] relative to initial pose (m).
             target_z_delta: Target range deltas for z [min_delta, max_delta] relative to initial pose (m).
             rl_training_mode: If True, disables success termination. Set to False for evaluation.
+            goal_position_tolerance: Distance from the commanded goal position within which the lift succeeds (m).
         """
         super().__init__(episode_length_s=episode_length_s)
         self.lift_object = lift_object
@@ -70,7 +71,7 @@ class LiftObjectTaskRL(TaskBase):
         self.embodiment = embodiment
         self.rl_training_mode = rl_training_mode
         self.minimum_height_to_lift = minimum_height_to_lift
-        self.goal_position_tolerance = 0.05
+        self.goal_position_tolerance = goal_position_tolerance
         self.scene_config = None
         self.events_cfg = None
 
@@ -145,11 +146,8 @@ class LiftObjectTaskRL(TaskBase):
             failures={"object_dropped": object_dropped},
         )
 
-    def get_mimic_env_cfg(self, embodiment_name: str):
+    def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(

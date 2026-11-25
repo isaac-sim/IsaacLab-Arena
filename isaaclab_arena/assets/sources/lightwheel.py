@@ -7,64 +7,206 @@
 
 from __future__ import annotations
 
+import json
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.assets.sources.base import UsdSource
 
 _MISSING = object()
 
+LIGHTWHEEL_SDK_CACHE_ROOT = "~/.cache/lightwheel_sdk"
+"""Directory where the Lightwheel SDK keeps its downloaded assets, before ``~`` is expanded."""
 
-class LightwheelUsdSource(UsdSource):
-    """Acquire and memoize one Lightwheel USD on first use."""
 
-    def __init__(self, **acquire_by_registry_kwargs: Any):
-        self._kwargs = acquire_by_registry_kwargs
+def lightwheel_cache_root() -> Path:
+    """Return the directory where the Lightwheel SDK keeps its downloaded assets."""
+    return Path(LIGHTWHEEL_SDK_CACHE_ROOT).expanduser()
+
+
+class LightwheelSource(UsdSource, ABC):
+    """Return the local path of one Lightwheel USD, using the SDK cache directory when the asset is there.
+
+    The cache lookup avoids API and remote calls, which are affected by Lightwheel outages, when a local copy exists.
+    The path is remembered after the first call.
+
+    NOTE: The lookups mirror the private cache layout of ``lightwheel_sdk`` 1.0.3 (the version in ``uv.lock``). Remove
+    them once the SDK can return a cached asset without calling its API first.
+    """
+
+    _asset_label: str = "asset"
+    """Names the kind of asset in log and error messages."""
+
+    def __init__(self, **sdk_kwargs: Any):
+        """Store the request without contacting the SDK.
+
+        Args:
+            **sdk_kwargs: Keyword arguments passed to the SDK method that downloads the asset.
+        """
+        self._kwargs = sdk_kwargs
         self._local_file_path: str | None = None
 
     def to_local_usd_path(self) -> str:
-        """Acquire the USD on first use and reuse that path thereafter."""
+        """Return the local USD path, resolving it on first use and reusing it thereafter."""
         if self._local_file_path is None:
-            from lightwheel_sdk.loader import object_loader
+            self._local_file_path = self._get_cached_or_download()
+        return self._local_file_path
 
-            file_path, _, _ = acquire_lightwheel_asset(
-                object_loader,
-                object_loader.acquire_by_registry,
-                description=f"Lightwheel asset {self._kwargs}",
+    @abstractmethod
+    def _get_cache_key(self) -> str:
+        """Return the stable name used in log lines for this asset."""
+
+    @abstractmethod
+    def _get_cached_usd_path(self) -> str | None:
+        """Return the USD path of this asset if it is completely cached on disk, else None."""
+
+    @abstractmethod
+    def _get_lightwheel_sdk_loader(self) -> Any:
+        """Import the Lightwheel SDK lazily and return the loader object for this kind of asset."""
+
+    @abstractmethod
+    def _get_lightwheel_sdk_download_fn(self, loader: Any) -> Callable:
+        """Return the method of ``loader`` that downloads this asset and returns a tuple starting with its path.
+
+        Args:
+            loader: The loader object returned by ``_get_lightwheel_sdk_loader``.
+        """
+
+    def _get_cached_or_download(self) -> str:
+        """Return the cached USD path, or download the asset through the SDK on a cache miss."""
+        key = self._get_cache_key()
+        cached_path = self._get_cached_usd_path()
+        print(f"[isaaclab-arena] Lightwheel cache {'hit' if cached_path is not None else 'miss'}: {key}")
+        if cached_path is not None:
+            usd_path = cached_path
+        else:
+            loader = self._get_lightwheel_sdk_loader()
+            result = acquire_lightwheel_asset(
+                loader,
+                self._get_lightwheel_sdk_download_fn(loader),
+                description=f"Lightwheel {self._asset_label} {self._kwargs}",
                 **self._kwargs,
             )
-            assert file_path, f"Lightwheel did not return a USD path for {self._kwargs}"
-            self._local_file_path = str(file_path)
-        return self._local_file_path
+            downloaded_path = result[0]
+            assert downloaded_path, f"Lightwheel did not return a {self._asset_label} USD path for {self._kwargs}"
+            usd_path = str(downloaded_path)
+        return usd_path
 
 
-class LightwheelFloorplanUsdSource(UsdSource):
-    """Acquire and memoize one Lightwheel floorplan USD on first use."""
+class LightwheelObjectUsdSource(LightwheelSource):
+    """Download and cache a Lightwheel object USD."""
+
+    def __init__(
+        self, registry_type: str, file_name: str, file_type: str = "USD", registry_name: list[str] | None = None
+    ):
+        """Describe one object request. ``file_name`` pins one file, so the same asset is returned every time.
+
+        Args:
+            registry_type: Registry the object belongs to, such as "objects" or "fixtures".
+            file_name: Name of the file in the registry, such as "Microwave039".
+            file_type: Type of the file to download.
+            registry_name: Optional asset categories that narrow the search, such as ["apple"].
+        """
+        assert file_name, "A Lightwheel object needs a file_name so the same asset is returned every time"
+        sdk_kwargs: dict[str, Any] = {"registry_type": registry_type, "file_name": file_name, "file_type": file_type}
+        if registry_name is not None:
+            sdk_kwargs["registry_name"] = registry_name
+        super().__init__(**sdk_kwargs)
+
+    def _get_cache_key(self) -> str:
+        return f"lightwheel-object/{self._kwargs['file_name'].lower()}"
+
+    def _get_cached_usd_path(self) -> str | None:
+        """Return ``object/<Name>/<Name>.usd`` if it exists next to a ``*.txt`` version marker.
+
+        The SDK writes the marker after extracting the object. ``<Name>`` matches ``file_name`` case-insensitively
+        because the server names the directory from the download URL.
+        """
+        file_name = self._kwargs["file_name"]
+        object_root = lightwheel_cache_root() / "object"
+        if not object_root.is_dir():
+            return None
+        for object_dir in object_root.iterdir():
+            # Find the directory named after the requested file, ignoring case.
+            if object_dir.name.lower() != file_name.lower() or not object_dir.is_dir():
+                continue
+            usd_path = object_dir / f"{object_dir.name}.usd"
+            # The SDK writes the version marker last, so its presence means the extraction finished.
+            has_marker = any(object_dir.glob("*.txt"))
+            if usd_path.is_file() and has_marker:
+                return str(usd_path)
+        return None
+
+    def _get_lightwheel_sdk_loader(self) -> Any:
+        from lightwheel_sdk.loader import object_loader
+
+        return object_loader
+
+    def _get_lightwheel_sdk_download_fn(self, loader: Any) -> Callable:
+        """Return ``loader.acquire_by_registry``, the method that downloads this asset.
+
+        Args:
+            loader: The loader object returned by ``_get_lightwheel_sdk_loader``.
+        """
+        return loader.acquire_by_registry
+
+
+class LightwheelFloorplanUsdSource(LightwheelSource):
+    """Download and cache a Lightwheel floorplan USD."""
+
+    _asset_label = "floorplan"
 
     def __init__(self, scene: str, layout_id: int, style_id: int, backend: str):
-        self._kwargs = {
-            "scene": scene,
-            "layout_id": layout_id,
-            "style_id": style_id,
-            "backend": backend,
-        }
-        self._local_file_path: str | None = None
+        """Describe one floorplan request.
 
-    def to_local_usd_path(self) -> str:
-        """Acquire the floorplan USD on first use and reuse that path thereafter."""
-        if self._local_file_path is None:
-            from lightwheel_sdk.loader import floorplan_loader
+        Args:
+            scene: Name of the scene in the Lightwheel floorplan catalog.
+            layout_id: Identifier of the scene layout.
+            style_id: Identifier of the scene style.
+            backend: Name of the simulation backend whose floorplan variant to fetch.
+        """
+        super().__init__(scene=scene, layout_id=layout_id, style_id=style_id, backend=backend)
 
-            file_path = acquire_lightwheel_asset(
-                floorplan_loader,
-                floorplan_loader.get_usd,
-                description=f"Lightwheel floorplan {self._kwargs}",
-                **self._kwargs,
-            )[0]
-            assert file_path, f"Lightwheel did not return a floorplan USD path for {self._kwargs}"
-            self._local_file_path = str(file_path)
-        return self._local_file_path
+    def _cache_name(self) -> str:
+        """Return the name the SDK gives this floorplan's cache directory and its ``usd_version.json`` entry."""
+        kwargs = self._kwargs
+        return f"{kwargs['backend']}-{kwargs['scene']}-{kwargs['layout_id']}-{kwargs['style_id']}"
+
+    def _get_cache_key(self) -> str:
+        return f"lightwheel-floorplan/{self._cache_name()}"
+
+    def _get_cached_usd_path(self) -> str | None:
+        """Return ``floorplan/<name>/scene.usd`` if ``usd_version.json`` has a key for ``<name>``.
+
+        The SDK writes the version entry after extracting the floorplan. Its value may be null, which the SDK writes
+        when the server omits the version.
+        """
+        floorplan_root = lightwheel_cache_root() / "floorplan"
+        name = self._cache_name()
+        try:
+            versions = json.loads((floorplan_root / "usd_version.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(versions, dict) or name not in versions:
+            return None
+        usd_path = floorplan_root / name / "scene.usd"
+        return str(usd_path) if usd_path.is_file() else None
+
+    def _get_lightwheel_sdk_loader(self) -> Any:
+        from lightwheel_sdk.loader import floorplan_loader
+
+        return floorplan_loader
+
+    def _get_lightwheel_sdk_download_fn(self, loader: Any) -> Callable:
+        """Return ``loader.get_usd``, the method that downloads this asset.
+
+        Args:
+            loader: The loader object returned by ``_get_lightwheel_sdk_loader``.
+        """
+        return loader.get_usd
 
 
 def acquire_lightwheel_asset(

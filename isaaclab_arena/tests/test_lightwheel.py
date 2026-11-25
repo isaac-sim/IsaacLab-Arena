@@ -10,6 +10,7 @@ import pytest
 from isaaclab_arena.assets.sources.lightwheel import acquire_lightwheel_asset
 
 
+@pytest.mark.live_remote
 def test_acquire_lightwheel_asset_fetches_object():
     loader_module = pytest.importorskip("lightwheel_sdk.loader")
     object_loader = loader_module.object_loader

@@ -213,8 +213,9 @@ def build_experiment_output(
     )
     print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
-    # A raising exporter must not fail the collector, so the Experiment output is still published.
-    export_kpis(experiment_output_directory, kpi_exporters, raise_on_exporter_failure=False)
+    # Last step, so the Experiment output is complete when a raising exporter fails the collector and with it the
+    # OSMO workflow.
+    export_kpis(experiment_output_directory, kpi_exporters)
     return report_path
 
 

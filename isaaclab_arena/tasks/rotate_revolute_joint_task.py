@@ -13,12 +13,11 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
+from isaaclab_arena.terms.episode_recorders import RevoluteJointMovement
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -28,14 +27,15 @@ class RotateRevoluteJointTask(TaskBase):
         self,
         openable_object: Openable,
         target_joint_percentage_threshold: float,
-        reset_joint_percentage: float,
+        reset_joint_percentage: float | None,
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.openable_object = openable_object
         self.target_joint_percentage_threshold = target_joint_percentage_threshold
-        self.reset_joint_percentage = reset_joint_percentage
+        self.reset_openness = 0.0 if reset_joint_percentage is None else reset_joint_percentage
+        """Openness, as a fraction of the joint range, that the reset event sets the joint to."""
         self.min_openness_change = 0.05
         """Openness change, as a fraction of the joint range, past which the joint counts as having moved."""
         self.task_description = (
@@ -45,7 +45,7 @@ class RotateRevoluteJointTask(TaskBase):
             else task_description
         )
         self.events_cfg = RotateRevoluteJointEventCfg(
-            self.openable_object, reset_openable_object_revolute_joint_percentage=self.reset_joint_percentage
+            self.openable_object, reset_openable_object_revolute_joint_percentage=self.reset_openness
         )
         self.scene_config = None
         self.mimic_env_cfg = None
@@ -62,15 +62,14 @@ class RotateRevoluteJointTask(TaskBase):
     def get_termination_cfg(self) -> TaskTerminationCfg:
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
 
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            RevoluteJointMovedRateMetric(
-                self.openable_object,
-                reset_joint_percentage=self.reset_joint_percentage,
-                joint_percentage_delta_threshold=self.min_openness_change,
-            ),
-        ]
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record how far the revolute joint moved from its reset openness in each episode."""
+        return {
+            "revolute_joint_movement": EpisodeRecorderTermCfg(
+                func=RevoluteJointMovement,
+                params={"openable_object": self.openable_object, "reset_openness": self.reset_openness},
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
@@ -91,13 +90,10 @@ class RotateRevoluteJointEventCfg:
 
     reset_openable_object_revolute_joint_percentage: EventTermCfg = MISSING
 
-    def __init__(self, openable_object: Openable, reset_openable_object_revolute_joint_percentage: float | None):
+    def __init__(self, openable_object: Openable, reset_openable_object_revolute_joint_percentage: float):
         assert isinstance(openable_object, Openable), "Object pose must be an instance of Openable"
-        params = {}
-        if reset_openable_object_revolute_joint_percentage is not None:
-            params["percentage"] = reset_openable_object_revolute_joint_percentage
         self.reset_openable_object_revolute_joint_percentage = EventTermCfg(
             func=openable_object.rotate_revolute_joint,
             mode="reset",
-            params=params,
+            params={"percentage": reset_openable_object_revolute_joint_percentage},
         )

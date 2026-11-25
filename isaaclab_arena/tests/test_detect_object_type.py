@@ -84,13 +84,24 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         # the simple RIGID/ARTICULATION classification:
         # - For example, the "peg" and "hole" assets have both RigidBodyAPI and ArticulationRootAPI
         #   applied simultaneously, sometimes in different prim layers.
+        # - "palatial_toaster" places its links as siblings of the articulation root link, which
+        #   detection reports as multiple roots at the same depth.
         # Assets without a USD path on the class cannot be classified without an instance. That
         # covers procedurally generated assets and ones whose path arrives as a graph parameter.
         usd_path = getattr(object_asset, "usd_path", None)
         usd_source = getattr(object_asset, "usd_source", None)
         has_usd_asset = usd_path is not None or usd_source is not None
         is_procedural = "procedural" in getattr(object_asset, "tags", [])
-        skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
+        skipped_names = (
+            "hole",
+            "peg",
+            "small_gear",
+            "medium_gear",
+            "large_gear",
+            "gear_base",
+            "sphere",
+            "palatial_toaster",
+        )
         if has_usd_asset and not is_procedural and object_asset.registry_name not in skipped_names:
             print(f"Automatically classifying: {object_asset.registry_name}")
             if isinstance(usd_source, UsdSource):
