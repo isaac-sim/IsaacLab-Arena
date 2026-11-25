@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -578,12 +577,11 @@
   <section id="task">
 <h1>Task<a class="headerlink" href="#task" title="Link to this heading">#</a></h1>
 <p>A task defines what the robot is supposed to do in the environment.
-Concretely, a task specifies four things:</p>
+Concretely, a task specifies three things:</p>
 <ul class="simple">
 <li><p><strong>Success condition</strong> — when has the robot completed the task? (e.g. is the door open?)</p></li>
 <li><p><strong>Failure condition</strong> — when should the episode end early? (e.g. has the object fallen off the table?)</p></li>
 <li><p><strong>Reset action</strong> — how should the scene be restored at the start of each episode? (e.g. close the door)</p></li>
-<li><p><strong>Metrics</strong> — what should be measured? (e.g. how far open did the microwave get?)</p></li>
 </ul>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">microwave</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;microwave&quot;</span><span class="p">)()</span>
 
@@ -601,8 +599,7 @@ Concretely, a task specifies four things:</p>
 <h2>Tasks and affordances<a class="headerlink" href="#tasks-and-affordances" title="Link to this heading">#</a></h2>
 <p>Tasks are defined in terms of object <strong>affordances</strong>, not specific objects.
 <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code> takes any <code class="docutils literal notranslate"><span class="pre">Openable</span></code> — a microwave, a fridge, a cabinet.
-Its success condition calls <code class="docutils literal notranslate"><span class="pre">openable.is_open()</span></code>, its reset calls <code class="docutils literal notranslate"><span class="pre">openable.close()</span></code>,
-and its metric tracks <code class="docutils literal notranslate"><span class="pre">openable.get_openness()</span></code>.</p>
+Its success condition calls <code class="docutils literal notranslate"><span class="pre">openable.is_open()</span></code> and its reset calls <code class="docutils literal notranslate"><span class="pre">openable.close()</span></code>.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/open_door_task.png"><img alt="OpenDoorTask defined in terms of the Openable affordance" src="../../../_images/open_door_task.png" style="width: 100%;" />
 </a>
@@ -626,7 +623,6 @@ named <code class="docutils literal notranslate"><span class="pre">failures</spa
 <li class="toctree-l1"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
 </div>
 </section>

@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -857,7 +856,7 @@ to be true.</p>
 <p><code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> determines task success and reports the same criteria completion history.
 Completed milestones remain recorded. <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.desired_subtask_success_state</span></code>
 preserves the composition’s optional final-condition checks. Reports contain the flat criteria sets
-and their weighted overall progress; subtask metrics read <code class="docutils literal notranslate"><span class="pre">ProgressTracker.get_subtask_completion()</span></code>.
+and their weighted overall progress.
 For a consecutive-step final condition, these checks continue updating its counter. If the condition
 becomes false, a new streak is required, but the recorded subtask completion is kept.
 There are no additional reports for parent criteria sets. See
@@ -873,7 +872,7 @@ tracking on each subtask’s predicates only after the preceding subtask succeed
 </section>
 <section id="reading-subtask-progress-tracking-at-runtime">
 <h2>Reading subtask progress tracking at runtime<a class="headerlink" href="#reading-subtask-progress-tracking-at-runtime" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">ProgressTrackingRecorder</span></code> puts progress results in the environment’s <code class="docutils literal notranslate"><span class="pre">extras</span></code> dictionary.
+<p>After every control step, the environment puts progress results in its <code class="docutils literal notranslate"><span class="pre">extras</span></code> dictionary.
 Read each environment’s state and completed-predicate events as follows:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">progress</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">extras</span><span class="p">[</span><span class="s2">&quot;progress_tracking&quot;</span><span class="p">]</span>
 

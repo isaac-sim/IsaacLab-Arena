@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -889,8 +888,9 @@ flag, then report the results.</p></li>
 output directory under <code class="docutils literal notranslate"><span class="pre">outputs/</span></code> in your browser.</p></li>
 </ol>
 <p>An episode only counts as a success when both fruits are in their bowls. The
-results also include <code class="docutils literal notranslate"><span class="pre">subtask_success_rate</span></code>, the success rate for each fruit,
-so you can see which placement the policy completed.</p>
+<code class="docutils literal notranslate"><span class="pre">Subtask</span> <span class="pre">Success</span> <span class="pre">Rates</span></code> column of the Run table shows the success rate for each
+fruit, in the order of <code class="docutils literal notranslate"><span class="pre">subtasks</span></code> (banana first), so you can see which placement
+the policy completed.</p>
 <p>The report shows each episode’s result next to its recorded videos, one per
 camera.</p>
 <figure  class="sphinx-contrib-video-container align-left"><video autoplay="True" controls="True" loop="True" muted="True" preload="auto" width="100%" playsinline="True"><source src="../../../_images/peninsula_kitchen_banana_and_orange_pi05_episode.mp4" type="video/mp4">Three camera views of the DROID robot running pi05 in the peninsula kitchen, placing the orange in the red bowl</video><figcaption class="align-center"><p style="text-align: left; display:inline-block"><span class="caption-text">A pi05 episode on the environment from our run, shown at 5x speed from the two external cameras and the wrist camera. The policy places the orange in the red bowl but not the banana in the wooden bowl, so the episode times out without success.</span></p></figcaption></figure><details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">

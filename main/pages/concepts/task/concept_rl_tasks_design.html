@@ -53,7 +53,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Metrics" href="concept_metrics_design.html" />
+    <link rel="next" title="Embodiment" href="../embodiment/index.html" />
     <link rel="prev" title="Predicates and Subtask Progress Tracking" href="concept_progress_tracking_design.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -598,7 +597,7 @@ and implements the RL-specific parts:</p>
 </pre></div>
 </div>
 <p>This means the RL task inherits everything from the IL task (scene config,
-termination conditions, metrics) and adds the RL-specific parts on top.
+termination conditions) and adds the RL-specific parts on top.
 Note the the RL task is also likely to <em>modify</em> the IL task’s configuration.
 For example, adding privileged information to the observations.</p>
 <section id="usage">
@@ -656,11 +655,11 @@ For evaluation, set <code class="docutils literal notranslate"><span class="pre"
       </div>
     </a>
     <a class="right-next"
-       href="concept_metrics_design.html"
+       href="../embodiment/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Metrics</p>
+        <p class="prev-next-title">Embodiment</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

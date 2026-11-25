@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -653,8 +652,8 @@ Manager</p></th>
 </tr>
 <tr class="row-odd"><td><p>Recorder</p></td>
 <td></td>
+<td><p>trajectories (opt-in)</p></td>
 <td></td>
-<td><p>metrics-required data</p></td>
 </tr>
 </tbody>
 </table>
@@ -746,8 +745,7 @@ environment’s name, and <code class="docutils literal notranslate"><span class
 <p>Passing <code class="docutils literal notranslate"><span class="pre">--mimic</span></code> at the command line compiles a
 <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLMimicEnv</span></code> instead of a standard <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.
 The mimic environment is used for demonstration generation and includes
-subtask configurations from the task. Metrics and recorders are excluded
-in mimic mode.</p>
+subtask configurations from the task. Recorders are excluded in mimic mode.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span>...

@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -613,9 +612,6 @@ This task can be passed to the <code class="docutils literal notranslate"><span 
 
     <span class="k">def</span><span class="w"> </span><span class="nf">has_reached_step_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">env</span><span class="o">.</span><span class="n">episode_length_buf</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">SuccessRateMetric</span><span class="p">()]</span>
 </pre></div>
 </div>
 <p>Imports and the required <code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_events_cfg()</span></code>, and <code class="docutils literal notranslate"><span class="pre">get_mimic_env_cfg()</span></code>
@@ -651,10 +647,18 @@ arm:</p>
 <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> under its <code class="docutils literal notranslate"><span class="pre">registry_name</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;franka_ik_soft&quot;</span></code>, so it can be fetched
 the same way as any built-in embodiment (see <a class="reference internal" href="#putting-it-all-together"><span class="std std-ref">Putting It All Together</span></a> below for an example).</p>
 </section>
+<section id="recording-a-custom-value-per-episode">
+<span id="recording-per-episode-values"></span><h2>Recording a Custom Value per Episode<a class="headerlink" href="#recording-a-custom-value-per-episode" title="Link to this heading">#</a></h2>
+<p>The example also records two values for each episode through <code class="docutils literal notranslate"><span class="pre">episode_recorder_terms</span></code>, shown below. It
+defines <code class="docutils literal notranslate"><span class="pre">record_object_final_height</span></code>, a function for a value read when the episode ends, and uses Arena’s
+<code class="docutils literal notranslate"><span class="pre">ObjectPeakSpeed</span></code>, a class derived from <code class="docutils literal notranslate"><span class="pre">EpisodeRecorderTerm</span></code> for a value that builds up during the
+episode. Each episode’s line in the episode results holds the values under the terms’ names, for example
+<code class="docutils literal notranslate"><span class="pre">&quot;object_final_height&quot;:</span> <span class="pre">0.12,</span> <span class="pre">&quot;object_peak_speed&quot;:</span> <span class="pre">0.83</span></code>.</p>
+</section>
 <section id="putting-it-all-together">
 <span id="id1"></span><h2>Putting It All Together<a class="headerlink" href="#putting-it-all-together" title="Link to this heading">#</a></h2>
-<p>Here we create an example environment, like in <a class="reference internal" href="external_environments.html"><span class="doc">Defining Environments in Your Repository</span></a>, but this time
-that composes the custom task and custom embodiment.</p>
+<p>Here we create an example environment, like in <a class="reference internal" href="external_environments.html"><span class="doc">Defining Environments in Your Repository</span></a>. This time it passes
+the custom task, the custom embodiment, and the two episode recorder terms to <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableWithTaskEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
@@ -692,6 +696,14 @@ that composes the custom task and custom embodiment.</p>
             <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
             <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+            <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;object_final_height&quot;</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span>
+                    <span class="n">func</span><span class="o">=</span><span class="n">record_object_final_height</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;object_name&quot;</span><span class="p">:</span> <span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+                <span class="p">),</span>
+                <span class="s2">&quot;object_peak_speed&quot;</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span>
+                    <span class="n">func</span><span class="o">=</span><span class="n">ObjectPeakSpeed</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;object_name&quot;</span><span class="p">:</span> <span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">}</span>
+                <span class="p">),</span>
+            <span class="p">},</span>
         <span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
@@ -785,6 +797,7 @@ This is done to demonstrate how this would be done in an external codebase.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-custom-task">Defining a Custom Task</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-custom-embodiment">Defining a Custom Embodiment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recording-a-custom-value-per-episode">Recording a Custom Value per Episode</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#putting-it-all-together">Putting It All Together</a></li>
 </ul>
   </nav></div>

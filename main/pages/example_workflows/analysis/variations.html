@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -663,23 +662,19 @@ that shifted camera to control the arm through the pick-and-place attempt.</p>
 </section>
 <section id="review-the-evaluation-report">
 <h2>Review the evaluation report<a class="headerlink" href="#review-the-evaluation-report" title="Link to this heading">#</a></h2>
-<p>After the final episode, the runner prints the aggregate metrics and the address of the evaluation
-report. The run shown on this page produced:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
-METRICS SUMMARY
-======================================================================
-
-droid_pnp_camera_sensitivity_openpi:
-  num_episodes                           10
-  object_peak_speed_exceeded_rate    0.9000
-  success_rate                       1.0000
-======================================================================
-
+<p>After the final episode, the runner prints the Run’s recorded episodes and success rate, then the
+address of the evaluation report. The run shown on this page produced:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|               Run Name              |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
++-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+| droid_pnp_camera_sensitivity_openpi | completed |  pi0_remote |    1     |    None   |      10      |      1       |         10        |    1.0000    |
++-------------------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+...
 Wrote evaluation report with 1 task(s), 1 run(s) and 10 episode(s) to: ${CAMERA_SENSITIVITY_OUTPUT_DIR}/index.html (+2 linked page(s))
 Serving evaluation report at http://localhost:8001/index.html (Ctrl+C to stop).
 </pre></div>
 </div>
-<p>Your metrics may differ. On the host, open
+<p>Your results may differ. On the host, open
 <a class="reference external" href="http://localhost:8001/index.html">http://localhost:8001/index.html</a> in a browser. The landing
 page summarizes the runs in the experiment and their episode success rates. Select the task to
 open its run overview:</p>

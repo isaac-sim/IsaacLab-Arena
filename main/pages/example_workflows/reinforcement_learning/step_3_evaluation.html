@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -670,15 +669,12 @@ folder name of your training run:</p>
 </div>
 <p>Policy settings such as <code class="docutils literal notranslate"><span class="pre">checkpoint_path</span></code> go under <code class="docutils literal notranslate"><span class="pre">policy</span></code> in the Run. Environment settings
 such as <code class="docutils literal notranslate"><span class="pre">object</span></code> or <code class="docutils literal notranslate"><span class="pre">embodiment</span></code> go under <code class="docutils literal notranslate"><span class="pre">environment</span></code>.</p>
-<p>When the Run finishes, the runner prints a metrics summary:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
-METRICS SUMMARY
-======================================================================
-
-lift_object_rsl_rl:
-  num_episodes                           20
-  success_rate                       1.0000
-======================================================================
+<p>When the Run finishes, the runner prints the Run’s status, recorded episodes, and success rate:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|      Run Name      |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
++--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+| lift_object_rsl_rl | completed |    rsl_rl   |    1     |    None   |      20      |      1       |         20        |    1.0000    |
++--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 </pre></div>
 </div>
 </section>
@@ -695,14 +691,11 @@ episodes on the command line:</p>
 <span class="w">  </span>runs.lift_object_rsl_rl.rollout_limit.num_episodes<span class="o">=</span><span class="m">1024</span>
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
-METRICS SUMMARY
-======================================================================
-
-lift_object_rsl_rl:
-  num_episodes                         1024
-  success_rate                       1.0000
-======================================================================
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|      Run Name      |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
++--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+| lift_object_rsl_rl | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    1.0000    |
++--------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 </pre></div>
 </div>
 <a class="reference internal image-reference" href="../../../_images/lift_object_rl_parallel.gif"><img alt="../../../_images/lift_object_rl_parallel.gif" class="align-center" src="../../../_images/lift_object_rl_parallel.gif" style="height: 400px;" />
@@ -752,35 +745,29 @@ directory:</p>
 </pre></div>
 </div>
 <p>The runner evaluates the Runs in YAML order and prints a summary for both:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>======================================================================
-METRICS SUMMARY
-======================================================================
-
-lift_object_model_1000:
-  num_episodes                         1024
-  success_rate                       0.9697
-
-lift_object_model_1999:
-  num_episodes                         1024
-  success_rate                       1.0000
-======================================================================
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|        Run Name        |   Status  | Policy Type | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
++------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
+| lift_object_model_1000 | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    0.9697    |
+| lift_object_model_1999 | completed |    rsl_rl   |    64    |    None   |     1024     |      1       |        1024       |    1.0000    |
++------------------------+-----------+-------------+----------+-----------+--------------+--------------+-------------------+--------------+
 </pre></div>
 </div>
 </section>
-<section id="understanding-the-metrics">
-<h2>Understanding the Metrics<a class="headerlink" href="#understanding-the-metrics" title="Link to this heading">#</a></h2>
-<p>The Lift Object task reports two metrics:</p>
+<section id="understanding-the-results">
+<h2>Understanding the Results<a class="headerlink" href="#understanding-the-results" title="Link to this heading">#</a></h2>
+<p>For the Lift Object task, the table reports:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code>: fraction of episodes where the object reached the target position within tolerance</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">num_episodes</span></code>: total number of completed episodes during the evaluation run</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Recorded</span> <span class="pre">Episodes</span></code>: number of episodes that finished during the Run</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Success</span> <span class="pre">Rate</span></code>: fraction of episodes where the object reached the target position within tolerance</p></li>
 </ul>
 <p>A well-trained policy should reach a success rate of at least 70%. Results will vary with the target range,
 random seed, and hardware.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>For evaluation, leave <code class="docutils literal notranslate"><span class="pre">environment.rl_training_mode</span></code> at its default, <code class="docutils literal notranslate"><span class="pre">false</span></code>: success
-termination stays enabled so metrics such as success rate are meaningful. For RSL-RL training,
-pass <code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> to disable success termination.</p>
+termination stays enabled so the success rate is meaningful. For RSL-RL training, pass
+<code class="docutils literal notranslate"><span class="pre">--rl_training_mode</span></code> to disable success termination.</p>
 </div>
 </section>
 </section>
@@ -838,7 +825,7 @@ pass <code class="docutils literal notranslate"><span class="pre">--rl_training_
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-1-single-environment-evaluation">Method 1: Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-2-parallel-environment-evaluation">Method 2: Parallel Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#method-3-compare-checkpoints">Method 3: Compare Checkpoints</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#understanding-the-metrics">Understanding the Metrics</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#understanding-the-results">Understanding the Results</a></li>
 </ul>
   </nav></div>
 

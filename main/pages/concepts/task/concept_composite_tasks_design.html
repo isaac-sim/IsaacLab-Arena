@@ -451,7 +451,6 @@
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -585,7 +584,8 @@
 <li><p>By default, subtasks may finish in any order.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">subtasks_are_sequential=True</span></code> requires them to finish in the listed order.</p></li>
 </ul>
-<p>The class combines the subtasks’ scene settings, reset events, and metrics.
+<p>The class combines the subtasks’ scene settings and reset events. It also collects the subtasks’
+episode recorder terms and adds <code class="docutils literal notranslate"><span class="pre">_subtask_&lt;i&gt;</span></code> to their names (see <a class="reference internal" href="../../arena_in_your_repo/external_tasks_and_embodiments.html#recording-per-episode-values"><span class="std std-ref">Recording a Custom Value per Episode</span></a>).
 Its <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> returns one <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code> with the subtasks’ success
 criteria, failure conditions, and a time limit for the whole task.</p>
 <p>By default, a finished subtask stays marked complete. For example, placing the can still counts

@@ -451,7 +451,6 @@
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_composite_tasks_design.html">Composite and Sequential Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_progress_tracking_design.html">Predicates and Subtask Progress Tracking</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_rl_tasks_design.html">RL Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/task/concept_metrics_design.html">Metrics</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/embodiment/index.html">Embodiment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -808,51 +807,19 @@ fresh environment for every Run.</p>
 pick-up object, HDR background, and destination.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>When all Runs finish, Arena prints a summary table followed by a metrics report:</p>
+<p>When all Runs finish, Arena prints each Run’s status, recorded episodes, and success rate:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Example Run summary and metrics</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">Metric values can vary between evaluations. This is example output:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-|               Run Name                |  Status   |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds |
-+---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-|   droid_pnp_srl_gr00t_billiard_hall   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|    droid_pnp_srl_gr00t_blue_block     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-| droid_pnp_srl_gr00t_alphabet_soup_can | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|      droid_pnp_srl_gr00t_orange       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|       droid_pnp_srl_gr00t_lemon       | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-| droid_pnp_srl_gr00t_tomato_sauce_can  | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|  droid_pnp_srl_gr00t_mustard_bottle   | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|     droid_pnp_srl_gr00t_sugar_box     | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-|        droid_pnp_srl_gr00t_mug        | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
-+---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
-
-======================================================================
-METRICS SUMMARY
-======================================================================
-
-droid_pnp_srl_gr00t_alphabet_soup_can:
-  num_episodes                            3
-  object_peak_speed_exceeded_rate    0.0000
-  success_rate                       0.0000
-
-droid_pnp_srl_gr00t_billiard_hall:
-  num_episodes                            3
-  object_peak_speed_exceeded_rate    0.3333
-  success_rate                       0.0000
-
-droid_pnp_srl_gr00t_blue_block:
-  num_episodes                            3
-  object_peak_speed_exceeded_rate    0.0000
-  success_rate                       0.0000
-
-droid_pnp_srl_gr00t_lemon:
-  num_episodes                            3
-  object_peak_speed_exceeded_rate    1.0000
-  success_rate                       0.6667
-
+<span class="sd-summary-text">Example Run summary and success rates</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<p class="sd-card-text">Success rates can vary between evaluations. This is example output:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|                Run Name               |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate |
++---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
+|   droid_pnp_srl_gr00t_billiard_hall   | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+|     droid_pnp_srl_gr00t_blue_block    | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
+| droid_pnp_srl_gr00t_alphabet_soup_can | completed | gr00t_remote_closedloop |    1     |    None   |      3       |      1       |         3         |    0.0000    |
++---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+
 ...
-======================================================================
 </pre></div>
 </div>
 </div>
