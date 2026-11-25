@@ -39,6 +39,20 @@ class UnsupportedCollisionGeometryError(NoCollisionMeshError):
     """USD geometry exists but cannot be represented as a collision mesh."""
 
 
+def _summarize_prim_paths(prim_paths: Sequence[str], max_shown: int = 5) -> str:
+    """Return the first ``max_shown`` paths and how many more were left out, for log messages.
+
+    Args:
+        prim_paths: USD prim paths to summarize.
+        max_shown: Number of paths to list before eliding the rest.
+    """
+    shown = ", ".join(prim_paths[:max_shown])
+    num_truncated = len(prim_paths) - max_shown
+    if num_truncated <= 0:
+        return shown
+    return f"{shown}, ... ({num_truncated} more of {len(prim_paths)})"
+
+
 def get_all_prims(
     stage: Usd.Stage, prim: Usd.Prim | None = None, prims_list: list[Usd.Prim] | None = None
 ) -> list[Usd.Prim]:
@@ -422,7 +436,7 @@ def extract_trimesh_from_usd(
 
     if all_verts:
         if skipped_gprims:
-            print(f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}")
+            print(f"Unsupported non-mesh geometry in {usd_path}: {_summarize_prim_paths(skipped_gprims)}")
         return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
     if skipped_gprims:
         raise UnsupportedCollisionGeometryError(
@@ -508,7 +522,7 @@ def extract_trimesh_from_prim(
 
     if all_verts:
         if skipped_gprims:
-            print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
+            print(f"Unsupported non-mesh geometry under {prim_path}: {_summarize_prim_paths(skipped_gprims)}")
         return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
     if skipped_gprims:
         raise UnsupportedCollisionGeometryError(
