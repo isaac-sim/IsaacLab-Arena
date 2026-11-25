@@ -14,7 +14,7 @@ from isaaclab_arena_environments.spatial_memory.parts import PALETTE
 from isaaclab_arena_environments.spatial_memory.tasks.partition_delivery import PartitionDeliveryLogic
 from isaaclab_arena_environments.spatial_memory.tasks.reverse_gap import ReverseGapLogic
 from isaaclab_arena_environments.spatial_memory.tasks.shelf_bay import ShelfBayLogic
-from isaaclab_arena_examples.spatial_memory.scene_library import locomotion, manipulation
+from isaaclab_arena_environments.spatial_memory.workcells import locomotion, manipulation
 
 
 def _pilot(logic_type, scene, rng):
@@ -78,7 +78,7 @@ def build_stage(name: str, seed: int):
     """Build a self-contained USD stage, sampling each scene independently from its name and seed."""
     from pxr import Usd
 
-    from isaaclab_arena_examples.spatial_memory.scene_library.geometry import Workcell
+    from isaaclab_arena_environments.spatial_memory.workcells.geometry import Workcell
 
     stage = Usd.Stage.CreateInMemory()
     workcell = Workcell(stage)

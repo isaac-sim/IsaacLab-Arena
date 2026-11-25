@@ -14,7 +14,7 @@ def _test_motion_scene_exports(simulation_app):
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena_examples.spatial_memory.scene_library.catalog import SCENES, build_stage
+    from isaaclab_arena_environments.spatial_memory.workcells.catalog import SCENES, build_stage
 
     moving_components = {"closing_door": "Door", "moving_carriage": "Carriage", "descending_hood": "Hood"}
     assert len(SCENES) == 30

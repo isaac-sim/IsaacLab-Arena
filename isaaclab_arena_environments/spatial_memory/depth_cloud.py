@@ -9,7 +9,6 @@ import torch
 
 from isaaclab.utils.math import transform_points, unproject_depth
 
-from isaaclab_arena_environments.spatial_memory.episode_state import get_episode_state
 from isaaclab_arena_environments.spatial_memory.geometry import inverse_transform_points
 from isaaclab_arena_environments.spatial_memory.observations import ONLINE_MAP_MAX_POINTS
 
@@ -20,9 +19,10 @@ VOXEL_SIZE_M = 0.03
 class DepthCloudProvider:
     """Accumulate occupied voxels in the environment frame E and query them in the robot frame R."""
 
-    def __init__(self, env, camera_name: str, far_m: float):
+    def __init__(self, env, camera_name: str, far_m: float, blocked_frames=None):
         self.camera_name = camera_name
         self.far_m = far_m
+        self.blocked_frames = blocked_frames
         self.voxels_E = [torch.empty((0, 3), dtype=torch.int64, device=env.device) for _ in range(env.num_envs)]
 
     def reset(self, env, env_ids):
@@ -42,12 +42,11 @@ class DepthCloudProvider:
         intrinsics[:, :2] /= stride
         points_C = unproject_depth(depth, intrinsics)
         valid = (points_C[..., 2] > 0) & (points_C[..., 2] < self.far_m)
-        episode = get_episode_state(env)
         # A reset can return the renderer's last frame from the preceding layout.
         # Wait for the first control step before fusing measurements in a new episode.
         valid &= env.episode_length_buf[:, None] > 0
-        if episode.logic.withholds_camera_frames:
-            valid &= ~episode.logic.camera_blocked(env, episode)[:, None]
+        if self.blocked_frames is not None:
+            valid &= ~self.blocked_frames(env)[:, None]
         points_E = transform_points(points_C, data.pos_w.torch - env.scene.env_origins, data.quat_w_ros.torch)
         T_E_R = env.scene["robot"].data.root_pose_w.torch.clone()
         T_E_R[:, :3] -= env.scene.env_origins

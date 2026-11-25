@@ -1,8 +1,27 @@
 # Spatial-memory task suite
 
-The [30-task G1 catalog](LOCO_CATALOG.md) lists the three controls and 27 selected challenges, with a real-life example and the scored operation for each.
+## Short G1 motions
 
-For the short low-level controller skills, see the [robot-free motion scenes](MOTION_SCENES.md) for the OpenUSD exporter, camera views and fixture descriptions.
+The [illustrated guide](G1_MOTION_GUIDE.pdf) shows the scene and the humanoid's view during each of 30 tasks. In Arena, select the registered environment `g1_spatial_motion` and a workcell with `--scene`. Keys appear below in guide order. Each has two matched layouts, `A` and `B`, which place the hidden feature differently. Select the layout when building the environment.
+
+```bash
+isaaclab.sh -p isaaclab_arena/scripts/environment_runner.py --enable_cameras g1_spatial_motion --scene shelf_bay --layout A --mapped
+```
+
+With cameras enabled, both observation conditions receive head-camera RGB and depth. Add `--mapped` to receive `observations["mapped"]["online_map"]`, a bounded point cloud accumulated from the same depth measurements in the current robot frame. An experiment can install a reconstruction through `set_online_map_provider`. The built-in provider voxelizes depth on the fly. Each reset clears only the corresponding episodes.
+
+| Guide pages | Workcell keys |
+| --- | --- |
+| 1–5 | `reverse_gap`, `shelf_bay`, `partition_delivery`, `cabinet_reach`, `tote_extraction` |
+| 6–10 | `hanging_pan`, `valve_turn`, `seam_inspection`, `panel_catches`, `dishwasher` |
+| 11–15 | `billet_insertion`, `rail_support`, `stack_bracing`, `worktop_clamp`, `loaded_drawer` |
+| 16–20 | `pipe_bracket`, `panel_removal`, `hatch_transfer`, `probe_withdrawal`, `display_cover` |
+| 21–25 | `scoop_pour`, `panel_corner`, `aisle_retreat`, `platform_step`, `beam_clearance` |
+| 26–30 | `trolley_dock`, `pillar_pass`, `closing_door`, `moving_carriage`, `descending_hood` |
+
+The G1 starts beside the fixture. Pickup rests support items the guide depicts already in hand. The three moving fixtures follow their keyframes on each instance’s episode clock. The part on the carriage is independently graspable and follows the deck while supported. A passive hinge and two releasable springs approximate the rigid-backed display cover. The task predicates score specified workpiece poses, joint travel, contacts or ordered probe targets. The guide illustrates selected camera poses. A live robot can move its head and look again.
+
+## Original spatial-memory environments
 
 Thirteen Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
 view, so a policy must have remembered or mapped it. Every task has four observation variants, a difficulty knob, a

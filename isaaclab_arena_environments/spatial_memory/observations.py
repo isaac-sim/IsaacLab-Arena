@@ -148,17 +148,33 @@ def reset_online_map(env, env_ids: torch.Tensor) -> None:
         provider.reset(env, env_ids)
 
 
+def get_depth_map_provider(env, camera_name: str, far_m: float, blocked_frames=None) -> OnlineMapProvider:
+    """Use the installed reconstruction or start accumulating measured depth from this camera."""
+    from isaaclab_arena_environments.spatial_memory.depth_cloud import DepthCloudProvider
+
+    if env not in _MAP_PROVIDERS:
+        _MAP_PROVIDERS[env] = DepthCloudProvider(env, camera_name, far_m, blocked_frames)
+    return _MAP_PROVIDERS[env]
+
+
 def get_online_map_provider(env, logic=None) -> OnlineMapProvider:
     """Return the installed provider, using registered depth images when the camera is enabled."""
     env = env.unwrapped if hasattr(env, "unwrapped") else env
     if env not in _MAP_PROVIDERS:
-        from isaaclab_arena_environments.spatial_memory.depth_cloud import DepthCloudProvider
-
         logic = get_episode_state(env, logic).logic
         camera_name = logic.embodiment.camera_obs_key().removesuffix("_rgb")
         camera = env.scene.sensors.get(camera_name)
         if camera is not None and "distance_to_image_plane" in camera.cfg.data_types:
-            _MAP_PROVIDERS[env] = DepthCloudProvider(env, camera_name, logic.embodiment.camera_model().far_m)
+
+            def blocked_frames(base):
+                return logic.camera_blocked(base, get_episode_state(base))
+
+            return get_depth_map_provider(
+                env,
+                camera_name,
+                logic.embodiment.camera_model().far_m,
+                blocked_frames if logic.withholds_camera_frames else None,
+            )
         else:
             _MAP_PROVIDERS[env] = EmptyMapProvider()
     return _MAP_PROVIDERS[env]

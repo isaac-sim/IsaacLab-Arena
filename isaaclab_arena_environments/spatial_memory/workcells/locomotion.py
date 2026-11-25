@@ -99,7 +99,7 @@ def descending_hood(scene, rng):
     for i, x in enumerate((-0.36, 0.36)):
         scene.box(f"Upright{i}", (x, 0.20, 1.15), (0.05, 0.08, 0.66), "frame")
         scene.box(f"GuideStop{i}", (x * 0.78, (-0.14 if i else 0.12), 0.89), (0.09, 0.15, 0.14), "limit")
-    scene.tray("Tray", (0, -0.10, 0.835), (0.46, 0.48, 0.075))
+    scene.tray("Tray", (0, -0.19, 0.835), (0.46, 0.48, 0.075))
     hood = scene.group("Hood", (0, 0, 1.40))
     scene.box("Top", (0, 0, 0), (0.70, 0.49, 0.10), "steel", parent=hood)
     scene.box("Skirt", (0, -0.22, -0.067), (0.70, 0.045, 0.09), "target", parent=hood)

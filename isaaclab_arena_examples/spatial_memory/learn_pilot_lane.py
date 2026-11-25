@@ -110,7 +110,7 @@ def walking_survey(env, obs):
     logic = episode.logic
     controller = inspection_controller(base, logic)
     accumulated = get_online_map_provider(base)
-    current = DepthCloudProvider(base, accumulated.camera_name, accumulated.far_m)
+    current = DepthCloudProvider(base, accumulated.camera_name, accumulated.far_m, accumulated.blocked_frames)
     pending = torch.ones(base.num_envs, device=base.device, dtype=torch.bool)
     clouds, frames = [None] * base.num_envs, [None] * base.num_envs
     for _ in range(base.max_episode_length):

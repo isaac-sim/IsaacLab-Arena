@@ -56,7 +56,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with SimulationAppContext(args) as context:
-        from isaaclab_arena_examples.spatial_memory.scene_library.catalog import SCENES, build_stage
+        from isaaclab_arena_environments.spatial_memory.workcells.catalog import SCENES, build_stage
 
         names = args.scenes or SCENES
         unknown = set(names) - SCENES.keys()
