@@ -160,80 +160,28 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
    ``UsdGeom.TetMesh``. Run the command for your backend from the repository root in your
    activated Arena runtime, before changing the object library:
 
-   **Newton**
+   .. tab-set::
 
-   .. code-block:: bash
+      .. tab-item:: Newton
+         :selected:
 
-      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
-        --asset deformable_cube_newton \
-        --output /absolute/path/to/deformable_cube_newton.usda
+         .. code-block:: bash
 
-   **PhysX**
+            python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
+              --asset deformable_cube_newton \
+              --output /absolute/path/to/deformable_cube_newton.usda
 
-   .. code-block:: bash
+      .. tab-item:: PhysX
 
-      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
-        --asset deformable_cube_physx \
-        --output /absolute/path/to/deformable_cube_physx.usda
+         .. code-block:: bash
 
-   Choose a persistent output location available to every recording and replay process.
-   The script runs headlessly and refuses to overwrite an existing file. It saves the
-   simulation TetMesh and visual Mesh without backend physics schemas or materials.
-   The destination is created atomically only after the temporary USD exports successfully,
-   so a failed or interrupted export does not leave an incomplete bake at that path.
-   Generating another file can produce a different topology, so keep and reuse the first
-   output. Generated USDs are local assets and are not included in this repository.
+            python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
+              --asset deformable_cube_physx \
+              --output /absolute/path/to/deformable_cube_physx.usda
 
-   Next, edit ``isaaclab_arena/assets/deformable_object_library.py`` to load that file.
-   In ``DeformableCubeNewton``, change the start of ``spawner_cfg`` as follows:
-
-   .. code-block:: diff
-
-      -    spawner_cfg = sim_utils.MeshCuboidCfg(
-      -        size=(0.15, 0.04, 0.04),
-      -        edge_refinement=8.0,
-      +    spawner_cfg = sim_utils.UsdFileCfg(
-      +        usd_path="/absolute/path/to/deformable_cube_newton.usda",
-               deformable_props=NewtonDeformableBodyPropertiesCfg(),
-
-   For PhysX, make the corresponding change in ``DeformableCubePhysx``:
-
-   .. code-block:: diff
-
-      -    spawner_cfg = sim_utils.MeshCuboidCfg(
-      -        size=(0.15, 0.04, 0.04),
-      +    spawner_cfg = sim_utils.UsdFileCfg(
-      +        usd_path="/absolute/path/to/deformable_cube_physx.usda",
-               deformable_props=PhysxDeformableBodyPropertiesCfg(linear_damping=0.0),
-
-   Leave the remaining backend-specific physics, collision, and material settings unchanged.
-   Remove procedural meshing options such as ``size`` and ``edge_refinement``; they are not
-   ``UsdFileCfg`` arguments. Source transforms are already applied to the baked vertices,
-   so do not apply the original source scale again when baking other volume assets.
-
-   Record new demonstrations after making this change, then use the same generated USD,
-   library definition, and physics backend for every replay. Isaac Lab will reuse the
-   TetMesh instead of calling fTetWild. Earlier procedural recordings must be recreated:
-   even matching node counts do not guarantee matching node ordering or connectivity.
-   Fixed topology permits restoring nodal state; it does not guarantee numerically
-   identical trajectories or task success.
-
-   The script also accepts the registered USD-backed Teddy Bear presets:
-   ``deformable_teddy_bear_newton`` and ``deformable_teddy_bear_physx``. For example:
-
-   .. code-block:: bash
-
-      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
-        --asset deformable_teddy_bear_newton \
-        --output /absolute/path/to/teddy_fixed.usda
-
-   In ``DeformableTeddyBearNewton``, point the existing ``UsdFileCfg.usd_path`` at
-   this output and remove ``scale=(0.01, 0.01, 0.01)`` because baking already applies
-   that scale. Follow the same procedure for ``DeformableTeddyBearPhysx`` with its
-   own output file. The tool accepts registry names rather than raw USD paths and
-   requires one volume simulation TetMesh and one visual Mesh after spawning.
-   Surface deformables such as the cloth presets are not supported. Only geometry
-   is saved; source materials and textures are not copied.
+   Next, edit ``isaaclab_arena/assets/deformable_object_library.py`` to load the generated USD file.
+   In ``DeformableCubeNewton`` and ``DeformableCubePhysx``, change ``spawner_cfg`` to use
+   ``UsdFileCfg`` and set ``usd_path`` to the generated file's path.
 
 Evaluate with OpenPI
 --------------------
