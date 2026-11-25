@@ -30,9 +30,6 @@ def _test_episode_length_defaults(simulation_app) -> bool:
         def get_mimic_env_cfg(self, arm_mode):
             return None
 
-        def get_metrics(self):
-            return []
-
     # Regression: a bare ``episode_length_s: float = 70.0`` param default is bypassed by subclasses
     # forwarding None, which would leave episode_length_s = None and break episode-length setup.
     assert _StubTask().get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S

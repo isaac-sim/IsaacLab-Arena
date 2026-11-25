@@ -13,8 +13,6 @@ from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME, _predicate_repr
@@ -819,57 +817,16 @@ class ProgressTracker:
         """Return recorded event occurrences per environment without advancing predicates."""
         return [list(events) for events in self._tracked_event_occurrences]
 
+    def get_progress_snapshot(self) -> dict[str, list]:
+        """Return the current progress of every env without advancing predicates.
 
-class ProgressTrackingRecorder(RecorderTerm):
-    """Publish the tracker state and events after termination computation. Records nothing.
-
-    Registered as a recorder term so it runs once per env.step via
-    record_post_step. It publishes the per-step state/events to
-    env.extras["progress_tracking"], then returns
-    (None, None) so nothing is written to the recorded episode data.
-
-    env.extras["progress_tracking"] format:
-
-        {
-            "states": [                                    # one ProgressState per env
-                ProgressState(
-                    criteria_by_name={
-                        "<name>": CompletionCriteriaState(
-                            completed_sequences, total_sequences, score, is_complete, active_predicates
-                        ),
-                        ...
-                    },
-                    overall_score=float,                   # weighted mean of criteria scores, in [0, 1]
-                    all_complete=bool,
-                ),
-                ...
-            ],
-            "events": [                                    # one list of PredicateEvent per env
-                [PredicateEvent(env_idx, step, criteria_name, sequence_name,
-                                predicate_index, predicate_name, score_delta), ...],
-                ...
-            ],
-        }
-    """
-
-    def record_post_step(self):
-        """Publish the current progress snapshot without advancing the tracker."""
-
-        progress_tracker = self._env.progress_tracker
-        assert progress_tracker is not None, "Task progress must be configured before recording."
-        self._env.extras["progress_tracking"] = {
-            "states": progress_tracker.get_state(),
-            "events": progress_tracker.get_events(),
-        }
-        if progress_tracker.tracked_event_names:
-            self._env.extras["progress_tracking"].update(
-                tracked_events=progress_tracker.get_tracked_event_occurrences(),
-                tracked_event_names=progress_tracker.tracked_event_names,
-            )
-        # This term is a per-step hook only — record nothing.
-        return None, None
-
-
-@configclass
-class ProgressTrackingRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = ProgressTrackingRecorder
+        Returns:
+            Each env's ``ProgressState`` under ``"states"`` and its predicate events under ``"events"``. For
+            tasks with tracked events, also their occurrences under ``"tracked_events"`` and their names under
+            ``"tracked_event_names"``.
+        """
+        snapshot = {"states": self.get_state(), "events": self.get_events()}
+        if self.tracked_event_names:
+            snapshot["tracked_events"] = self.get_tracked_event_occurrences()
+            snapshot["tracked_event_names"] = self.tracked_event_names
+        return snapshot

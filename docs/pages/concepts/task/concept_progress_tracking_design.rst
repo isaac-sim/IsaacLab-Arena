@@ -319,7 +319,7 @@ to be true.
 ``ProgressTracker`` determines task success and reports the same criteria completion history.
 Completed milestones remain recorded. ``TaskTerminationCfg.desired_subtask_success_state``
 preserves the composition's optional final-condition checks. Reports contain the flat criteria sets
-and their weighted overall progress; subtask metrics read ``ProgressTracker.get_subtask_completion()``.
+and their weighted overall progress.
 For a consecutive-step final condition, these checks continue updating its counter. If the condition
 becomes false, a new streak is required, but the recorded subtask completion is kept.
 There are no additional reports for parent criteria sets. See
@@ -337,7 +337,7 @@ There are no additional reports for parent criteria sets. See
 Reading subtask progress tracking at runtime
 --------------------------------------------
 
-``ProgressTrackingRecorder`` puts progress results in the environment's ``extras`` dictionary.
+After every control step, the environment puts progress results in its ``extras`` dictionary.
 Read each environment's state and completed-predicate events as follows:
 
 .. code-block:: python

@@ -12,13 +12,12 @@ from isaaclab.scene import InteractiveSceneCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_peak_speed_exceeded import ObjectPeakSpeedExceededRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import goal_pose_task_termination
+from isaaclab_arena.terms.episode_recorders import ObjectPeakSpeed
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -89,11 +88,11 @@ class GoalPoseTask(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         raise NotImplementedError("Function not implemented yet.")
 
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            ObjectPeakSpeedExceededRateMetric(self.object),
-        ]
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Record the highest speed the object reached in each episode, in m/s."""
+        return {
+            "object_peak_speed": EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": self.object.name})
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.object, offset=np.array([1.5, 1.5, 1.5]))

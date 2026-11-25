@@ -319,8 +319,9 @@ the agent through the evaluation. Expect it to:
    output directory under ``outputs/`` in your browser.
 
 An episode only counts as a success when both fruits are in their bowls. The
-results also include ``subtask_success_rate``, the success rate for each fruit,
-so you can see which placement the policy completed.
+``Subtask Success Rates`` column of the Run table shows the success rate for each
+fruit, in the order of ``subtasks`` (banana first), so you can see which placement
+the policy completed.
 
 The report shows each episode's result next to its recorded videos, one per
 camera.
