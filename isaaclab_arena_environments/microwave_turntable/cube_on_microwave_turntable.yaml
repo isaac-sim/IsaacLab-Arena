@@ -1,0 +1,54 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# A cube on the turntable of a microwave that is itself placed on the table.
+# The turntable is a link of the articulated microwave, referenced without relations of its own: placement puts
+# the cube on the link's bounds at the microwave's initial joint positions, and the cube moves with the microwave.
+env_name: cube_on_microwave_turntable
+external_yaml:
+- ../robolab/robolab_defaults.yaml
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: microwave
+  registry_name: microwave
+  params: {}
+- id: cube
+  registry_name: dex_cube
+  params: {}
+object_references:
+- id: turntable
+  parent_id: microwave
+  prim_path: Microwave039_Disc001
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+# The microwave's door faces -Y, so the open door swings away from the robot.
+- kind: 'on'
+  subject: microwave
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: cube
+  reference: turntable
+env_cfg_override:
+  viewer:
+    eye: [0.35, -1.25, 0.75]
+    lookat: [0.6, 0.0, 0.05]
+task:
+  composition: atomic
+  description: Close the microwave door with the cube on its turntable.
+  subtasks:
+  - kind: CloseDoorTask
+    params:
+      openable_object: microwave
+      closedness_threshold: 0.05
+      reset_openness: 0.9

@@ -57,6 +57,35 @@ if it does. Anchor an object reference to each support prim instead, such as the
 floor, found with the scene inspector, and place objects `on` those references. See
 [anchors](../../../docs/pages/concepts/object_placement/relations.rst) in the relations page.
 
+## Objects on a part of an articulated object
+
+To put an object on a tray, shelf, pan or turntable of an articulated object, reference that link
+(or a prim within the object) and place the object `on` the reference. Give the reference no
+relations: it then moves with its object, whether that object is anchored or placed by relations.
+From the [microwave turntable](../../../isaaclab_arena_environments/microwave_turntable/cube_on_microwave_turntable.yaml)
+example:
+
+```yaml
+object_references:
+- id: turntable
+  parent_id: microwave
+  prim_path: Microwave039_Disc001
+  object_type: base
+relations:
+- kind: 'on'
+  subject: microwave
+  reference: table_oak_robolab
+- kind: 'on'
+  subject: cube
+  reference: turntable
+```
+
+The cube is placed on the link's bounds at the object's initial joint positions, and it is not
+checked for overlap with the object that encloses it. Do not anchor the reference, and do not
+anchor the child at a hard-coded pose. The object must keep a fixed quarter-turn heading: no
+`face_to` and no `random_yaw_init`. `on` places the child on top of the reference's bounds; target
+a prim whose top is the resting surface, such as a pan's floor rather than the whole pan link.
+
 ## Robot placement
 
 To stand a robot at a work surface, follow

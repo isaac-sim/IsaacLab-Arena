@@ -1,0 +1,14 @@
+{"action":"setup_joint","name":"microwave","joint_name":"Disc001_joint","effort_limit":5.0,"replace_existing":true}
+{"action":"setup_joint","name":"microwave","joint_name":"microjoint","effort_limit":50.0,"replace_existing":true}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"joint","name":"microwave","joint_name":"Disc001_joint","goal":1.5707963,"seconds":3.0,"gain":10.0,"damping":2.0,"limit":5.0}
+{"action":"wait","seconds":1.0}
+{"action":"inspect"}
+{"action":"mark","index":0,"boundary":"start","title":"Close the microwave door"}
+{"action":"joint","name":"microwave","joint_name":"microjoint","goal":0.0,"seconds":2.0,"gain":40.0,"damping":6.0,"limit":30.0}
+{"action":"check","index":0}
+{"action":"mark","index":0,"boundary":"end","title":"Close the microwave door"}
+{"action":"inspect"}
+{"action":"wait_final"}
+{"action":"finish"}
