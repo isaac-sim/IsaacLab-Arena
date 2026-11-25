@@ -28,6 +28,9 @@ Keep an unpaired workflow sample separate from that comparison; different layout
 success rate independently of physics. Reusing a policy server also does not reset its sampling RNG.
 Record that limitation unless the policy offers a supported way to repeat its random draws.
 
+Before full policy runs, use short baseline/candidate preflights to verify actual starting poses
+and a saved recording.
+
 Deformable tetrahedralization can
 vary even with the same seed; record mesh/node counts when available. Do not regenerate or change
 an asset between runs and call the comparison controlled. Preserve caches; separate cold-start/JIT

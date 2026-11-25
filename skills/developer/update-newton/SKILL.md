@@ -31,6 +31,7 @@ does not establish compatibility with Lab.
    and candidate policy evaluations after candidate startup and API checks pass. If switching back
    for the baseline, preserve the candidate patches and restore only this task's changes, or use an
    isolated checkout/runtime; never change dependencies or source beneath a running simulation.
+   An older Newton with patched Lab tests backward compatibility, not a clean baseline.
 
 An explicit request to update and validate Newton authorizes the necessary dependency edits and
 validation within that scope. Honor existing authorization for builds and container recreation;
@@ -47,8 +48,6 @@ When asked only to propose an update, stop at the proposal.
 | `pyproject.toml` | Arena's `[tool.uv].override-dependencies` selects Newton instead of Lab's requirement. Companion overrides live here too. |
 | `uv.lock` | Resolved versions, sources, and dependency graph for Arena's selected groups. Regenerate with uv. |
 | `isaaclab_arena/tests/test_dependency_pins.py` | Currently requires Newton and several companion overrides to equal Lab's. Make intentional deviations explicit and tested. |
-| `docker/setup/install_arena_deps.sh` | Selects the dependency groups installed after the Lab image layer. Ensure it actually requests the overridden Newton package. |
-| `docker/setup/install_isaaclab.sh`, `docker/Dockerfile.isaaclab_arena` | Inspect the two-stage dependency installation; keep Lab's own installation pinned unless a separate change is authorized. |
 | `submodules/IsaacLab/pyproject.toml`, `submodules/IsaacLab/uv.lock` | Reference for upstream dependency choices. An Arena override alone does not require changing Lab's pins. |
 | `submodules/IsaacLab/source/` | Adapt Lab's Newton integration and shared backend code when compatibility changes are authorized. Record the source diff separately from the dependency update. |
 
@@ -62,6 +61,9 @@ In the existing Arena override list, replace the Newton requirement with **one**
 Retain the required extras. Do not add a conflicting second Newton requirement, hand-edit the lock,
 or rely on an unrecorded `pip install` in the current environment. A root override is necessary:
 the nested Lab project's uv settings do not override Arena's root resolution.
+
+Native uv and Docker select the shared `newton-runtime` group from Arena's lock; ordinary version
+updates do not require Docker installation changes.
 
 Check `mujoco`, `mujoco-warp`, `warp-lang`, and `newton-usd-schemas` against the selected Newton
 revision. Change only companions required for compatibility; explain each departure from Lab and
@@ -82,6 +84,8 @@ changes requiring authorization under the repository's protected-file rules.
   layouts, coordinate frames, index ordering, reset behavior, or neural-actuator checkpoint formats.
   Preserve per-environment mappings and physics behavior; do not merely suppress exceptions or
   weaken tests. Do not bypass a new checkpoint trust restriction to make an old format load.
+- Record effective solver defaults; dropping an unsupported argument can change physics behavior
+  even when startup succeeds.
 - Prefer a focused Lab source patch over an unrelated Lab upgrade. Record the starting commit and
   full Lab diff; a dirty submodule is part of the candidate provenance. If supporting both the
   upstream-pinned and selected Newton versions, test both API paths explicitly.
@@ -96,44 +100,22 @@ gitlink. When pushing is authorized, publish that Lab commit before publishing t
 references it. Do not present an uncommitted Lab patch as reproducible from the Arena commit alone.
 For review-only work, leave both source diffs visible and identify the modified submodule.
 
-### Make Docker select the override
-
-Currently, Docker first installs Lab from **Lab's frozen lock**, then runs Arena's sync with
-`--no-default-groups --group openpi --inexact`. An override only affects packages selected by that
-second sync. It does not replace an installed Newton merely because Newton appears elsewhere in
-Arena's lock. Rebuilding the image without fixing selection can leave Docker on Lab's version.
-
-Inspect the current selected dependency graph. If Newton is not selected, add a small Arena-owned
-group, for example:
-
-```toml
-[dependency-groups]
-# Add this member to the existing table, not a second table.
-newton-runtime = ["newton[sim]"]
-```
-
-Select `--group newton-runtime` in `docker/setup/install_arena_deps.sh` alongside its existing
-groups. The exact version stays in the override list; the group makes installation explicit.
-Native uv already requests Newton through the default `isaaclab-from-source` group. Do not enable
-that whole group in Docker: it deliberately inherits Isaac Sim and Lab from the preceding layers.
-Keep the frozen Arena sync as the installation mechanism, rather than appending a second ad hoc
-install that can disagree with `uv.lock`.
+Run Lab's checks against its actual base branch, using `ISAACLAB_CHANGELOG_BASE_REF` when needed.
 
 ### Preserve dependency guard coverage
 
 Update `test_isaaclab_uv_overrides_match_submodule` to distinguish intentional Arena pins from
 packages still required to match Lab. For each exception, assert the reviewed requirement and its
 resolved lock version or Git commit, including any changed companion packages. Preserve the
-checks for all other packages and a regression check that the Docker-selected group includes
-Newton. Do not skip the test or derive an unrestricted exception list from whatever currently
-differs: that would stop detecting accidental drift.
+checks for all other packages and the Docker/native lock selection parity test. Do not derive
+exceptions from whatever currently differs: that would stop detecting accidental drift.
 
 Regenerate and review the lock from the Arena root:
 
 ```bash
 uv lock --upgrade-package newton
 uv lock --check
-git diff -- pyproject.toml uv.lock isaaclab_arena/tests/test_dependency_pins.py docker/setup/install_arena_deps.sh
+git diff -- pyproject.toml uv.lock isaaclab_arena/tests/test_dependency_pins.py
 ```
 
 Add targeted `--upgrade-package` selections for companions only when needed. Review unexpected
