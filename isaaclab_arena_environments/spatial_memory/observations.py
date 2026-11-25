@@ -8,7 +8,7 @@
 * ``current``: the egocentric image and proprioception of the current step (plus the task instruction).
 * ``history_k``: the same terms with the last ``k`` steps stacked (Isaac Lab observation history).
 * ``oracle_map``: ``current`` plus privileged scene geometry in the robot base frame, hidden parts included.
-* ``mapped``: ``current`` plus the output of an online map provider (a placeholder until nvblox-next is plugged in).
+* ``mapped``: ``current`` plus an accumulated surface point cloud from the egocentric depth camera.
 """
 
 from __future__ import annotations
@@ -123,12 +123,7 @@ class OnlineMapProvider(Protocol):
 
 
 class EmptyMapProvider:
-    """Placeholder provider that returns an empty map (all confidences zero).
-
-    TODO(spatial-memory): replace with the nvblox-next surfel map. The provider should integrate the egocentric depth
-    and pose each step, and return the surfel centers in the robot base frame with their confidence. Register it with
-    ``set_online_map_provider(env, provider)`` after the environment is created.
-    """
+    """Zero-confidence map for camera-free runs and memory ablations."""
 
     def reset(self, env, env_ids: torch.Tensor) -> None:
         pass
@@ -146,17 +141,32 @@ def set_online_map_provider(env, provider: OnlineMapProvider) -> None:
     _MAP_PROVIDERS[env] = provider
 
 
-def get_online_map_provider(env) -> OnlineMapProvider:
-    """Return the online map provider of ``env`` (an ``EmptyMapProvider`` unless one was installed)."""
+def reset_online_map(env, env_ids: torch.Tensor) -> None:
+    """Discard prior observations from the environments starting a new episode."""
+    provider = _MAP_PROVIDERS.get(env)
+    if provider is not None:
+        provider.reset(env, env_ids)
+
+
+def get_online_map_provider(env, logic=None) -> OnlineMapProvider:
+    """Return the installed provider, using registered depth images when the camera is enabled."""
     env = env.unwrapped if hasattr(env, "unwrapped") else env
     if env not in _MAP_PROVIDERS:
-        _MAP_PROVIDERS[env] = EmptyMapProvider()
+        from isaaclab_arena_environments.spatial_memory.depth_cloud import DepthCloudProvider
+
+        logic = get_episode_state(env, logic).logic
+        camera_name = logic.embodiment.camera_obs_key().removesuffix("_rgb")
+        camera = env.scene.sensors.get(camera_name)
+        if camera is not None and "distance_to_image_plane" in camera.cfg.data_types:
+            _MAP_PROVIDERS[env] = DepthCloudProvider(env, camera_name, logic.embodiment.camera_model().far_m)
+        else:
+            _MAP_PROVIDERS[env] = EmptyMapProvider()
     return _MAP_PROVIDERS[env]
 
 
-def online_map(env) -> torch.Tensor:
-    """Online reconstruction from the installed map provider (empty by default)."""
-    return get_online_map_provider(env).query(env)
+def online_map(env, logic=None) -> torch.Tensor:
+    """Return measured surfaces accumulated over this episode in the current robot frame."""
+    return get_online_map_provider(env, logic).query(env)
 
 
 def _make_masked_camera_image_term():
@@ -231,7 +241,7 @@ def make_task_observation_cfg(logic, variant: ObservationVariant):
     elif variant == ObservationVariant.MAPPED:
         mapped_group = make_configclass(
             "SpatialMemoryMappedObsCfg",
-            [("online_map", ObsTerm, ObsTerm(func=online_map))],
+            [("online_map", ObsTerm, ObsTerm(func=online_map, params={"logic": logic}))],
             bases=(ObsGroup,),
             namespace={"__post_init__": group_post_init},
         )

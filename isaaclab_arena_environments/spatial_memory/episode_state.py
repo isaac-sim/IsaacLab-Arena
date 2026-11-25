@@ -173,6 +173,8 @@ def layout_generator(env, env_id: int) -> torch.Generator:
 
 def reset_layout(env, env_ids: torch.Tensor | None, logic: SpatialMemoryTaskLogic) -> None:
     """Reset event: sample a layout per environment and write every part's pose."""
+    from isaaclab_arena_environments.spatial_memory.observations import reset_online_map
+
     episode = get_episode_state(env, logic)
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
@@ -187,6 +189,8 @@ def reset_layout(env, env_ids: torch.Tensor | None, logic: SpatialMemoryTaskLogi
             episode.layout_params[key] = torch.zeros(shape, dtype=values.dtype, device=env.device)
         episode.layout_params[key][env_ids] = values
     write_part_poses(env, episode.part_names, env_ids, T_E_parts)
+
+    reset_online_map(env, env_ids)
     episode.reset(env_ids)
     logic.on_reset(env, episode, env_ids)
 

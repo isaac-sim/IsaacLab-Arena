@@ -190,7 +190,14 @@ def check_observation_variants(env_name: str, enable_cameras: bool = False, num_
             else:
                 assert "oracle_map" not in obs
             if variant == "mapped":
-                assert obs["mapped"]["online_map"].shape == (num_envs, ONLINE_MAP_MAX_POINTS, 4)
+                cloud = obs["mapped"]["online_map"]
+                assert cloud.shape == (num_envs, ONLINE_MAP_MAX_POINTS, 4)
+                assert torch.isfinite(cloud).all()
+                assert ((cloud[..., 3] == 0) | (cloud[..., 3] == 1)).all()
+                if enable_cameras:
+                    assert cloud[..., 3].any(dim=1).all(), "Every camera must contribute measured points."
+                else:
+                    assert not cloud.any(), "Camera-free runs must have no measured points."
             else:
                 assert "mapped" not in obs
         finally:

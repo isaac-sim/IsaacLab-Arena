@@ -70,6 +70,9 @@ class SpatialMemoryTaskLogic(ABC):
     default_difficulty: float = 0.0
     """Default value of the difficulty knob."""
 
+    minimum_env_spacing_m: float = 0.0
+    """Minimum distance between environment origins needed by the task fixtures."""
+
     episode_length_s: float = 30.0
     """Episode time limit."""
 

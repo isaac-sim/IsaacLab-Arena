@@ -25,11 +25,13 @@ def make_spatial_memory_env(
     enable_cameras: bool = False,
     history_k: int | None = None,
     with_segmentation: bool = False,
+    with_depth: bool = False,
 ):
     """Build and return the gym-wrapped environment registered under ``env_name``.
 
     With ``with_segmentation``, the egocentric camera also renders instance segmentation and keeps its pose current,
-    for checking the analytic visibility model against rendered images.
+    for checking the analytic visibility model against rendered images. With ``with_depth``, the camera also
+    renders optical-axis depth and reports its current pose for reconstruction.
     """
     from isaaclab_arena.assets.registries import EnvironmentRegistry
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -41,17 +43,18 @@ def make_spatial_memory_env(
     factory_type = registry.get_component_by_name(env_name)
     env_cfg = registry.get_environment_cfg_types()[env_name](
         enable_cameras=enable_cameras,
+        include_depth=with_depth,
         observation_variant=observation_variant,
         difficulty=difficulty,
         history_k=history_k,
     )
     arena_env = factory_type().build(env_cfg)
     if with_segmentation:
-        assert enable_cameras, "Segmentation needs the cameras to be enabled."
+        assert enable_cameras, "Segmentation requires enabled cameras."
         camera_rig = arena_env.embodiment.camera_config
         for camera_name in camera_rig.camera_names():
             camera_cfg = getattr(camera_rig, camera_name)
-            camera_cfg.data_types = ["rgb", "instance_id_segmentation_fast"]
+            camera_cfg.data_types = list(dict.fromkeys([*camera_cfg.data_types, "instance_id_segmentation_fast"]))
             camera_cfg.colorize_instance_id_segmentation = False
             camera_cfg.update_latest_camera_pose = True
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=num_envs, seed=seed, env_spacing=ENV_SPACING_M))

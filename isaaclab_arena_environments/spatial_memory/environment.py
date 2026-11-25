@@ -25,6 +25,9 @@ class SpatialMemoryEnvironmentCfg(ArenaEnvironmentCfg):
     observation_variant: Literal["current", "history_k", "oracle_map", "mapped"] = "current"
     """One of ``current``, ``history_k``, ``oracle_map`` or ``mapped``."""
 
+    include_depth: bool = False
+    """Include current egocentric depth in the camera observations for a matched sensor baseline."""
+
     history_k: int | None = None
     """Frames stacked by ``history_k``; None covers 3 seconds of control steps."""
 
@@ -84,10 +87,21 @@ def build_spatial_memory_environment(
     ground = asset_registry.get_asset_by_name("ground_plane")(initial_pose=Pose(position_xyz=(0.0, 0.0, floor_z)))
     light = asset_registry.get_asset_by_name("light")()
     embodiment = logic.embodiment.make_embodiment(enable_cameras=cfg.enable_cameras)
+    assert not cfg.include_depth or cfg.enable_cameras, "Depth observations require cameras."
+    uses_depth = cfg.enable_cameras and (cfg.include_depth or variant == ObservationVariant.MAPPED)
+    if uses_depth:
+        camera_name = logic.embodiment.camera_obs_key().removesuffix("_rgb")
+        camera_cfg = getattr(embodiment.camera_config, camera_name)
+        if "distance_to_image_plane" not in camera_cfg.data_types:
+            camera_cfg.data_types = [*camera_cfg.data_types, "distance_to_image_plane"]
+        camera_cfg.update_latest_camera_pose = True
     embodiment.set_initial_pose(Pose.identity())
 
     def env_cfg_callback(env_cfg):
         env_cfg = logic.embodiment.configure_env_cfg(env_cfg)
+        env_cfg.scene.env_spacing = max(env_cfg.scene.env_spacing, logic.minimum_env_spacing_m)
+        if uses_depth:
+            env_cfg.num_rerenders_on_reset = max(1, env_cfg.num_rerenders_on_reset)
         return apply_observation_variant(env_cfg, logic, variant, cfg.history_k)
 
     return IsaacLabArenaEnvironment(
