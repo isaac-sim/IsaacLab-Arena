@@ -23,9 +23,9 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.reinforcement_learning.rewards import lift_object_rewards, rewards
+from isaaclab_arena.tasks.reinforcement_learning.terminations import lift_object_rl_success
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import lift_object_rl_success
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.pose import PoseRange
 
@@ -59,9 +59,16 @@ class LiftObjectTaskRL(TaskBase):
             target_z_delta: Target range deltas for z [min_delta, max_delta] relative to initial pose (m).
             rl_training_mode: If True, disables success termination. Set to False for evaluation.
         """
+        super().__init__(episode_length_s=episode_length_s)
+        self.lift_object = lift_object
+        self.background_scene = background_scene
+        self.embodiment = embodiment
         self.rl_training_mode = rl_training_mode
-
         self.minimum_height_to_lift = minimum_height_to_lift
+        self.goal_position_tolerance = 0.05
+        self.scene_config = None
+        self.events_cfg = None
+
         # Get object's initial pose to compute absolute target ranges
         initial_pose = lift_object.get_initial_pose()
         if isinstance(initial_pose, PoseRange):
@@ -81,14 +88,6 @@ class LiftObjectTaskRL(TaskBase):
             initial_pose.position_xyz[2] + target_z_delta[1],
         )
 
-        super().__init__(episode_length_s=episode_length_s)
-        self.lift_object = lift_object
-        self.background_scene = background_scene
-        self.goal_position_tolerance = 0.05
-        self.scene_config = None
-        self.events_cfg = None
-
-        self.embodiment = embodiment
         self.observation_cfg = LiftObjectObservationsCfg(
             lift_object=self.lift_object, robot_name=self.embodiment.get_scene_key()
         )

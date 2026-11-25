@@ -6,15 +6,12 @@ require: a command manager that samples a new goal each episode, reward terms,
 and goal-conditioned observations.
 
 An RL task is a ``TaskBase`` subclass that defines the usual task parts (scene config,
-termination conditions, metrics) and also overrides the hooks that ``TaskBase``
+termination conditions, metrics) and also overrides the RL hooks that ``TaskBase``
 leaves empty:
 
 .. code-block:: python
 
    class LiftObjectTaskRL(TaskBase):
-
-       def get_termination_cfg(self):
-           pass
 
        def get_observation_cfg(self):
            pass
