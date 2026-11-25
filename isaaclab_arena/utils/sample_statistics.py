@@ -14,8 +14,8 @@ from __future__ import annotations
 import random
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, MutableMapping
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass, field, replace
+from typing import Any, Self
 
 # Keep reservoir sampling independent from application randomness.
 _reservoir_random_generator = random.Random()
@@ -26,6 +26,7 @@ PERCENTILES = (10, 50, 90)
 
 def weighted_percentile(weighted_samples: list[tuple[float, float]], p: float) -> float:
     """Return the p-th percentile (0-100) of (value, weight) pairs: the smallest value whose cumulative weight reaches p%."""
+    assert 0 <= p <= 100, f"Percentile must be between 0 and 100, got {p}"
     ordered = sorted(weighted_samples)
     threshold = p / 100.0 * sum(weight for _, weight in ordered)
     cumulative_weight = 0.0
@@ -70,6 +71,10 @@ class SampleStatistics(ABC):
         """Return a copy of the reservoir sample of measurements."""
         return list(self._reservoir)
 
+    def copy(self) -> Self:
+        """Return an independent copy that later measurements do not change."""
+        return replace(self, _reservoir=list(self._reservoir))
+
     def update(self, value: float) -> None:
         """Record a new measurement."""
         self.count += 1
@@ -95,6 +100,7 @@ class SampleStatistics(ABC):
         Returns:
             The estimated percentile, or None when no measurements exist.
         """
+        assert 0 <= p <= 100, f"Percentile must be between 0 and 100, got {p}"
         if not self._reservoir:
             return None
         return weighted_percentile([(sample, 1.0) for sample in self._reservoir], p)
@@ -103,21 +109,21 @@ class SampleStatistics(ABC):
         """Return the statistics as unit-suffixed JSON fields.
 
         Returns:
-            The count, mean, total, min, max, p10, p50, p90 and the rounded reservoir samples.
+            The count, mean, total, min, max, one field per entry of PERCENTILES and the rounded reservoir samples.
         """
         unit = self.get_unit()
         num_decimals = self.get_num_decimals()
-        return {
+        fields: dict[str, float | int | list[float] | None] = {
             "count": self.count,
             f"mean_{unit}": self.get_mean(),
             f"total_{unit}": self.total,
             f"min_{unit}": self.minimum,
             f"max_{unit}": self.maximum,
-            f"p10_{unit}": self.percentile(10),
-            f"p50_{unit}": self.percentile(50),
-            f"p90_{unit}": self.percentile(90),
-            f"samples_{unit}": [round(sample, num_decimals) for sample in self._reservoir],
         }
+        for percentile in PERCENTILES:
+            fields[f"p{percentile}_{unit}"] = self.percentile(percentile)
+        fields[f"samples_{unit}"] = [round(sample, num_decimals) for sample in self._reservoir]
+        return fields
 
 
 def merge_statistics_json(

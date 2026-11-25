@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import pytest
 
+import isaaclab_arena.utils.sample_statistics as sample_statistics_module
 from isaaclab_arena.utils.sample_statistics import SampleStatistics, merge_statistics_json
 
 
@@ -74,6 +75,46 @@ def test_reservoir_is_bounded_and_leaves_global_random_state_alone() -> None:
     assert random.getstate() == state_before
     assert len(stats.get_samples()) == 5
     assert stats.count == 100
+
+
+def test_reservoir_accuracy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reservoir percentiles track the exact ones on skewed data."""
+    seed = 32
+    monkeypatch.setattr(sample_statistics_module, "_reservoir_random_generator", random.Random(seed))
+    synthetic_data_random_generator = random.Random(seed)
+    num_samples = 10_000
+
+    values = [synthetic_data_random_generator.gauss(20.0, 5.0) for _ in range(num_samples)]
+    # Sprinkle in ~1% outliers.
+    for _ in range(num_samples // 100):
+        values.append(synthetic_data_random_generator.uniform(80.0, 200.0))
+
+    exact = _MillisecondStatistics(percentile_approximation_reservoir_size=len(values))
+    approx = _MillisecondStatistics()
+    for value in values:
+        exact.update(value)
+        approx.update(value)
+
+    for p in (10, 50, 90):
+        assert approx.percentile(p) == pytest.approx(exact.percentile(p), rel=0.05)
+
+
+@pytest.mark.parametrize("p", [-1, 100.5])
+def test_percentile_outside_zero_to_hundred_is_rejected(p: float) -> None:
+    stats = _MillisecondStatistics()
+    stats.update(1.0)
+    with pytest.raises(AssertionError, match="between 0 and 100"):
+        stats.percentile(p)
+
+
+def test_copy_is_independent_of_later_measurements() -> None:
+    stats = _MillisecondStatistics()
+    stats.update(1.0)
+    snapshot = stats.copy()
+    stats.update(2.0)
+    assert snapshot.count == 1
+    assert snapshot.get_samples() == [1.0]
+    assert stats.get_samples() == [1.0, 2.0]
 
 
 def test_samples_is_a_copy() -> None:

@@ -6,13 +6,11 @@
 """Unit tests for the Timer context manager and TimerStats."""
 
 import json
-import random
 import threading
 from unittest.mock import patch
 
 import pytest
 
-import isaaclab_arena.utils.sample_statistics as sample_statistics_module
 import isaaclab_arena.utils.timer as timer_module
 from isaaclab_arena.utils.timer import (
     Timer,
@@ -33,72 +31,6 @@ class TestTimerStats:
         """Verify timings are in milliseconds with microsecond sample resolution."""
         assert TimerStats.get_unit() == "ms"
         assert TimerStats.get_num_decimals() == 3
-
-    def test_initial_state(self) -> None:
-        """Verify default state of a fresh TimerStats."""
-        stats = TimerStats()
-        assert stats.count == 0
-        assert stats.total == 0.0
-        assert stats.minimum == float("inf")
-        assert stats.maximum == float("-inf")
-        assert stats.get_mean() == 0.0
-
-    def test_accumulation(self) -> None:
-        """Verify min/max/mean/total after multiple measurements."""
-        stats = TimerStats()
-        stats.update(10.0)
-        stats.update(20.0)
-        stats.update(30.0)
-        assert stats.count == 3
-        assert stats.total == 60.0
-        assert stats.minimum == 10.0
-        assert stats.maximum == 30.0
-        assert stats.get_mean() == pytest.approx(20.0)
-
-    def test_percentile_empty(self) -> None:
-        """Verify percentile returns None when no data recorded."""
-        stats = TimerStats()
-        assert stats.percentile(50) is None
-
-    def test_percentile_values(self) -> None:
-        """Verify approximate percentiles on a known distribution."""
-        stats = TimerStats()
-        for i in range(1, 101):
-            stats.update(float(i))
-        assert stats.percentile(10) == 10.0
-        assert stats.percentile(50) == 50.0
-        assert stats.percentile(90) == 90.0
-
-    def test_reservoir_sampling_does_not_modify_global_random_state(self) -> None:
-        """Verify reservoir sampling does not affect application randomness."""
-        stats = TimerStats(percentile_approximation_reservoir_size=1)
-        global_random_state = random.getstate()
-
-        stats.update(1.0)
-        stats.update(2.0)
-
-        assert random.getstate() == global_random_state
-
-    def test_reservoir_accuracy(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Verify reservoir sampling percentiles track the exact ones on skewed data."""
-        seed = 32
-        monkeypatch.setattr(sample_statistics_module, "_reservoir_random_generator", random.Random(seed))
-        synthetic_data_random_generator = random.Random(seed)
-        num_samples = 10_000
-
-        values = [synthetic_data_random_generator.gauss(20.0, 5.0) for _ in range(num_samples)]
-        # Sprinkle in ~1% outliers.
-        for _ in range(num_samples // 100):
-            values.append(synthetic_data_random_generator.uniform(80.0, 200.0))
-
-        exact = TimerStats(percentile_approximation_reservoir_size=len(values))
-        approx = TimerStats()
-        for value in values:
-            exact.update(value)
-            approx.update(value)
-
-        for p in (10, 50, 90):
-            assert approx.percentile(p) == pytest.approx(exact.percentile(p), rel=0.05)
 
 
 class TestTimer:
@@ -242,7 +174,7 @@ class TestTimer:
             pass
 
         assert snapshot["op"].count == 1
-        assert len(snapshot["op"]._reservoir) == 1
+        assert len(snapshot["op"].get_samples()) == 1
         assert get_timer_stats()["op"].count == 2
 
 
@@ -322,28 +254,6 @@ class TestMergeTimerStatsJson:
             "p50_ms": min_ms,
         }
 
-    def test_empty_input(self) -> None:
-        """Verify merging nothing produces nothing."""
-        assert merge_timer_stats_json([]) == []
-
-    def test_combines_records_that_share_a_name(self) -> None:
-        """Verify counts and totals add while min and max span every record."""
-        merged = merge_timer_stats_json([
-            self._record("step", count=2, total_ms=10.0, min_ms=3.0, max_ms=7.0),
-            self._record("step", count=3, total_ms=30.0, min_ms=1.0, max_ms=20.0),
-        ])
-
-        assert merged == [{"name": "step", "count": 5, "total_ms": 40.0, "min_ms": 1.0, "max_ms": 20.0, "mean_ms": 8.0}]
-
-    def test_separate_names_sorted(self) -> None:
-        """Verify distinct names stay separate and come back sorted by name."""
-        merged = merge_timer_stats_json([
-            self._record("b_op", count=1, total_ms=2.0, min_ms=2.0, max_ms=2.0),
-            self._record("a_op", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0),
-        ])
-
-        assert [record["name"] for record in merged] == ["a_op", "b_op"]
-
     def test_single_record_percentiles_match_the_timer_percentiles(self) -> None:
         """Verify merging one record gives the percentiles the timer reported for it."""
         timer_stats = TimerStats()
@@ -356,54 +266,6 @@ class TestMergeTimerStatsJson:
 
         for key, percentile in (("p10_ms", 10), ("p50_ms", 50), ("p90_ms", 90)):
             assert merged[0][key] == records[0][key] == timer_stats.percentile(percentile)
-
-    def test_percentiles_are_left_out_without_samples(self) -> None:
-        """Verify percentile fields are not carried into a merged record whose inputs have no samples."""
-        merged = merge_timer_stats_json([self._record("step", count=1, total_ms=5.0, min_ms=5.0, max_ms=5.0)])
-
-        assert set(merged[0]) == {"name", "count", "total_ms", "min_ms", "max_ms", "mean_ms"}
-
-    def test_percentiles_come_from_pooled_samples(self) -> None:
-        """Verify merged percentiles are estimated from the samples of every record, without carrying the samples."""
-        first = {**self._record("step", count=5, total_ms=15.0, min_ms=1.0, max_ms=5.0), "samples_ms": [1, 2, 3, 4, 5]}
-        second = {
-            **self._record("step", count=5, total_ms=40.0, min_ms=6.0, max_ms=10.0),
-            "samples_ms": [6, 7, 8, 9, 10],
-        }
-
-        merged = merge_timer_stats_json([first, second])
-
-        assert merged[0]["p10_ms"] == 1
-        assert merged[0]["p50_ms"] == 5
-        assert merged[0]["p90_ms"] == 9
-        assert "samples_ms" not in merged[0]
-
-    def test_samples_are_weighted_by_the_measurements_they_stand_for(self) -> None:
-        """Verify a record that sampled few of its many measurements counts for all of them."""
-        # 1000 measurements at 1 ms, sampled by two values, against 50 measurements at 100 ms, sampled by 50 values.
-        many = {**self._record("step", count=1000, total_ms=1000.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0] * 2}
-        few = {
-            **self._record("step", count=50, total_ms=5000.0, min_ms=100.0, max_ms=100.0),
-            "samples_ms": [100.0] * 50,
-        }
-
-        merged = merge_timer_stats_json([many, few])
-
-        # 1 ms is 95% of the measurements. An unweighted pool, or one weighting each sample by its record's
-        # full count, would put both the median and p90 at 100 ms.
-        assert merged[0]["p50_ms"] == 1.0
-        assert merged[0]["p90_ms"] == 1.0
-
-    def test_samples_can_be_removed_from_the_input_records(self) -> None:
-        """Verify the flag deletes "samples_ms" from the input records and leaves them alone by default."""
-        record = {**self._record("step", count=1, total_ms=1.0, min_ms=1.0, max_ms=1.0), "samples_ms": [1.0]}
-
-        merge_timer_stats_json([record])
-        assert record["samples_ms"] == [1.0]
-
-        merged = merge_timer_stats_json([record], remove_samples_from_input_records=True)
-        assert "samples_ms" not in record
-        assert merged[0]["p50_ms"] == 1.0
 
     def test_percentiles_are_left_out_when_one_record_has_no_samples(self) -> None:
         """Verify a record without samples makes the pooled percentiles unavailable for its name."""

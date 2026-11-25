@@ -31,7 +31,7 @@ import re
 import threading
 import time
 from collections.abc import Iterable, MutableMapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -144,27 +144,13 @@ class Timer:
 def get_timer_stats() -> dict[str, TimerStats]:
     """Return a snapshot of the timer registry that timers still running on other threads do not change."""
     with _timer_registry_lock:
-        return {
-            name: replace(timer_stats, _reservoir=list(timer_stats._reservoir))
-            for name, timer_stats in _timer_registry.items()
-        }
+        return {name: timer_stats.copy() for name, timer_stats in _timer_registry.items()}
 
 
 TYPE_KEY = "type"
 NAME_KEY = "name"
 APP_NAME_KEY = "app_name"
-COUNT_KEY = "count"
-MEAN_MS_KEY = "mean_ms"
-TOTAL_MS_KEY = "total_ms"
-MIN_MS_KEY = "min_ms"
-MAX_MS_KEY = "max_ms"
-P10_MS_KEY = "p10_ms"
-P50_MS_KEY = "p50_ms"
-P90_MS_KEY = "p90_ms"
 SAMPLES_MS_KEY = "samples_ms"
-
-PERCENTILE_BY_KEY = {P10_MS_KEY: 10, P50_MS_KEY: 50, P90_MS_KEY: 90}
-"""Percentile keys of a timer record, mapped to their percentile."""
 
 
 def get_timer_stats_json(app_name: str) -> list[dict]:
