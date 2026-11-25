@@ -3,19 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""PickUpTask follows per-environment rest poses and sequential reset state."""
+"""LiftObjectTask follows per-environment rest poses and sequential reset state."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _test_pickup_rest_height_order_and_partial_reset(_simulation_app):
+def _test_lift_rest_height_order_and_partial_reset(_simulation_app):
     import torch
     from dataclasses import replace
     from types import SimpleNamespace
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.pick_up_task import PickUpTask
+    from isaaclab_arena.tasks.lift_object_task import LiftObjectTask
     from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 
     class World:
@@ -43,12 +43,12 @@ def _test_pickup_rest_height_order_and_partial_reset(_simulation_app):
         object_initial_rest_pose_recorder=recorder,
         door_open=torch.ones(2, dtype=torch.bool),
     )
-    task = PickUpTask(SimpleNamespace(name="can"), SimpleNamespace(object_min_z=-0.2), minimum_lift_m=0.15)
-    pickup = replace(task.get_termination_cfg().success[0], parent_subtask_idx=0)
+    task = LiftObjectTask(SimpleNamespace(name="can"), SimpleNamespace(object_min_z=-0.2), minimum_lift_m=0.15)
+    lift = replace(task.get_termination_cfg().success[0], parent_subtask_idx=0)
     door = CompletionCriteria(name="door", predicate_sequence=[lambda env: env.door_open], parent_subtask_idx=1)
-    tracker = ProgressTracker([pickup, door], num_envs=2, device="cpu", subtasks_are_sequential=True)
+    tracker = ProgressTracker([lift, door], num_envs=2, device="cpu", subtasks_are_sequential=True)
 
-    # Even an already-open door cannot bypass pickup; a moving object cannot establish its rest pose.
+    # Even an already-open door cannot bypass the lift; a moving object cannot establish its rest pose.
     world.linear_velocity[0, 2] = 0.5
     tracker.step(env)
     assert tracker.get_subtask_completion().tolist() == [[False, False], [False, False]]
@@ -83,5 +83,5 @@ def _test_pickup_rest_height_order_and_partial_reset(_simulation_app):
     return True
 
 
-def test_pickup_rest_height_order_and_partial_reset():
-    assert run_function_with_persistent_simulation_app(_test_pickup_rest_height_order_and_partial_reset)
+def test_lift_rest_height_order_and_partial_reset():
+    assert run_function_with_persistent_simulation_app(_test_lift_rest_height_order_and_partial_reset)

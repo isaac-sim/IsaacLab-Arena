@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Record pickup relative to an object's resting pose in each environment."""
+"""Record a lift relative to an object's resting pose in each environment."""
 
 import math
 import numpy as np
@@ -14,7 +14,6 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height
@@ -24,21 +23,24 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
 @register_task
-class PickUpTask(TaskBase):
-    """Require an object to rest, then rise above its recorded resting height."""
+class LiftObjectTask(TaskBase):
+    """Require an object to rest, then rise above its recorded resting height.
+
+    Success depends only on the object's height, so it does not check how the object was lifted.
+    """
 
     def __init__(
         self,
-        pick_up_object: Asset,
+        lift_object: Asset,
         background_scene: Asset,
         minimum_lift_m: float = 0.1,
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
-        """Configure a pickup task relative to the episode's first rest pose.
+        """Configure a lift task relative to the episode's first rest pose.
 
         Args:
-            pick_up_object: Object to lift.
+            lift_object: Object to lift.
             background_scene: Background defining the drop-failure height.
             minimum_lift_m: Required height increase in meters, strictly positive.
             episode_length_s: Maximum episode duration in seconds.
@@ -46,12 +48,12 @@ class PickUpTask(TaskBase):
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert math.isfinite(minimum_lift_m) and minimum_lift_m > 0
-        self.pick_up_object = pick_up_object
+        self.lift_object = lift_object
         self.background_scene = background_scene
         self.minimum_lift_m = minimum_lift_m
 
     def apply_reachability_constraints(self) -> None:
-        self._apply_reachability_constraints([self.pick_up_object])
+        self._apply_reachability_constraints([self.lift_object])
 
     def get_scene_cfg(self):
         return None
@@ -62,23 +64,20 @@ class PickUpTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode):
         return None
 
-    def get_metrics(self):
-        return [SuccessRateMetric()]
-
     def get_viewer_cfg(self):
-        return get_viewer_cfg_look_at_object(self.pick_up_object, offset=np.array([-1.5, -1.5, 1.5]))
+        return get_viewer_cfg_look_at_object(self.lift_object, offset=np.array([-1.5, -1.5, 1.5]))
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
                 CompletionCriteria(
-                    name="pick_up",
+                    name="lift_object",
                     predicate_sequence=[
-                        partial(objects_settled, object_names=[self.pick_up_object.name]),
+                        partial(objects_settled, object_names=[self.lift_object.name]),
                         partial(
                             object_is_above_height,
-                            object_name=self.pick_up_object.name,
+                            object_name=self.lift_object.name,
                             use_settled_state=True,
                             distance=self.minimum_lift_m,
                         ),
@@ -90,7 +89,7 @@ class PickUpTask(TaskBase):
                     func=mdp.root_height_below_minimum,
                     params={
                         "minimum_height": self.background_scene.object_min_z,
-                        "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+                        "asset_cfg": SceneEntityCfg(self.lift_object.name),
                     },
                 )
             },

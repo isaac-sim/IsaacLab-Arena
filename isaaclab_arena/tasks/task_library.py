@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import isaaclab_arena.tasks.reinforcement_learning.lift_object_task  # noqa: F401
+
 # Importing these concrete task modules fires their @register_task decorators. This must
 # NOT live in tasks/__init__.py: that runs on any `from isaaclab_arena.tasks.X import Y`,
 # including at pytest-collection time, and the cascade pulls in pxr/USD modules before
@@ -13,15 +15,14 @@ from isaaclab_arena.tasks import (  # noqa: F401
     close_door_task,
     gear_insertion_task,
     goal_pose_task,
+    lift_object_task,
     no_task,
     object_in_task,
     open_door_task,
     pick_and_place_task,
-    pick_up_task,
     place_upright_task,
     press_button_task,
     rotate_revolute_joint_task,
     sorting_task,
     turn_knob_task,
 )
-from isaaclab_arena.tasks.reinforcement_learning import lift_object_task  # noqa: F401
