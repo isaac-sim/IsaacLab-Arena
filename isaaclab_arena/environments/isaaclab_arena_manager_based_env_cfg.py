@@ -188,6 +188,22 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     decimation: int = 8
     wait_for_textures: bool = False
 
+    def __repr__(self) -> str:
+        """Return a one-line summary instead of the full recursive dataclass dump.
+
+        Isaac Lab prints this object when parsing the registered env config. The generated
+        dataclass repr is tens to hundreds of kilobytes, so only the headline fields are shown.
+        Use ``to_dict()`` for the full configuration.
+        """
+        num_envs = getattr(getattr(self, "scene", None), "num_envs", None)
+        dt = getattr(getattr(self, "sim", None), "dt", None)
+        device = getattr(getattr(self, "sim", None), "device", None)
+        return (
+            f"{type(self).__name__}(task_description={self.task_description!r}, num_envs={num_envs}, "
+            f"decimation={self.decimation}, dt={dt}, device={device}, "
+            f"episode_length_s={getattr(self, 'episode_length_s', None)})"
+        )
+
 
 def apply_arena_global_settings() -> None:
     """Apply Arena's process-global RTX and physics settings before environment construction."""

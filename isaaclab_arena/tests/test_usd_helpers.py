@@ -201,3 +201,19 @@ def test_mesh_exclusion_errors(tmp_path: pathlib.Path):
         headless=HEADLESS,
         asset_dir=tmp_path,
     )
+
+
+def _test_summarize_prim_paths(simulation_app) -> bool:
+    """Short lists print in full; long lists show the first paths and how many were left out."""
+    from isaaclab_arena.utils.usd.helpers import _summarize_prim_paths
+
+    assert _summarize_prim_paths(["/a", "/b"]) == "/a, /b"
+    assert _summarize_prim_paths(["/a", "/b", "/c"], max_shown=3) == "/a, /b, /c"
+    paths = [f"/prim_{i}" for i in range(1378)]
+    summary = _summarize_prim_paths(paths)
+    assert summary == "/prim_0, /prim_1, /prim_2, /prim_3, /prim_4, ... (1373 more of 1378)"
+    return True
+
+
+def test_summarize_prim_paths():
+    assert run_function_with_persistent_simulation_app(_test_summarize_prim_paths, headless=HEADLESS)
