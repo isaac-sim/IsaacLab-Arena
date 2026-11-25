@@ -576,11 +576,12 @@
                   
   <section id="kitchen-benchmark-catalog">
 <h1>Kitchen Benchmark Catalog<a class="headerlink" href="#kitchen-benchmark-catalog" title="Link to this heading">#</a></h1>
-<p>The kitchen benchmark contains 51 DROID tasks defined as environment graph
+<p>The kitchen benchmark contains 59 DROID tasks defined as environment graph
 YAML specs under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/kitchen_bench/</span></code>. Pass a spec
 to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> with <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> to run that environment.
 π0.5 (<code class="docutils literal notranslate"><span class="pre">pi05_droid_jointpos</span></code>, DROID adapter) was evaluated on 100 episodes per
-environment: the original 42 environments on October 28, 2026, and the nine
+environment: the original 42 environments on October 28, 2026, the eight
+additional appliance environments on October 29–30, 2026, and the nine
 <code class="docutils literal notranslate"><span class="pre">kitchen_bench_spatial_*</span></code> placement environments on November 22, 2026.</p>
 <div class="pst-scrollable-table-container"><table class="table" id="id1">
 <caption><span class="caption-text">Task categories</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
@@ -605,8 +606,8 @@ environment: the original 42 environments on October 28, 2026, and the nine
 <td><p>10.0%</p></td>
 </tr>
 <tr class="row-even"><td><p>Turn knob</p></td>
-<td><p>3</p></td>
-<td><p>34.7%</p></td>
+<td><p>11</p></td>
+<td><p>37.6%</p></td>
 </tr>
 <tr class="row-odd"><td><p>Single-object pick-and-place (container)</p></td>
 <td><p>18</p></td>
@@ -629,7 +630,7 @@ environment: the original 42 environments on October 28, 2026, and the nine
 <td><p>42.0%</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Total</strong></p></td>
-<td><p><strong>51</strong></p></td>
+<td><p><strong>59</strong></p></td>
 <td><p><strong>38.8%</strong></p></td>
 </tr>
 </tbody>
@@ -749,6 +750,70 @@ the maintained DROID external camera. Rows are grouped by task category.</p>
 <td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian.yaml">kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian.yaml</a></p></td>
 <td><p>39%</p></td>
 <td><a class="reference internal image-reference" href="../../_images/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian_pi05.gif"><img alt="Pi0.5 policy turning the toaster oven timer in the Scandinavian kitchen" src="../../_images/kitchen_bench_lightwheel_turn_toaster_oven_timer_knob_l_shaped_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender008_one_wall_coastal.yaml">kitchen_bench_turn_blender008_one_wall_coastal.yaml</a></p></td>
+<td><p>33%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_blender008_one_wall_coastal_pi05.gif"><img alt="Pi0.5 policy turning the blender speed dial in the coastal kitchen" src="../../_images/kitchen_bench_turn_blender008_one_wall_coastal_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml">kitchen_bench_turn_forgecad_air_fryer_galley_industrial.yaml</a></p></td>
+<td><p>13%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_forgecad_air_fryer_galley_industrial_pi05.gif"><img alt="Pi0.5 policy turning the air fryer timer dial in the industrial kitchen" src="../../_images/kitchen_bench_turn_forgecad_air_fryer_galley_industrial_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml">kitchen_bench_turn_palatial_toaster_u_shaped_modern1.yaml</a></p></td>
+<td><p>23%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_palatial_toaster_u_shaped_modern1_pi05.gif"><img alt="Pi0.5 policy turning the toaster browning dial in the modern kitchen" src="../../_images/kitchen_bench_turn_palatial_toaster_u_shaped_modern1_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml">kitchen_bench_turn_forgecad_toaster_g_shaped_rustic.yaml</a></p></td>
+<td><p>51%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic_pi05.gif"><img alt="Pi0.5 policy turning the toaster dial in the rustic kitchen" src="../../_images/kitchen_bench_turn_forgecad_toaster_g_shaped_rustic_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml">kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2.yaml</a></p></td>
+<td><p>38%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2_pi05.gif"><img alt="Pi0.5 policy turning the toaster oven temperature knob in the farmhouse kitchen" src="../../_images/kitchen_bench_turn_toaster_oven001_u_shaped_with_island_farmhouse2_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml">kitchen_bench_turn_blender003_l_shaped_scandinavian.yaml</a></p></td>
+<td><p>36%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_blender003_l_shaped_scandinavian_pi05.gif"><img alt="Pi0.5 policy turning the blender speed dial in the Scandinavian kitchen" src="../../_images/kitchen_bench_turn_blender003_l_shaped_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-even"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml">kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian.yaml</a></p></td>
+<td><p>32%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian_pi05.gif"><img alt="Pi0.5 policy turning the stand mixer knob in the Scandinavian kitchen" src="../../_images/kitchen_bench_turn_stand_mixer003_g_shaped_large_scandinavian_pi05.gif" style="width: 100%;" />
+</a>
+<p>Pi0.5, 2x speed.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><p>Turn knob</p></td>
+<td><p><a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml">kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1.yaml</a></p></td>
+<td><p>84%</p></td>
+<td><a class="reference internal image-reference" href="../../_images/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1_pi05.gif"><img alt="Pi0.5 policy turning the toaster dial in the farmhouse kitchen" src="../../_images/kitchen_bench_turn_toaster002_one_wall_with_island_farmhouse1_pi05.gif" style="width: 100%;" />
 </a>
 <p>Pi0.5, 2x speed.</p>
 </td>
