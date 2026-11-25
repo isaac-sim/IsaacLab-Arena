@@ -49,36 +49,29 @@ class G1HomiePolicyV2(WBCPolicy):
         self.use_policy_action = True
         self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
         self.target_dof_pos = self.config["default_angles"].copy()
-        self.cmd = self.config["cmd_init"].copy()
-        self.height_cmd = self.config["height_cmd"]
+        self.cmd = np.tile(self.config["cmd_init"], (num_envs, 1))
+        self.height_cmd = np.full((num_envs, 1), self.config["height_cmd"], dtype=np.float32)
         self.freq_cmd = self.config["freq_cmd"]
-        self.roll_cmd = self.config["rpy_cmd"][0]
-        self.pitch_cmd = self.config["rpy_cmd"][1]
-        self.yaw_cmd = self.config["rpy_cmd"][2]
+        self.torso_rpy_cmd = np.tile(np.asarray(self.config["rpy_cmd"], dtype=np.float32), (num_envs, 1))
         self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
+        self.obs_tensor = None
 
     def reset(self, env_ids: torch.Tensor):
-        """Reset the policy.
-
-        Args:
-            env_ids: The environment ids to reset
-        """
-        self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
-        # Initialize observation history buffer
-        self.observation = None
-        self.obs_history = collections.deque(maxlen=self.config["obs_history_len"])
-        self.obs_buffer = np.zeros((self.num_envs, self.config["num_obs"]), dtype=np.float32)
-
-        # Initialize state variables
-        self.use_policy_action = True
-        self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
-        self.target_dof_pos = self.config["default_angles"].copy()
-        self.cmd = self.config["cmd_init"].copy()
-        self.height_cmd = self.config["height_cmd"]
-        self.freq_cmd = self.config["freq_cmd"]
-        self.roll_cmd = self.config["rpy_cmd"][0]
-        self.pitch_cmd = self.config["rpy_cmd"][1]
-        self.yaw_cmd = self.config["rpy_cmd"][2]
+        """Clear the command, gait and observation history of the specified robots."""
+        ids = env_ids.detach().cpu()
+        rows = ids.numpy()
+        self.gait_indices[ids] = 0
+        self.action[rows] = 0
+        self.obs_buffer[rows] = 0
+        for frame in self.obs_history:
+            frame[rows] = 0
+        self.cmd[rows] = self.config["cmd_init"]
+        self.height_cmd[rows] = self.config["height_cmd"]
+        self.torso_rpy_cmd[rows] = self.config["rpy_cmd"]
+        if len(rows) == self.num_envs:
+            self.use_policy_action = True
+            self.observation = None
+            self.obs_tensor = None
 
     def compute_observation(self, observation: dict[str, Any]) -> tuple[np.ndarray, int]:
         """Compute the observation vector from current state"""
@@ -134,8 +127,8 @@ class G1HomiePolicyV2(WBCPolicy):
 
         single_obs = np.zeros((self.num_envs, single_obs_dim), dtype=np.float32)
         single_obs[:, 0:3] = self.cmd[:, :3] * self.config["cmd_scale"]
-        single_obs[:, 3:4] = np.array([self.height_cmd])
-        single_obs[:, 4:7] = np.stack([self.roll_cmd, self.pitch_cmd, self.yaw_cmd], axis=1)
+        single_obs[:, 3:4] = self.height_cmd
+        single_obs[:, 4:7] = self.torso_rpy_cmd
         single_obs[:, 7:10] = omega_scaled
         single_obs[:, 10:13] = gravity_orientation.T
         single_obs[:, 13 : 13 + n_joints] = qj_scaled
@@ -188,19 +181,17 @@ class G1HomiePolicyV2(WBCPolicy):
                 self.use_policy_action = not self.use_policy_action
 
         if "navigate_cmd" in goal:
-            self.cmd = goal["navigate_cmd"]
+            self.cmd[:] = goal["navigate_cmd"]
 
         if "base_height_command" in goal:
-            self.height_cmd = (
+            self.height_cmd[:] = (
                 goal["base_height_command"][0]
                 if isinstance(goal["base_height_command"], list)
                 else goal["base_height_command"]
             )
 
         if "torso_orientation_rpy_cmd" in goal:
-            self.roll_cmd = goal["torso_orientation_rpy_cmd"][:, 0]
-            self.pitch_cmd = goal["torso_orientation_rpy_cmd"][:, 1]
-            self.yaw_cmd = goal["torso_orientation_rpy_cmd"][:, 2]
+            self.torso_rpy_cmd[:] = goal["torso_orientation_rpy_cmd"]
 
     def get_action(self) -> dict[str, Any]:
         """Compute and return the next action based on current observation.
