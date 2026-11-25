@@ -28,9 +28,10 @@ def lightwheel_cache_root() -> Path:
 
 
 class LightwheelSource(UsdSource, ABC):
-    """Acquire and memoize one Lightwheel USD, using the SDK cache directory when the asset is complete there.
+    """Return the local path of one Lightwheel USD, using the SDK cache directory when the asset is there.
 
-    The cache lookup avoids error-prone API and remote calls when a local copy exists.
+    The cache lookup avoids API and remote calls, which are affected by Lightwheel outages, when a local copy exists.
+    The path is remembered after the first call.
 
     NOTE: The lookups mirror the private cache layout of ``lightwheel_sdk`` 1.0.3 (the version in ``uv.lock``). Remove
     them once the SDK can return a cached asset without calling its API first.
@@ -96,7 +97,7 @@ class LightwheelSource(UsdSource, ABC):
 
 
 class LightwheelObjectUsdSource(LightwheelSource):
-    """Acquire and memoize one Lightwheel object USD on first use."""
+    """Download and cache a Lightwheel object USD."""
 
     def __init__(
         self, registry_type: str, file_name: str, file_type: str = "USD", registry_name: list[str] | None = None
@@ -129,9 +130,11 @@ class LightwheelObjectUsdSource(LightwheelSource):
         if not object_root.is_dir():
             return None
         for object_dir in object_root.iterdir():
+            # Find the directory named after the requested file, ignoring case.
             if object_dir.name.lower() != file_name.lower() or not object_dir.is_dir():
                 continue
             usd_path = object_dir / f"{object_dir.name}.usd"
+            # The SDK writes the version marker last, so its presence means the extraction finished.
             has_marker = any(object_dir.glob("*.txt"))
             if usd_path.is_file() and has_marker:
                 return str(usd_path)
@@ -152,7 +155,7 @@ class LightwheelObjectUsdSource(LightwheelSource):
 
 
 class LightwheelFloorplanUsdSource(LightwheelSource):
-    """Acquire and memoize one Lightwheel floorplan USD on first use."""
+    """Download and cache a Lightwheel floorplan USD."""
 
     _asset_label = "floorplan"
 
