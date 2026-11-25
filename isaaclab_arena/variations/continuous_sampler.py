@@ -26,7 +26,7 @@ class ContinuousSamplerCfg(SamplerBaseCfg):
 
 
 class ContinuousSampler(SamplerBase):
-    """Draws continuous numeric values from a fixed-shape distribution.
+    """Draws numeric values as fixed-shape float32 tensors.
 
     Concrete subclasses implement ``_sample`` to return a tensor of shape
     ``(num_samples, *shape_per_sample)``.
@@ -47,15 +47,18 @@ class ContinuousSampler(SamplerBase):
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         replay_samples = self._get_replay_samples(num_samples, env_ids)
         if replay_samples is None:
-            result = self._sample(num_samples)
+            result = self._sample(num_samples, env_ids)
         else:
             result = torch.as_tensor(replay_samples, dtype=torch.float32).reshape(num_samples, *self.shape_per_sample)
         self._notify(result, env_ids)
         return result
 
     @abstractmethod
-    def _sample(self, num_samples: int) -> torch.Tensor:
-        """Draw ``num_samples`` values from ``self._generator`` as a ``(num_samples, *shape_per_sample)`` tensor."""
+    def _sample(self, num_samples: int, env_ids: torch.Tensor | None) -> torch.Tensor:
+        """Draw ``num_samples`` values for ``env_ids`` as a ``(num_samples, *shape_per_sample)`` tensor.
+
+        Random draws use ``self._generator``. ``env_ids`` is ``None`` when the draw applies to all envs.
+        """
         ...
 
     @property

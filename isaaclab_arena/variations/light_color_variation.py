@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.variations.continuous_sampler import ContinuousSamplerCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -23,10 +24,10 @@ if TYPE_CHECKING:
 class LightColorVariationCfg(VariationBaseCfg):
     """Configuration for LightColorVariation."""
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: ContinuousSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(low=[0.0, 0.0, 0.0], high=[1.0, 1.0, 1.0])
     )
-    """Uniform distribution over the (red, green, blue) channels, each in [0, 1]."""
+    """Distribution over the (red, green, blue) channels, each in [0, 1]; uniform by default."""
 
 
 class LightColorVariation(BuildTimeVariationBase):

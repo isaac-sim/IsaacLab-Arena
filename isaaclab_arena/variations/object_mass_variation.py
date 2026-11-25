@@ -19,7 +19,7 @@ import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
+from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, ContinuousSamplerCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -35,8 +35,8 @@ _MIN_PHYSICAL_MASS_KG = 1e-6
 class ObjectMassVariationCfg(VariationBaseCfg):
     """Configuration for ObjectMassVariation."""
 
-    sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[0.05], high=[2.0]))
-    """Uniform distribution over absolute object mass [kg]."""
+    sampler_cfg: ContinuousSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[0.05], high=[2.0]))
+    """Distribution over absolute object mass [kg]; uniform by default."""
 
     recompute_inertia: bool = True
     """Whether to scale inertia tensors by the sampled-mass/default-mass ratio."""
@@ -165,7 +165,7 @@ class ApplyObjectMassFromSampler(ManagerTermBase):
         if masses_to_apply.numel() > 0:
             assert torch.all(masses_to_apply >= _MIN_PHYSICAL_MASS_KG), (
                 f"ObjectMassVariation sampled a mass below the minimum physical mass ({_MIN_PHYSICAL_MASS_KG} kg); "
-                f"constrain sampler_cfg.low. min sampled mass={float(masses_to_apply.min())}."
+                f"raise the masses sampler_cfg can draw. min sampled mass={float(masses_to_apply.min())}."
             )
 
         # set_masses_index writes only the (env_ids, body_ids) subset, so pass the sampled masses

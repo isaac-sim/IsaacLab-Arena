@@ -18,7 +18,7 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
+from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, ContinuousSamplerCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -36,13 +36,13 @@ class CameraIntrinsicsVariationCfg(VariationBaseCfg):
     lengths (``fx, fy -> fx, fy * (1 + d_f)``).
     """
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: ContinuousSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-0.1],
             high=[0.1],
         )
     )
-    """Uniform distribution over a shared fractional focal-length perturbation."""
+    """Distribution over a shared fractional focal-length perturbation; uniform by default."""
 
 
 class CameraIntrinsicsVariation(RunTimeVariationBase):

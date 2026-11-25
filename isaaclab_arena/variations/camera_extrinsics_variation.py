@@ -26,7 +26,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
+from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, ContinuousSamplerCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -42,13 +42,13 @@ class CameraExtrinsicsVariationCfg(VariationBaseCfg):
     (+X right, +Y down, +Z forward).
     """
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: ContinuousSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-0.005, -0.005, -0.005],
             high=[0.005, 0.005, 0.005],
         )
     )
-    """Uniform distribution over decalibration XYZ in the ROS camera frame [m]."""
+    """Distribution over decalibration XYZ in the ROS camera frame [m]; uniform by default."""
 
 
 class CameraExtrinsicsVariation(RunTimeVariationBase):
