@@ -152,9 +152,36 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
    calls fTetWild during scene creation when it cannot find an existing ``UsdGeom.TetMesh``.
    This on-the-fly conversion is nondeterministic between process launches and may produce
    different node counts or connectivity. Demonstration datasets include the initial nodal
-   state, which can be restored only into the same topology. If deterministic topology is
-   required, including for recording and replay, pre-generate a USD containing a
-   ``UsdGeom.TetMesh`` and use that asset instead.
+   state, which can be restored only into the same topology. Seeding the environment does
+   not make this conversion repeatable: the current ``pytetwild`` wrapper exposes no random
+   seed parameter.
+
+   Before recording demonstrations, bake the desired cube **once** into a USD containing a
+   ``UsdGeom.TetMesh``. Run the command for your backend from the repository root in your
+   activated Arena runtime, before changing the object library:
+
+   .. tab-set::
+
+      .. tab-item:: Newton
+         :selected:
+
+         .. code-block:: bash
+
+            python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
+              --asset deformable_cube_newton \
+              --output /absolute/path/to/deformable_cube_newton.usda
+
+      .. tab-item:: PhysX
+
+         .. code-block:: bash
+
+            python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
+              --asset deformable_cube_physx \
+              --output /absolute/path/to/deformable_cube_physx.usda
+
+   Next, edit ``isaaclab_arena/assets/deformable_object_library.py`` to load the generated USD file.
+   In ``DeformableCubeNewton`` and ``DeformableCubePhysx``, change ``spawner_cfg`` to use
+   ``UsdFileCfg`` and set ``usd_path`` to the generated file's path.
 
 Evaluate with OpenPI
 --------------------
