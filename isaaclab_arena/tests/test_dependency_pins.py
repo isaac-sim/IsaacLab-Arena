@@ -8,12 +8,15 @@
 Arena repeats a small set of upstream uv overrides because nested uv projects
 do not contribute their tool configuration to the root lock. The remaining
 Arena-only constraints cover transitive Isaac Sim dependencies whose upstream
-requirements are intentionally broad.
+requirements are intentionally broad. The Newton stack is upgraded independently
+and checked explicitly against the selected release and lock below.
 """
 
 import re
 import tomllib
 from pathlib import Path
+
+import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ARENA_PYPROJECT = _REPO_ROOT / "pyproject.toml"
@@ -46,12 +49,8 @@ def _isaaclab_pin(package: str) -> str:
 
 
 def test_isaaclab_uv_overrides_match_submodule():
-    """Arena mirrors the source checkout's backend and torch overrides exactly."""
+    """Overrides outside Arena's explicit Newton upgrade still match the source checkout."""
     packages = {
-        "mujoco",
-        "mujoco-warp",
-        "newton",
-        "newton-usd-schemas",
         "torch",
         "torchvision",
         "usd-exchange",
@@ -67,6 +66,27 @@ def test_isaaclab_uv_overrides_match_submodule():
         package: isaaclab_by_package[package] for package in packages
     }
     assert arena_by_package["warp-lang"] == f"warp-lang=={_isaaclab_pin('warp-lang')}"
+
+
+@pytest.mark.parametrize(
+    ("requirement", "version"),
+    [
+        ("newton[sim]==1.8.0", "1.8.0"),
+        ("mujoco~=3.17.0", "3.17.0"),
+        ("mujoco-warp~=3.17.0", "3.17.0"),
+        ("newton-usd-schemas>=0.6.0", "0.6.0"),
+    ],
+)
+def test_arena_newton_upgrade_pins(requirement: str, version: str):
+    """The intentional Newton overrides and locked releases must match the reviewed stack."""
+    package = _requirement_name(requirement)
+    overrides = tomllib.loads(_ARENA_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]
+    assert [entry for entry in overrides if _requirement_name(entry) == package] == [requirement]
+    lock = tomllib.loads((_REPO_ROOT / "uv.lock").read_text())
+    entries = [entry for entry in lock["package"] if entry["name"] == package]
+    assert len(entries) == 1, f"expected one locked {package} release, found {entries}"
+    assert entries[0]["version"] == version
+    assert entries[0]["source"] == {"registry": "https://pypi.org/simple"}
 
 
 def test_pin_pink_constraint_matches_isaaclab_submodule():
