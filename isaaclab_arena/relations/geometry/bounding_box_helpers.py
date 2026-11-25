@@ -115,8 +115,8 @@ def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -
             assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose"
             try:
                 quarters = quaternion_to_90_deg_z_quarters(obj.get_bounding_box_rotation())
-            except AssertionError as error:
-                raise AssertionError(f"Anchor '{obj.name}': {error}") from error
+            except ValueError as error:
+                raise ValueError(f"Anchor '{obj.name}': {error}") from error
             object_bboxes[obj] = bbox.rotated_90_around_z(quarters)
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)
 

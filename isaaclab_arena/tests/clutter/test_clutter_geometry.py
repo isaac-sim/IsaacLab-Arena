@@ -20,7 +20,7 @@ def test_resting_containment_uses_rotated_bounds():
     rotation = (0, 0, math.sin(half_yaw), math.cos(half_yaw))
     assert quaternion_to_90_deg_z_quarters(rotation) == 1
     support_bounds = support.rotated_90_around_z(quaternion_to_90_deg_z_quarters(rotation)).translated((0, 0, 1))
-    with pytest.raises(AssertionError, match="Only 90°"):
+    with pytest.raises(ValueError, match="Only 90°"):
         quaternion_to_90_deg_z_quarters((0, 0, math.sin(math.pi / 8), math.cos(math.pi / 8)))
     child = AxisAlignedBoundingBox((-0.3, -0.1, -0.05), (0.3, 0.1, 0.05))
     bounds = child.rotated_by_quat((0, 0, 2**-0.5, 2**-0.5)).translated(
