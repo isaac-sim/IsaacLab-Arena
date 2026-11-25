@@ -19,6 +19,7 @@ from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, P
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager, env_ids_to_tensor
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.utils.camera_warmup import warm_scene_cameras_if_needed
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
@@ -185,13 +186,20 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             self._episode_limit is None or self._started_episode_count == 0
         ), "Episode-limited rollouts use one initial reset and automatic replacements during step()."
         self._reset_env_ids = self._reset_env_ids[:0]
-        return super().reset(seed=seed, env_ids=env_ids, options=options)
+        observations, extras = super().reset(seed=seed, env_ids=env_ids, options=options)
+        if warm_scene_cameras_if_needed(self):
+            self.obs_buf = self.observation_manager.compute(update_history=True)
+            observations = self.obs_buf
+        return observations, extras
 
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
         """Step all environments and report completions only for assigned episodes."""
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
         observations, rewards, terminated, truncated, extras = super().step(action)
+        if self._reset_env_ids.numel() > 0 and warm_scene_cameras_if_needed(self):
+            self.obs_buf = self.observation_manager.compute(update_history=True)
+            observations = self.obs_buf
         # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 

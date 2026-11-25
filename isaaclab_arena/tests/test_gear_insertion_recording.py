@@ -75,7 +75,8 @@ def environment_registration_callback() -> list[str]:
 
 @pytest.mark.with_newton
 @pytest.mark.with_subprocess
-def test_gear_insertion_recording_exports_two_successful_episodes(tmp_path):
+@pytest.mark.parametrize("visualizer", ["kit", "none"])
+def test_gear_insertion_recording_exports_two_successful_episodes(tmp_path, visualizer):
     """Native recording must save two distinct successful episodes at the requested path."""
     import h5py
     import numpy as np
@@ -89,7 +90,7 @@ def test_gear_insertion_recording_exports_two_successful_episodes(tmp_path):
             TestConstants.python_path,
             str(script),
             "--visualizer",
-            "kit",
+            visualizer,
             "--task",
             "gear_insertion",
             "--external_callback",
@@ -140,6 +141,10 @@ def test_gear_insertion_recording_exports_two_successful_episodes(tmp_path):
                 assert images.dtype == np.uint8
                 assert images.compression == "gzip"
                 assert images[:].max() > images[:].min(), "Recorded images must not be blank."
+                first_frame = images[0]
+                assert (
+                    float(first_frame.mean()) > 1.0
+                ), f"First recorded frame must not be black (mean={first_frame.mean():.1f})."
             gear_poses = episode["states/rigid_object/gear_insertion_medium_gear/root_pose"][:]
             assert np.isfinite(gear_poses).all()
             assert np.linalg.norm(gear_poses[0, :2] - target[:2]) > 0.1
