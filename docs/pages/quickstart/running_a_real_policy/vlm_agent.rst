@@ -16,10 +16,10 @@ or execution strategy.
    :align: center
 
    Three trials with ``openai/openai/gpt-6-astra`` for each execution strategy (rows) and layout
-   (columns, placement seeds 3, 2, and 19). Each layout is named by the cube and bowl distance from
-   the robot base. Captions give the successes and the average VLM calls per episode; each video
-   is one successful trial. The model is sampled, so trials of one layout can differ; see
-   :ref:`vlm-agent-strategies`.
+   (columns, placement seeds 3, 2, and 19). The chunk row uses ``chunk_size: 15``. Each layout is
+   named by the cube and bowl distance from the robot base. Captions give the successes and the
+   average VLM calls per episode; each video is one successful trial. The model is sampled, so
+   trials of one layout can differ; see :ref:`vlm-agent-strategies`.
 
 Prerequisites
 -------------
@@ -189,7 +189,8 @@ Goal, chunk, and step policies
 ------------------------------
 
 The two registered policies differ in what one response controls. The last three columns come
-from the trials in the figure: three per layout, nine per policy.
+from three trials per layout, as in the figure. One ``chunk_size: 3`` trial was stopped before it
+ended, so that row counts eight.
 
 .. list-table::
    :header-rows: 1
@@ -210,10 +211,16 @@ from the trials in the figure: three per layout, nine per policy.
      - 9 of 9
      - 8–12 (mean 9)
      - 19k–30k (mean 23k)
-   * - ``VLMChunkPolicy`` with ``chunk_size: 15``
-     - 15 commands
+   * - ``VLMChunkPolicy`` with ``chunk_size: 3``, as shipped
+     - 3 commands
      - One command per step. The policy requests the next chunk when the current one is used
        up.
+     - 7 of 8
+     - 13–263 (mean 82)
+     - 34k–635k (mean 199k)
+   * - ``VLMChunkPolicy`` with ``chunk_size: 15``
+     - 15 commands
+     - As for ``chunk_size: 3``.
      - 6 of 9
      - 5–14 (mean 9.5)
      - 17k–47k (mean 32k)
@@ -225,13 +232,15 @@ from the trials in the figure: three per layout, nine per policy.
      - 108k–227k (mean 167k)
 
 Every request sends about 2,000–2,200 prompt tokens, including three 384-pixel images. What the
-model returns differs by policy: about 300 tokens for a goal, 100 for a step command, and 1,400
-for a chunk of 15 commands. Most of these are model reasoning. A step episode costs the most
-because it makes the most requests.
+model returns differs by policy: about 300 tokens for a goal, 100 for a step command, 400 for a
+chunk of 3 commands, and 1,400 for a chunk of 15. Most of these are model reasoning. A step
+episode makes the most requests, so it typically costs the most. Most ``chunk_size: 3`` successes
+took 13–40 requests, but two took over 200, which raises that row's mean.
 
 A failed episode costs far more than a successful one, because the policy keeps requesting until
-the episode ends, at 1,050 steps or earlier if the cube falls off the table. A failed chunk
-episode used about 240k tokens, and a failed step episode about 2.4M.
+the episode ends, at 1,050 steps or earlier if the cube falls off the table. A failed episode used
+about 830k tokens with ``chunk_size: 3``, 240k with ``chunk_size: 15``, and 2.4M with the step
+policy.
 
 Step mode is also the most sensitive to a single bad response. A command executes on the very
 next step, so one stray "open" while the robot carries the cube drops it. Goal and long-chunk
