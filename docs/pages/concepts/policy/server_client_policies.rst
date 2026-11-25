@@ -66,6 +66,12 @@ The client's configuration holds the connection settings: ``remote_host``, ``rem
       :language: yaml
       :lines: 6-
 
+The Cosmos client's ``policy_variant`` selects which released Cosmos3 DROID checkpoint serves it:
+``cosmos3_edge`` (the default, `Cosmos3-Edge-Policy-DROID <https://huggingface.co/nvidia/Cosmos3-Edge-Policy-DROID>`_)
+or ``cosmos3_nano`` (`Cosmos3-Nano-Policy-DROID <https://huggingface.co/nvidia/Cosmos3-Nano-Policy-DROID>`_).
+The variant also sets the client's default ``open_loop_horizon`` (16 for Edge, 32 for Nano) and the
+server's prompt format (structured JSON for Edge, plain text for Nano), following each model card.
+
 GR00T and DreamZero servers use their own protocols, so Arena keeps their native clients. Both
 still implement ``PolicyBase``, and the runners treat them like any other policy. GR00T also
 converts chunks into per-step actions through a configurable ``ActionScheduler`` (see

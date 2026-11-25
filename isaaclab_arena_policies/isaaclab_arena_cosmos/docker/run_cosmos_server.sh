@@ -10,12 +10,13 @@
 #   ./run_cosmos_server.sh                  # build if missing, then serve the DROID policy
 #   ./run_cosmos_server.sh -r               # force rebuild, then run
 #   ./run_cosmos_server.sh -p 9000          # serve on a different port
+#   ./run_cosmos_server.sh -v nano         # serve Cosmos3-Nano-Policy-DROID instead of Edge
 #   ./run_cosmos_server.sh -h               # help
 #
 # The pinned commit lives in the COSMOS_COMMIT file next to this script. To bump
 # it, edit that file and rebuild with -r.
 #
-# The checkpoint is baked into the image at build time, so running the server needs no HF_TOKEN
+# Both checkpoints are baked into the image at build time, so running the server needs no HF_TOKEN
 # (only building the image does; see build_server_image.sh).
 set -euo pipefail
 
@@ -23,8 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_NAME="isaaclab_arena"
 IMAGE_TAG="cosmos_server"
 
-# Path the checkpoint is baked to inside the image (see build_server_image.sh CHECKPOINT_LOCAL_PATH).
-CHECKPOINT="/workspace/baked_checkpoint"
+POLICY_VARIANT="edge"
 PORT="8000"
 FORCE_REBUILD=false
 
@@ -38,22 +38,40 @@ Usage:
 Options:
   -r              Force rebuilding of the server image.
   -p <port>       Port to serve on (default: ${PORT}).
+  -v <variant>    Policy variant to serve: edge or nano (default: ${POLICY_VARIANT}).
   -h              Show this help and exit.
 
-The checkpoint is baked into the image, so no HF_TOKEN is needed to run (building the image does;
-see build_server_image.sh).
+Both checkpoints are baked into the image, so no HF_TOKEN is needed to run (building the image
+does; see build_server_image.sh).
 EOF
 }
 
-while getopts ":rp:h" opt; do
+while getopts ":rp:v:h" opt; do
     case "$opt" in
         r) FORCE_REBUILD=true ;;
         p) PORT="$OPTARG" ;;
+        v) POLICY_VARIANT="$OPTARG" ;;
         h) print_help; exit 0 ;;
         \?) echo "unknown option: -$OPTARG" >&2; print_help; exit 1 ;;
         :) echo "option -$OPTARG requires an argument" >&2; exit 1 ;;
     esac
 done
+
+# Keep in sync with COSMOS_CHECKPOINT_BY_POLICY_VARIANT and COSMOS_FORMAT_PROMPT_AS_JSON_BY_POLICY_VARIANT
+# in osmo/tasks/cosmos_server_task.py.
+# Checkpoint paths are where build_server_image.sh bakes them (CHECKPOINT_LOCAL_PATH, NANO_CHECKPOINT_LOCAL_PATH).
+SERVER_ARGS=()
+case "$POLICY_VARIANT" in
+    edge)
+        CHECKPOINT="/workspace/baked_checkpoint"
+        SERVER_ARGS+=(--format-prompt-as-json True)
+        ;;
+    nano)
+        CHECKPOINT="/workspace/baked_checkpoint_nano"
+        # Nano is served without --format-prompt-as-json (plain-text prompts), per its model card.
+        ;;
+    *) echo "unknown policy variant: ${POLICY_VARIANT} (expected edge or nano)" >&2; exit 1 ;;
+esac
 
 if [ "$FORCE_REBUILD" = true ] || \
    [ -z "$(docker images -q "${IMAGE_NAME}:${IMAGE_TAG}" 2>/dev/null)" ]; then
@@ -69,4 +87,4 @@ docker run --rm -it --gpus all --network=host \
     python -m cosmos_framework.scripts.action_policy_server_robolab \
         --checkpoint_path "${CHECKPOINT}" \
         --port "${PORT}" \
-        --format-prompt-as-json True
+        "${SERVER_ARGS[@]}"

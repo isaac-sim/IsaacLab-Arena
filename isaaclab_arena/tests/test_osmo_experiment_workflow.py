@@ -23,6 +23,8 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEn
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.utils.git_stamp import GitStamp
+from isaaclab_arena_cosmos.policy import cosmos_remote_policy  # noqa: F401
+from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosPolicyVariant, CosmosRemotePolicyCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import Gr00tRemoteClosedloopPolicyCfg
 from isaaclab_arena_openpi.policy import pi0_remote_policy  # noqa: F401
@@ -42,6 +44,7 @@ from osmo.tasks.collect_experiment_outputs_task import (
     _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,
     experiment_runner_output_directory_input_token,
 )
+from osmo.tasks.cosmos_server_task import CosmosServerTaskCfg
 from osmo.tasks.experiment_runner_task import (
     EXPERIMENT_RUNNER_RESULT_FILE_NAME,
     REMOTE_EXPERIMENT_PATH,
@@ -426,6 +429,40 @@ def test_mixed_pi0_variants_derive_per_run_server_checkpoints():
     assert "--policy.dir=gs://openpi-assets-simeval/pi0_droid_jointpos" in first_server_command
     assert "--policy.config=pi05_droid_jointpos_polaris" in second_server_command
     assert "--policy.dir=gs://openpi-assets-simeval/pi05_droid_jointpos" in second_server_command
+
+
+def test_mixed_cosmos_variants_derive_per_run_server_checkpoints():
+    """Each Run's dedicated Cosmos server serves the checkpoint and prompt format of that Run's policy_variant."""
+    experiment_cfg = ArenaExperimentCfg(
+        runs={
+            variant: ArenaRunCfg(
+                name=variant,
+                environment=PickAndPlaceMapleTableEnvironmentCfg(),
+                policy=CosmosRemotePolicyCfg(policy_variant=variant),
+            )
+            for variant in ("cosmos3_edge", "cosmos3_nano")
+        },
+        name=EXPERIMENT_NAME,
+    )
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(workflow_name="mixed-cosmos-variants"),
+        experiment_cfg=experiment_cfg,
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    edge_server_task = groups[0]["tasks"][1]
+    nano_server_task = groups[1]["tasks"][1]
+    assert edge_server_task["image"] == nano_server_task["image"] == CosmosServerTaskCfg().image
+    edge_server_command = _task_file(edge_server_task, "/tmp/entry.sh")["contents"]
+    nano_server_command = _task_file(nano_server_task, "/tmp/entry.sh")["contents"]
+    assert "--checkpoint_path /workspace/baked_checkpoint " in edge_server_command
+    assert "--checkpoint_path /workspace/baked_checkpoint_nano " in nano_server_command
+    assert "--format-prompt-as-json True" in edge_server_command
+    assert "--format-prompt-as-json" not in nano_server_command
+    nano_policy = _embedded_experiment(groups[1]["tasks"][0])["runs"]["cosmos3_nano"]["policy"]
+    # The serializer writes enums by name; the typed loader accepts the name or the value.
+    assert nano_policy["policy_variant"] == CosmosPolicyVariant.NANO.name
+    assert nano_policy["open_loop_horizon"] == 32
 
 
 def test_mixed_pi0_and_gr00t_experiment_fans_out_per_run_servers():
