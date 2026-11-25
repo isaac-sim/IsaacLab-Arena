@@ -164,7 +164,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
    .. code-block:: bash
 
-      python tools/bake_deformable_mesh.py \
+      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
         --asset deformable_cube_newton \
         --output /absolute/path/to/deformable_cube_newton.usda
 
@@ -172,7 +172,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
    .. code-block:: bash
 
-      python tools/bake_deformable_mesh.py \
+      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
         --asset deformable_cube_physx \
         --output /absolute/path/to/deformable_cube_physx.usda
 
@@ -223,7 +223,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
    .. code-block:: bash
 
-      python tools/bake_deformable_mesh.py \
+      python isaaclab_arena/assets/preprocessing/bake_deformable_mesh.py \
         --asset deformable_teddy_bear_newton \
         --output /absolute/path/to/teddy_fixed.usda
 

@@ -6,8 +6,8 @@
 """Bake a registered volume deformable's geometry into a reusable TetMesh USD.
 
 Accepts procedural or USD-backed Arena assets with one volume simulation mesh and
-one visual mesh, including the cube and Teddy Bear presets for Newton and PhysX.
-Input is an AssetRegistry name, not a USD path. Surface deformables are unsupported.
+one visual mesh. Surface deformables are unsupported.
+Input is an AssetRegistry name, not a USD path.
 The output contains geometry only; source materials and textures are not copied.
 """
 
@@ -35,8 +35,6 @@ def _export_layer_without_overwrite(layer: "Sdf.Layer", output: Path) -> None:
         temporary_output = Path(temporary_dir) / output.name
         if not layer.Export(str(temporary_output)):
             raise OSError(f"Failed to export baked geometry to {output}")
-        # A sibling temporary file keeps the hard link on the same filesystem.
-        # Unlike rename/replace, link fails if another process created the destination.
         os.link(temporary_output, output)
 
 
@@ -59,9 +57,11 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
     assert not output.exists(), f"Refusing to overwrite an existing topology: {output}"
     asset = AssetRegistry().get_asset_by_name(asset_name)()
     assert isinstance(asset, DeformableObject), f"{asset_name} is not a deformable asset."
+    # Use the asset's backend to author its deformable geometry without stepping physics.
     physics = NewtonCfg(solver_cfg=VBDSolverCfg()) if asset.physics_preset is PhysicsBackend.NEWTON else PhysxCfg()
     sim = sim_utils.SimulationContext(sim_utils.SimulationCfg(device="cpu", physics=physics))
     try:
+        # Spawning generates the simulation TetMesh if the source has only a surface mesh.
         cfg = asset.spawner_cfg
         root = cfg.func("/Source", cfg)
         prims = list(Usd.PrimRange(root))
@@ -70,6 +70,7 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
         assert len(tetrahedra) == 1, "Baking requires exactly one volume simulation TetMesh."
         assert len(surfaces) == 1, "Baking requires exactly one visual Mesh."
 
+        # Copy geometry into a standalone stage, leaving backend schemas and materials behind.
         stage = Usd.Stage.CreateInMemory()
         body = UsdGeom.Xform.Define(stage, "/Deformable")
         stage.SetDefaultPrim(body.GetPrim())
@@ -86,6 +87,7 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
         mesh.CreateFaceVertexCountsAttr(source_mesh.GetFaceVertexCountsAttr().Get())
         mesh.CreateFaceVertexIndicesAttr(source_mesh.GetFaceVertexIndicesAttr().Get())
         mesh.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+        # Bake source transforms into the vertices so the saved meshes need no source scaling.
         xform_cache = UsdGeom.XformCache()
         for source, destination in ((source_tet, tet), (source_mesh, mesh)):
             T_W_M = xform_cache.GetLocalToWorldTransform(source.GetPrim())
@@ -93,6 +95,7 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
             for point_M in source.GetPointsAttr().Get():
                 points_W.append(Gf.Vec3f(T_W_M.Transform(Gf.Vec3d(point_M))))
             destination.CreatePointsAttr(points_W)
+        # Publish only a completed USD; failed exports must leave the destination free for retry.
         _export_layer_without_overwrite(stage.GetRootLayer(), output)
         print(f"Baked {asset_name}: {len(tet.GetPointsAttr().Get())} nodes -> {output}", flush=True)
     finally:
