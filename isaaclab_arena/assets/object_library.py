@@ -2427,6 +2427,30 @@ class LightwheelToaster053(KitchenButtonAppliance):
 
 
 @register_asset
+class LightwheelBlender004(KitchenButtonAppliance):
+    """A Lightwheel blender with a power button to the right of its speed dial."""
+
+    registry_name = "lightwheel_blender004"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Blender004", file_type="USD")
+    pressable_joint_name = "power_button_joint"
+
+
+@register_asset
+class PalatialFoodProcessor(KitchenButtonAppliance):
+    """A Palatial food processor from SimReady Central with a power button on its front control panel."""
+
+    registry_name = "palatial_food_processor"
+    tags = ["object", "pressable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
+        "69a87329036cec0440403351c12230970c4e67d8/D00713/simready_usd/D00713.usd"
+    )
+    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
+    pressable_joint_name = "power_button_press"
+
+
+@register_asset
 class ForgeCadElectricKettle(KitchenButtonAppliance):
     """A ForgeCAD electric kettle from SimReady Central with a lid-release button on its handle."""
 
@@ -2453,19 +2477,6 @@ class ForgeCadMicrowave(KitchenButtonAppliance):
 
 
 @register_asset
-class ForgeCadFoodProcessor(KitchenButtonAppliance):
-    """A ForgeCAD food processor from SimReady Central with a pulse button on its base."""
-
-    registry_name = "forgecad_food_processor"
-    tags = ["object", "pressable", "sim-ready", "kitchen"]
-    usd_source = SimReadyCentralUsdSource(
-        "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
-        "40fc7f16ea2281eea966efb3c9b02f929205f3ea/food_processor/simready_usd/food_processor.usda"
-    )
-    pressable_joint_name = "pulse"
-
-
-@register_asset
 class PalatialEspressoMachine(KitchenButtonAppliance):
     """A Palatial espresso machine from SimReady Central with a power button above its pressure gauge."""
 
@@ -2480,28 +2491,10 @@ class PalatialEspressoMachine(KitchenButtonAppliance):
 
 
 @register_asset
-class PalatialBlender(KitchenButtonAppliance):
-    """A Palatial blender from SimReady Central with a pulse button beside its speed dial."""
+class LightwheelToasterOven010(KitchenButtonAppliance):
+    """A Lightwheel toaster oven with a push button below its timer knob."""
 
-    registry_name = "palatial_blender"
-    tags = ["object", "pressable", "sim-ready", "kitchen"]
-    usd_source = SimReadyCentralUsdSource(
-        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
-        "69a87329036cec0440403351c12230970c4e67d8/D00455/simready_usd/D00455.usd"
-    )
-    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
-    pressable_joint_name = "pulse_button_press"
-
-
-@register_asset
-class PalatialSlowCooker(KitchenButtonAppliance):
-    """A Palatial slow cooker from SimReady Central with a Select button on its front panel."""
-
-    registry_name = "palatial_slow_cooker"
-    tags = ["object", "pressable", "sim-ready", "kitchen"]
-    usd_source = SimReadyCentralUsdSource(
-        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
-        "69a87329036cec0440403351c12230970c4e67d8/D00729/simready_usd/D00729.usd"
-    )
-    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
-    pressable_joint_name = "select_button_press"
+    registry_name = "lightwheel_toaster_oven010"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="ToasterOven010", file_type="USD")
+    pressable_joint_name = "Button001_joint"

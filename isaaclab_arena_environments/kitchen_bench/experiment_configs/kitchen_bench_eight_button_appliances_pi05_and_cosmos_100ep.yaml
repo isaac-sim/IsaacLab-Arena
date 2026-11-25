@@ -15,9 +15,9 @@ shared:
   rollout_limit:
     num_episodes: 100
 runs:
-  palatial_blender_pi05:
+  blender_pi05:
     environment: &id001
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_palatial_blender_one_wall_coastal.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_blender_one_wall_coastal.yaml
     policy: &id002
       type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
       policy_variant: pi05
@@ -25,7 +25,7 @@ runs:
       remote_port: 8000
       openpi_embodiment_adapter: droid
       policy_device: cuda:0
-  palatial_blender_cosmos:
+  blender_cosmos:
     environment: *id001
     policy: &id004
       type: isaaclab_arena_cosmos.policy.cosmos_remote_policy.CosmosRemotePolicy
@@ -33,11 +33,11 @@ runs:
       policy_device: cuda:0
       remote_host: 127.0.0.1
       remote_port: 8000
-  slow_cooker_pi05:
+  toaster_oven_pi05:
     environment: &id003
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_slow_cooker_galley_industrial.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster_oven_galley_industrial.yaml
     policy: *id002
-  slow_cooker_cosmos:
+  toaster_oven_cosmos:
     environment: *id003
     policy: *id004
   espresso_machine_pi05:
