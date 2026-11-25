@@ -195,6 +195,41 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
+    def reset_to(
+        self,
+        state: dict[str, dict[str, dict[str, torch.Tensor]]],
+        env_ids: torch.Tensor | slice | None = slice(None),
+        seed: int | None = None,
+        is_relative: bool = False,
+    ) -> tuple[VecEnvObs, dict]:
+        """Restore recorded state after checking deformable simulation node counts.
+
+        Args:
+            state: Scene state returned by get_state or loaded from a demonstration.
+            env_ids: Environment indices to restore, or None for all environments.
+            seed: Optional randomization seed.
+            is_relative: Whether recorded positions are relative to environment origins.
+
+        Returns:
+            Observations and extras after restoring the state.
+        """
+        for asset_name, asset_state in state.get("deformable_object", {}).items():
+            asset = self.scene.deformable_objects[asset_name]
+            expected_shape = (asset.max_sim_vertices_per_body, 3)
+            for field in ("nodal_position", "nodal_velocity"):
+                if tuple(asset_state[field].shape[1:]) != expected_shape:
+                    raise ValueError(
+                        f"Deformable topology mismatch for '{asset_name}': recorded {field} has shape "
+                        f"{tuple(asset_state[field].shape)}, but the current asset requires "
+                        f"{expected_shape} per environment. Runtime tetrahedralization can change node counts "
+                        "and ordering between launches. Record and replay with the same pre-generated "
+                        "UsdGeom.TetMesh asset, then record the demonstrations again. Matching node counts "
+                        "alone do not establish matching topology. See the Deformable Pick and Place "
+                        "record/replay guide: https://isaac-sim.github.io/IsaacLab-Arena/release/0.4.0/"
+                        "pages/example_workflows/newton/deformable_pick_and_place.html#record-and-replay"
+                    )
+        return super().reset_to(state, env_ids=env_ids, seed=seed, is_relative=is_relative)
+
     def _reset_idx(self, env_ids: Sequence[int] | torch.Tensor | slice) -> None:
         requested_env_ids = env_ids_to_tensor(env_ids, self.num_envs, self.device)
         requested_env_ids = requested_env_ids.sort().values

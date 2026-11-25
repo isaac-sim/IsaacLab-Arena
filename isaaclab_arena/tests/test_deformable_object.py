@@ -228,6 +228,12 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         initial_nodal_state = deformable_asset.data.nodal_state_w.torch.clone()
         assert torch.isfinite(initial_nodal_state).all()
         expected = torch.tensor([pose.position_xyz for pose in poses.poses], device=env.unwrapped.device)
+        # USD poses place the authored origin; Lab's root_pos_w reports the mean of simulation nodes.
+        # An asymmetric tet sampling can have a nonzero mean even for a centered cuboid.
+        default_centroids_w = deformable_asset.data.default_nodal_state_w.torch[..., :3].mean(dim=1)
+        spawn_root_pos_w = torch.tensor(deformable_asset.cfg.init_state.pos, device=env.unwrapped.device)
+        spawn_root_pos_w = spawn_root_pos_w + env.unwrapped.scene.env_origins
+        expected += default_centroids_w - spawn_root_pos_w
         aggregate_positions = deformable_asset.data.root_pos_w.torch - env.unwrapped.scene.env_origins
         torch.testing.assert_close(aggregate_positions, expected, atol=2.0e-3, rtol=0.0)
 
@@ -427,6 +433,75 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
 
 def test_backend_specific_deformable_config():
     assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config)
+
+
+def _test_baked_deformable_cube_topology(simulation_app) -> bool:
+    import numpy as np
+
+    from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.assets.deformable_object_library import DeformableCubeNewton, DeformableCubePhysx
+
+    for asset_type, node_count in ((DeformableCubeNewton, 69), (DeformableCubePhysx, 21)):
+        asset = asset_type()
+        assert isinstance(asset.spawner_cfg, UsdFileCfg)
+        stage = Usd.Stage.Open(asset.spawner_cfg.usd_path)
+        tet_meshes = [UsdGeom.TetMesh(prim) for prim in stage.Traverse() if prim.IsA(UsdGeom.TetMesh)]
+        assert len(tet_meshes) == 1
+        tet_mesh = tet_meshes[0]
+        points_M = np.asarray(tet_mesh.GetPointsAttr().Get())
+        indices = np.asarray(tet_mesh.GetTetVertexIndicesAttr().Get())
+        assert points_M.shape == (node_count, 3)
+        assert indices.min() == 0 and indices.max() == node_count - 1
+        tetrahedra_M = points_M[indices]
+        edge_vectors_M = tetrahedra_M[:, 1:] - tetrahedra_M[:, :1]
+        assert (np.linalg.det(edge_vectors_M) > 0).all(), "TetMesh contains inverted or degenerate tetrahedra."
+        np.testing.assert_allclose(points_M.min(axis=0), [-0.075, -0.02, -0.02], atol=1e-7)
+        np.testing.assert_allclose(points_M.max(axis=0), [0.075, 0.02, 0.02], atol=1e-7)
+        bounds = asset.get_bounding_box()
+        np.testing.assert_allclose(bounds.min_point[0], points_M.min(axis=0), atol=1e-7)
+        np.testing.assert_allclose(bounds.max_point[0], points_M.max(axis=0), atol=1e-7)
+    return True
+
+
+def test_baked_deformable_cube_topology():
+    assert run_function_with_persistent_simulation_app(_test_baked_deformable_cube_topology)
+
+
+def _test_recorded_deformable_topology_check(simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from isaaclab.envs import ManagerBasedRLEnv
+
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
+
+    env = object.__new__(IsaacLabArenaManagerBasedRLEnv)
+    env._is_closed = True
+    env.scene = SimpleNamespace(deformable_objects={"cube": SimpleNamespace(max_sim_vertices_per_body=5)})
+    state = {
+        "deformable_object": {"cube": {"nodal_position": torch.zeros(1, 5, 3), "nodal_velocity": torch.zeros(1, 5, 3)}}
+    }
+    env_ids = torch.tensor([2])
+    with patch.object(ManagerBasedRLEnv, "reset_to", return_value="restored") as reset:
+        assert env.reset_to(state, env_ids, seed=42, is_relative=True) == "restored"
+        reset.assert_called_once_with(state, env_ids=env_ids, seed=42, is_relative=True)
+        for field in ("nodal_position", "nodal_velocity"):
+            reset.reset_mock()
+            state["deformable_object"]["cube"][field] = torch.zeros(1, 6, 3)
+            with pytest.raises(ValueError, match="Deformable topology mismatch.*cube.*UsdGeom.TetMesh"):
+                env.reset_to(state, env_ids)
+            reset.assert_not_called()
+            state["deformable_object"]["cube"][field] = torch.zeros(1, 5, 3)
+        env.reset_to({}, env_ids)
+        reset.assert_called_once_with({}, env_ids=env_ids, seed=None, is_relative=False)
+    return True
+
+
+def test_recorded_deformable_topology_check():
+    assert run_function_with_persistent_simulation_app(_test_recorded_deformable_topology_check)
 
 
 def test_deformable_validates_simulation_cfg():

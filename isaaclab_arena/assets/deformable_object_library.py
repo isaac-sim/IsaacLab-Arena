@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -67,8 +68,8 @@ class DeformableCubePhysx(LibraryDeformableObject):
 
     registry_name = "deformable_cube_physx"
     tags = ["object", "deformable", "physx"]
-    spawner_cfg = sim_utils.MeshCuboidCfg(
-        size=(0.15, 0.04, 0.04),
+    spawner_cfg = sim_utils.UsdFileCfg(
+        usd_path=str(Path(__file__).parent / "data" / "deformable_cube_physx.usda"),
         deformable_props=PhysxDeformableBodyPropertiesCfg(linear_damping=0.0),
         collision_props=[PhysxCollisionCfg(rest_offset=0.0, contact_offset=0.0025)],
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
@@ -86,9 +87,8 @@ class DeformableCubeNewton(LibraryDeformableObject):
 
     registry_name = "deformable_cube_newton"
     tags = ["object", "deformable", "newton_only"]
-    spawner_cfg = sim_utils.MeshCuboidCfg(
-        size=(0.15, 0.04, 0.04),
-        edge_refinement=8.0,
+    spawner_cfg = sim_utils.UsdFileCfg(
+        usd_path=str(Path(__file__).parent / "data" / "deformable_cube_newton.usda"),
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
         physics_material=NewtonDeformableBodyMaterialCfg(
