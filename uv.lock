@@ -1681,9 +1681,15 @@ isaaclab-from-source = [
     { name = "isaaclab-tasks-experimental" },
     { name = "isaaclab-teleop" },
     { name = "isaaclab-visualizers" },
+    { name = "newton", extra = ["sim"] },
+    { name = "newton-usd-schemas" },
     { name = "openpi-client" },
     { name = "torch" },
     { name = "torchvision" },
+]
+newton-runtime = [
+    { name = "newton", extra = ["sim"] },
+    { name = "newton-usd-schemas" },
 ]
 openpi = [
     { name = "openpi-client" },
@@ -1750,9 +1756,15 @@ isaaclab-from-source = [
     { name = "isaaclab-tasks-experimental", editable = "submodules/IsaacLab/source/isaaclab_tasks_experimental" },
     { name = "isaaclab-teleop", editable = "submodules/IsaacLab/source/isaaclab_teleop" },
     { name = "isaaclab-visualizers", editable = "submodules/IsaacLab/source/isaaclab_visualizers" },
+    { name = "newton", extras = ["sim"] },
+    { name = "newton-usd-schemas" },
     { name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" },
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu130" },
+]
+newton-runtime = [
+    { name = "newton", extras = ["sim"] },
+    { name = "newton-usd-schemas" },
 ]
 openpi = [{ name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" }]
 
