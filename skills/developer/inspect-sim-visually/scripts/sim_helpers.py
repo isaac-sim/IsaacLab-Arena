@@ -65,15 +65,24 @@ def set_camera(eye, target, env_index=None):
 
 
 def print_scene_state(env_index=0):
-    """Print each rigid object's and articulation's position relative to the env origin and its speed."""
+    """Print each rigid object's and articulation's position relative to the env origin, speed, and tilt.
+
+    The tilt is the angle between the object's own z axis and the world z axis, so an upright object shows about 0.
+    """
+    import math
     import torch
 
     env = find_arena_env()
     for scene_key in sorted([*env.scene.rigid_objects.keys(), *env.scene.articulations.keys()]):
-        t_E_O = env.arena_world.get_pose_e(scene_key)[env_index, :3].tolist()
+        T_E_O = env.arena_world.get_pose_e(scene_key)[env_index]
+        t_E_O = T_E_O[:3].tolist()
+        qx, qy = T_E_O[3].item(), T_E_O[4].item()
+        # World z component of the object's z axis for a unit quaternion (qx, qy, qz, qw).
+        z_axis_W_z = 1.0 - 2.0 * (qx * qx + qy * qy)
+        tilt_deg = math.degrees(math.acos(max(-1.0, min(1.0, z_axis_W_z))))
         speed = torch.linalg.vector_norm(env.arena_world.get_root_linear_velocity_w(scene_key)[env_index]).item()
         position_text = ", ".join(f"{coordinate:.3f}" for coordinate in t_E_O)
-        print(f"{scene_key}: position [{position_text}] m, speed {speed:.3f} m/s")
+        print(f"{scene_key}: position [{position_text}] m, speed {speed:.3f} m/s, tilt {tilt_deg:.1f} deg")
 
 
 def move_object(scene_key, position, env_index=0):
@@ -111,7 +120,8 @@ def pause_when(condition):
     """Pause the simulation on the first Kit update where condition(env) is true.
 
     For events faster than a request round trip, such as an object falling. The pause takes effect a step or two later.
-    Can be armed while paused, before resume_physics(). Needs PhysX or --viz kit, like pause_physics().
+    Can be armed while paused, before resume_physics(). A new call replaces the previous condition, so watch several
+    things with one condition joined by ``or``. Needs PhysX or --viz kit, like pause_physics().
 
     Args:
         condition: Function of the Arena env that returns true when to pause, for example
@@ -146,6 +156,14 @@ def resume_physics():
     import omni.timeline
 
     omni.timeline.get_timeline_interface().play()
+
+
+def is_paused():
+    """Return whether the simulation is paused, for example because a pause_when() condition fired."""
+    import omni.timeline
+
+    timeline = omni.timeline.get_timeline_interface()
+    return not timeline.is_playing() and not timeline.is_stopped()
 
 
 def end_episode():

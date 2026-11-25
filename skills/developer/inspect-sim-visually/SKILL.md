@@ -57,7 +57,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 
    ```bash
    C=skills/developer/inspect-sim-visually/scripts
-   for attempt in $(seq 60); do
+   for attempt in $(seq 120); do
      python3 -I $C/run_in_sim.py --port <port> --file $C/sim_helpers.py --timeout 10 > /dev/null 2>&1 &&
        python3 -I $C/run_in_sim.py --port <port> --code 'find_arena_env().common_step_counter' --timeout 10 2> /dev/null && break
      grep -q "Command failed" /tmp/<run>/run.log && { tr '\r' '\n' < /tmp/<run>/run.log | tail -30; break; }
@@ -77,16 +77,20 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
      --code 'capture_viewer("/tmp/<run>/side.png")' --wait_for_file /tmp/<run>/side.png
    ```
 
+   The first capture after a camera move can still be blurry or show the old view. Wait about a second after
+   `set_camera`, or capture twice.
+
    | Call | Effect |
    |---|---|
    | `capture_viewer(path, width=640, height=360)` | Writes the viewer image about 0.5 s later; pass `--wait_for_file path` |
-   | `set_camera(eye, target, env_index=None)` | Points the viewer camera; meters, relative to env `env_index`'s origin, else world frame |
-   | `print_scene_state(env_index=0)` | Position relative to the env origin and speed of every rigid object and articulation |
+   | `set_camera(eye, target, env_index=None)` | Points the viewer camera; meters, relative to env `env_index`'s origin, else world frame. Keep the eye offset sideways from the target: straight down gives an arbitrary roll |
+   | `print_scene_state(env_index=0)` | Position relative to the env origin, speed, and tilt of every rigid object and articulation |
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state |
-   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request; can be armed while paused |
+   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request; can be armed while paused. A new call replaces the previous condition; join several with `or` |
+   | `is_paused()` | Whether the simulation is paused, e.g. to wait for a `pause_when` condition |
    | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request |
    | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
-   | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["dex_cube"]` |
+   | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["robot"].data.joint_pos.torch` (Isaac Lab data fields need `.torch`) |
 
    Requests run inside Kit's update loop. Never call `app.update()`, `sim.step()`, `sim.render()` or
    `render_rgb_array()` in a request. Variables a request defines stay available to later requests. The reply shows
@@ -99,8 +103,13 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
      --code 'pause_when(lambda env: int(env.episode_length_buf[0]) == 2); end_episode()'
    ```
 
-   The run pauses within about a second. With absolute joint-position robots such as DROID, the zero-action policy is
-   already moving the arm toward zero joint angles at that point.
+   The run pauses within about a second. The new episode draws its own layout, so it differs from the one before. With
+   absolute joint-position robots such as DROID, the zero-action policy is already moving the arm toward zero joint
+   angles at that point.
+
+   When checking how a scene assembles, also read the placement lines in the run log:
+   `grep -E "\[placement\]|best-loss" /tmp/<run>/run.log`. A check that passes 0 of the candidate layouts, or
+   `Falling back to best-loss layouts`, means the scene runs with a layout that breaks its relations.
 
    Pausing needs a playing Kit timeline: PhysX runs, or Newton runs with `--viz kit`. A pause takes effect a step or
    two after the trigger. For a moment inside an event, combine conditions, such as an object below a height and
@@ -109,7 +118,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 
    The default viewer camera can sit outside large scenes such as kitchens. Aim with `set_camera` at positions from
    `print_scene_state`. For surfaces and other background geometry, USD bounding boxes are fine, but those of moving
-   objects show their spawn pose while Fabric is on.
+   objects, and of a robot that placement moves at reset, show their spawn pose while Fabric is on.
 
 4. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
    telemetry process outlives the main process:
@@ -155,13 +164,23 @@ ffmpeg -v error -y -i clip.mp4 -vf "select='not(mod(n\,5))',scale=320:-2,tile=4x
 `tile=4x3` holds 12 panels and leaves the rest black, so match the grid to the number of images. The second command
 takes every 5th frame of the video; change the 5 to spread the panels over the clip.
 
+To label each panel with its file name (names without `:`), label the images first, then tile them:
+
+```bash
+for f in /tmp/<run>/cap_*.png; do
+  ffmpeg -v error -y -i "$f" -vf "scale=384:-2,drawtext=text='$(basename "$f" .png)':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6" "/tmp/<run>/label_$(basename "$f")"
+done
+ffmpeg -v error -y -pattern_type glob -i '/tmp/<run>/label_cap_*.png' -vf "tile=3x2:padding=4" -frames:v 1 /tmp/<run>/sheet.png
+```
+
 ## Pitfalls
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | `OverrideParseException: --headless` | The flag no longer exists | Unset `DISPLAY` (running sim) or set `HEADLESS=1` (script) |
 | `No reply ... within` during the rollout | Launched with `HEADLESS=1`, or without `--viz kit` and cameras: nothing updates Kit while stepping | Relaunch as in step 1. During app start or env build the pause is normal |
-| Capture shows the previous view | Camera move and capture in one request | Send them as separate requests |
+| Capture shows the previous view | Camera move and capture in one request, or captured right after the move | Send them as separate requests and wait about a second |
+| Capture is completely black | The camera eye is inside geometry, such as a cabinet | Move the eye |
 | Camera move has no effect in a headless script | `sim.set_camera_view()` and the viewer's `set_camera_view()` do not reach the headless capture | `set_kit_renderer_camera_view(...)` as above |
 | Capture shows only the ground plane | Launched without `--viz kit`; scene partitioning hides the envs | Add `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` to `--kit_args` |
 | `NameError: name 'capture_viewer' is not defined` | New simulation process, or another run shares the port | Send `sim_helpers.py` again; if it keeps returning, check the port with `ss` and stop the other run |
@@ -175,7 +194,7 @@ takes every 5th frame of the video; change the 5 to spread the panels over the c
 | `outputs/` appears in the repository | `policy_runner.py` default output directory | Pass `--output_base_dir /tmp/<run>/outputs` |
 | Faint copy of an object at its old place | Renderer temporal accumulation after a jump | Capture again |
 
-Verified on 2026-11-20 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`) with `lift_object` (PhysX;
-`policy_runner` and `environment_runner`; 1 and 4 envs) and `yam_cable_routing` (Newton, with and without
-`--enable_cameras`). The native uv route is not verified; check that the `isaacsim.code_editor.python_server`
+Verified from 2026-11-20 to 2026-11-25 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`) with
+`lift_object` (PhysX; `policy_runner` and `environment_runner`; 1 and 4 envs), the 17 KitchenBench task configs
+(`--env_spec`, DROID) and `yam_cable_routing` (Newton, with and without `--enable_cameras`). The native uv route is not verified; check that the `isaacsim.code_editor.python_server`
 extension loads there.
