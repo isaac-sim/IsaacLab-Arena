@@ -147,10 +147,11 @@ index-strategy = "first-index"
 # environment at all, leaving the asset search with no installable runtime.
 override-dependencies = [
     "numpy==2.3.1",
-    "mujoco~=3.12.0",
-    "mujoco-warp~=3.12.0",
-    "newton[sim]==1.6.1",
-    "newton-usd-schemas>=0.5.0",
+    # Newton 1.8 requires MuJoCo 3.17 and USD schemas 0.6, independently of Lab's older pins.
+    "mujoco~=3.17.0",
+    "mujoco-warp~=3.17.0",
+    "newton[sim]==1.8.0",
+    "newton-usd-schemas>=0.6.0",
     "usd-exchange==3.0.1",
     "usd-optimize~=1.3.1",
     "torch==2.11.0",
