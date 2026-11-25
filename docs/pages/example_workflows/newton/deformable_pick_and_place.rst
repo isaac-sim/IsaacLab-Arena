@@ -164,7 +164,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
    .. code-block:: bash
 
-      python isaaclab_arena/scripts/bake_deformable_mesh.py \
+      python tools/bake_deformable_mesh.py \
         --asset deformable_cube_newton \
         --output /absolute/path/to/deformable_cube_newton.usda
 
@@ -172,7 +172,7 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
 
    .. code-block:: bash
 
-      python isaaclab_arena/scripts/bake_deformable_mesh.py \
+      python tools/bake_deformable_mesh.py \
         --asset deformable_cube_physx \
         --output /absolute/path/to/deformable_cube_physx.usda
 
@@ -215,6 +215,23 @@ See :ref:`spacemouse_setup` for the required host permissions and Docker setup.
    even matching node counts do not guarantee matching node ordering or connectivity.
    Fixed topology permits restoring nodal state; it does not guarantee numerically
    identical trajectories or task success.
+
+   The script also accepts the registered USD-backed Teddy Bear presets:
+   ``deformable_teddy_bear_newton`` and ``deformable_teddy_bear_physx``. For example:
+
+   .. code-block:: bash
+
+      python tools/bake_deformable_mesh.py \
+        --asset deformable_teddy_bear_newton \
+        --output /absolute/path/to/teddy_fixed.usda
+
+   In ``DeformableTeddyBearNewton``, point the existing ``UsdFileCfg.usd_path`` at
+   this output and remove ``scale=(0.01, 0.01, 0.01)`` because baking already applies
+   that scale. Follow the same procedure for ``DeformableTeddyBearPhysx`` with its
+   own output file. The tool accepts registry names rather than raw USD paths and
+   requires one volume simulation TetMesh and one visual Mesh after spawning.
+   Surface deformables such as the cloth presets are not supported. Only geometry
+   is saved; source materials and textures are not copied.
 
 Evaluate with OpenPI
 --------------------

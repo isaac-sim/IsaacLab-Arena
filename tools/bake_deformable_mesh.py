@@ -3,7 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bake a registered volume deformable's geometry into a reusable TetMesh USD."""
+"""Bake a registered volume deformable's geometry into a reusable TetMesh USD.
+
+Accepts procedural or USD-backed Arena assets with one volume simulation mesh and
+one visual mesh, including the cube and Teddy Bear presets for Newton and PhysX.
+Input is an AssetRegistry name, not a USD path. Surface deformables are unsupported.
+The output contains geometry only; source materials and textures are not copied.
+"""
 
 import argparse
 from pathlib import Path
@@ -74,7 +80,11 @@ def bake_deformable_mesh(asset_name: str, output: Path) -> None:
 def main() -> None:
     """Bake a volume asset with the current meshing settings in an initialized Kit runtime."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--asset", required=True, help="Registered Arena volume deformable name.")
+    parser.add_argument(
+        "--asset",
+        required=True,
+        help="Registered Arena volume deformable name, e.g. deformable_cube_newton or deformable_teddy_bear_physx.",
+    )
     parser.add_argument("--output", type=Path, required=True, help="New .usd or .usda file to create.")
     args = parser.parse_args()
     app_launcher = AppLauncher({"headless": True})
