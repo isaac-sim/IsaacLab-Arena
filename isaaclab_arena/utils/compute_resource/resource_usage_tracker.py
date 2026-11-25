@@ -88,12 +88,13 @@ class ProcessResourceReader:
         # VRAM: device-wide memory in use from NVML's v2 memory info. It includes every process on the GPU and
         # excludes the memory the driver reserves for itself.
         memory_info = pynvml.nvmlDeviceGetMemoryInfo(self._handle, version=pynvml.nvmlMemory_v2)
+        vram_mb = memory_info.used / BYTES_PER_MB
         # GPU utilization: NVML's utilization of the device, the percent of time a kernel was running recently.
         gpu_util_percent = pynvml.nvmlDeviceGetUtilizationRates(self._handle).gpu
         return ResourceSample(
             ram_mb=ram_mb,
             cpu_util_percent=cpu_util_percent,
-            vram_mb=memory_info.used / BYTES_PER_MB,
+            vram_mb=vram_mb,
             gpu_util_percent=gpu_util_percent,
         )
 
