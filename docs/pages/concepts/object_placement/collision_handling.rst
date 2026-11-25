@@ -174,10 +174,11 @@ The solver and validator check the following pairs:
      - Notes
    * - Movable / movable
      - Yes
-     - Except when one is directly ``On`` the other
+     - Except when one is directly ``On`` the other, or on a part of the other
    * - Movable / anchor
      - Yes
-     - Except for the child-parent pair of an ``On`` relation
+     - Except for the child-parent pair of an ``On`` relation, and a child
+       ``On`` a part of the anchor (see :ref:`relations-asset-parts`)
    * - Movable / passive obstacle
      - Yes
      -

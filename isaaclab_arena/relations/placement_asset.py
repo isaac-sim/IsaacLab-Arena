@@ -168,6 +168,14 @@ class PlaceableAsset(Asset, ABC):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
 
+    def get_placement_root(self) -> PlaceableAsset:
+        """Return the asset whose root pose places this asset: itself, unless it is part of another asset."""
+        return self
+
+    def get_bounding_box_relative_to_placement_root(self) -> AxisAlignedBoundingBox:
+        """Return bounds relative to the placement root's origin, along the root's unrotated axes."""
+        return self.get_bounding_box()
+
     def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
         """Return the XYZW rotation from bounding-box axes to environment axes.
 

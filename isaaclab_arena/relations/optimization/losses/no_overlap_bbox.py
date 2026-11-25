@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, object_uses_mesh_collision
+from isaaclab_arena.relations.geometry.asset_parts import get_placed_supports
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.optimization.relation_solver_state import RelationSolverState
 from isaaclab_arena.relations.relations import On
@@ -89,13 +90,18 @@ def compute_no_overlap_loss_bbox(
 
 
 def get_on_linked_pairs(objects: list[PlaceableAsset]) -> set[tuple[int, int]]:
-    """Return (id(a), id(b)) for both orders of every On-linked object pair."""
+    """Return (id(a), id(b)) for both orders of every On-linked object pair.
+
+    A child On part of a placed asset, such as a link of an articulated object, is also linked to that asset.
+    """
     on_pairs = set()
     for obj in objects:
         for relation in obj.get_relations():
-            if isinstance(relation, On):
-                on_pairs.add((id(obj), id(relation.parent)))
-                on_pairs.add((id(relation.parent), id(obj)))
+            if not isinstance(relation, On):
+                continue
+            for support in {relation.parent, *get_placed_supports(relation.parent, objects)}:
+                on_pairs.add((id(obj), id(support)))
+                on_pairs.add((id(support), id(obj)))
     return on_pairs
 
 

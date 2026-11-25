@@ -12,6 +12,11 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
+from isaaclab_arena.relations.geometry.asset_parts import (
+    get_part_bounding_box_relative_to_owner,
+    get_placed_owner,
+    get_placed_supports,
+)
 from isaaclab_arena.relations.geometry.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.relations.optimization.losses.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -158,13 +163,21 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
         """
         for obj in positions:
             for relation in obj.get_relations():
-                if not self._matches_relation(relation) or relation.parent not in positions:
+                if not self._matches_relation(relation):
                     continue
+                # A parent that is part of a placed asset, such as an articulation link, moves with that asset.
+                owner = get_placed_owner(relation.parent, positions)
+                if owner is None:
+                    continue
+                if owner is relation.parent:
+                    parent_bbox = env_bboxes[owner]
+                else:
+                    parent_bbox = get_part_bounding_box_relative_to_owner(relation.parent, owner)
                 child_world = env_bboxes[obj].translated(positions[obj])
-                parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
+                parent_world = parent_bbox.translated(positions[owner])
                 # Preserve scalar height arithmetic at the strict On contact boundary.
                 bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
-                top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
+                top = positions[owner][2] + float(parent_bbox.max_point[0, 2])
                 height_fits = relation.is_child_bottom_z_within_placement_height_range(
                     bottom, top, self._params.on_relation_z_tolerance_m
                 )
@@ -598,9 +611,12 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
         anchor_ids: set[int] = set()
         for obj in positions:
             for rel in obj.get_relations():
-                if isinstance(rel, On) and rel.parent in positions:
-                    on_pairs.add((id(obj), id(rel.parent)))
-                    on_pairs.add((id(rel.parent), id(obj)))
+                if not isinstance(rel, On):
+                    continue
+                # A child On part of a placed asset, such as an articulation link, also rests on that asset.
+                for support in get_placed_supports(rel.parent, positions):
+                    on_pairs.add((id(obj), id(support)))
+                    on_pairs.add((id(support), id(obj)))
             if obj.is_anchor:
                 anchor_ids.add(id(obj))
         return on_pairs, anchor_ids

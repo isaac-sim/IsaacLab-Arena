@@ -95,6 +95,35 @@ def test_reference_anchor_bounds_do_not_reapply_prim_rotation(parent_pose, expec
     assert reference.get_parent_pose() == (parent_pose if parent_pose is not None else Pose.identity())
 
 
+def test_object_reference_bounds_relative_to_root_follow_the_reference_chain():
+    """A nested reference's bounds relative to its root asset compose each reference's pose in the chain."""
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
+    root = SimpleNamespace(initial_pose=None)
+    cabinet = _object_reference_with_cached_bbox(
+        parent_pose=None,
+        relative_pose=Pose(position_xyz=(1.0, 0.0, 0.0), rotation_xyzw=yaw_90),
+        bbox=AxisAlignedBoundingBox(min_point=(-0.3, -0.3, 0.0), max_point=(0.3, 0.3, 0.8)),
+    )
+    cabinet.parent_asset = root
+    drawer = ObjectReference.__new__(ObjectReference)
+    drawer.parent_asset = cabinet
+    drawer.initial_pose_relative_to_parent = Pose(position_xyz=(0.5, 0.0, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+    drawer._bounding_box = AxisAlignedBoundingBox(min_point=(-0.1, -0.1, 0.0), max_point=(0.1, 0.1, 0.05))
+
+    bounds_R = drawer.get_bounding_box_relative_to_placement_root()
+
+    assert drawer.get_placement_root() is root
+    # The cabinet's yaw turns the drawer's offset (0.5, 0, 0.2) to (0, 0.5, 0.2) before the cabinet's offset.
+    assert drawer.get_pose_relative_to_root_asset().position_xyz == pytest.approx((1.0, 0.5, 0.2))
+    torch.testing.assert_close(bounds_R.min_point, torch.tensor([[0.9, 0.4, 0.2]]))
+    torch.testing.assert_close(bounds_R.max_point, torch.tensor([[1.1, 0.6, 0.25]]))
+    # With the root at the origin, the bounds match the reference's own world bounds.
+    torch.testing.assert_close(bounds_R.min_point, drawer.get_world_bounding_box().min_point)
+    torch.testing.assert_close(bounds_R.max_point, drawer.get_world_bounding_box().max_point)
+
+
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     """Resolving the initial pose also caches the parent-USD path for later use."""
     from isaaclab_arena.assets.object_reference import ObjectReference

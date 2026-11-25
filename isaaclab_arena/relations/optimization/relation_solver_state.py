@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.geometry.asset_parts import get_part_bounding_box_relative_to_owner, get_placed_owner
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
 
@@ -119,6 +120,9 @@ class RelationSolverState:
         }
 
         self._build_collision_bboxes(collision_bboxes)
+
+        self._part_bboxes_relative_to_owner: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
+        """Cached bounds of relation parents that are parts of placed assets, relative to their owner's origin."""
 
     def _build_collision_bboxes(self, collision_bboxes: dict[PlaceableAsset, BoundingBox] | None) -> None:
         """Store movable-object collision bounds, defaulting omitted entries to get_bbox, and precompute geometry."""
@@ -233,6 +237,22 @@ class RelationSolverState:
             obj in self._fixed_obstacle_world_bboxes
         ), f"'{obj.name}' is not a fixed obstacle (anchor or collision object) tracked by this state."
         return self._fixed_obstacle_world_bboxes[obj]
+
+    def get_relation_parent_world_bbox(self, parent: PlaceableAsset) -> AxisAlignedBoundingBox:
+        """Return a relation parent's world bounds at the current positions.
+
+        A parent that is part of a placed asset, such as a link of an articulated object, moves with that asset.
+        """
+        if parent in self._anchor_objects:
+            return self._fixed_obstacle_world_bboxes[parent]
+        if parent in self._obj_to_idx:
+            return self.get_bbox(parent).translated(self.get_position(parent))
+        owner = get_placed_owner(parent, self._obj_to_idx)
+        assert owner is not None, f"Relation parent '{parent.name}' does not take part in placement."
+        if parent not in self._part_bboxes_relative_to_owner:
+            part_bbox = get_part_bounding_box_relative_to_owner(parent, owner)
+            self._part_bboxes_relative_to_owner[parent] = part_bbox.to(self._device)
+        return self._part_bboxes_relative_to_owner[parent].translated(self.get_position(owner))
 
     def get_bbox(self, obj: PlaceableAsset) -> AxisAlignedBoundingBox:
         """Return the local bounding box for obj, moved to the state's device."""

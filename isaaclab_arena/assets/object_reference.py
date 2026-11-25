@@ -101,6 +101,26 @@ class ObjectReference(RootedObjectBase):
             return self.parent_asset.root_asset
         return self.parent_asset
 
+    def get_placement_root(self) -> Object:
+        """Return the spawned asset at the top of the reference chain, whose root pose places this reference."""
+        return self.root_asset
+
+    def get_pose_relative_to_root_asset(self) -> Pose:
+        """Return T_R_O for reference O and root asset R, at the parents' initial joint positions."""
+        T_P_O = self.initial_pose_relative_to_parent
+        if isinstance(self.parent_asset, ObjectReference):
+            T_R_P = self.parent_asset.get_pose_relative_to_root_asset()
+            return T_R_P.multiply(T_P_O)
+        return T_P_O
+
+    def get_bounding_box_relative_to_placement_root(self) -> AxisAlignedBoundingBox:
+        """Return the referenced prim's bounds relative to the root asset's origin, along the root's USD axes.
+
+        A referenced articulation link is measured at the parent's initial joint positions.
+        """
+        t_R_O = self.get_pose_relative_to_root_asset().position_xyz
+        return self.get_bounding_box().translated(t_R_O)
+
     @property
     def usd_path(self) -> str:
         """Return the source USD path inherited from the root asset."""
@@ -119,7 +139,8 @@ class ObjectReference(RootedObjectBase):
         """Add a relation to this object reference.
 
         ObjectReference only supports IsAnchor relations because the placement
-        solver treats references as fixed points.
+        solver does not optimize reference positions. A reference without
+        relations can still be an On parent; it then moves with its root asset.
 
         Args:
             relation: Must be an IsAnchor relation.

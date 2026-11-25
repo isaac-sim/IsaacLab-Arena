@@ -10,6 +10,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
+from isaaclab_arena.relations.geometry.asset_parts import get_owners_of_part_parents
 from isaaclab_arena.relations.geometry.bounding_box_helpers import (
     assign_variants_for_envs,
     build_per_env_bounding_boxes,
@@ -186,6 +187,10 @@ class ObjectPlacer:
             "No anchor object found. Mark at least one object with IsAnchor() to serve as a fixed reference. "
             "Example: table.add_relation(IsAnchor())"
         )
+        if self.params.random_yaw_init:
+            for owner in get_owners_of_part_parents(objects):
+                # Part bounds are fixed relative to the owner's heading.
+                assert owner.is_anchor, f"'{owner.name}' carries placed parts; disable random_yaw_init"
         for anchor in anchor_objects:
             assert anchor.get_initial_pose() is not None, (
                 f"Anchor object '{anchor.name}' must have an initial_pose set. "

@@ -69,6 +69,44 @@ relations, so it acts as a passive obstacle. To place objects on a surface
 within the background, such as a countertop prim in a kitchen, anchor an
 ``ObjectReference`` to that prim, as above; see :doc:`./collision_handling`.
 
+.. _relations-asset-parts:
+
+Parts of Placed Assets
+----------------------
+
+An ``ObjectReference`` without relations of its own can be the parent of ``On``
+when its root asset takes part in placement, either anchored or placed by
+relations. A typical part is a link of an articulated object, such as a drawer,
+tray, scale pan or turntable, or a prim within an object, such as a shelf
+board. The part's bounds are measured at the root asset's initial joint
+positions and stay fixed relative to the root's origin, so the child is placed
+on the part and moves with the root in every solved layout:
+
+.. code-block:: yaml
+
+   object_references:
+     - id: turntable
+       parent_id: microwave
+       prim_path: Microwave039_Disc001
+       object_type: base
+   relations:
+     - kind: is_anchor
+       subject: table
+     - kind: 'on'
+       subject: microwave
+       reference: table
+     - kind: 'on'
+       subject: cube
+       reference: turntable
+
+The child is exempt from overlap checks against the root asset, whose bounds
+enclose the part. Other objects are still checked against the root. The root
+must keep a fixed quarter-turn heading, so it cannot use ``FaceTo``,
+``ObjectPlacerParams.random_yaw_init`` or a random-yaw ``ClutterOn``. Do not
+anchor such a reference while its root is placed by relations; placement
+rejects that configuration. Placement reads the initial joint positions only; a
+joint position that a task sets at reset is not reflected.
+
 Combining Relations
 -------------------
 

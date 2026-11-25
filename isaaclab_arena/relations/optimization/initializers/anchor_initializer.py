@@ -8,6 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.geometry.asset_parts import get_placed_owner
 from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import PlacementInitializerBase
 from isaaclab_arena.relations.optimization.initializers.sampling import (
     get_child_bbox_given_parent_position,
@@ -70,6 +71,10 @@ class AnchorInitializer(PlacementInitializerBase):
         visited: set[PlaceableAsset] = set()
         parent = get_relation(obj, On).parent
         while parent is not None and parent not in visited:
+            # Continue from the placed asset a part belongs to, such as the articulation that owns a link.
+            owner = get_placed_owner(parent, asset_to_bbox)
+            if owner is not None:
+                parent = owner
             if parent in anchor_objects:
                 return get_world_bbox_at_initial_pose(parent, asset_to_bbox)
             visited.add(parent)

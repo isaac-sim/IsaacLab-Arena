@@ -10,6 +10,7 @@ import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.geometry.asset_parts import get_part_bounding_box_relative_to_owner, get_placed_owner
 from isaaclab_arena.relations.optimization.initializers.placement_initializer_base import PlacementInitializerBase
 from isaaclab_arena.relations.optimization.initializers.sampling import (
     get_child_bbox_given_parent_position,
@@ -58,7 +59,9 @@ class OnTreeInitializer(PlacementInitializerBase):
                 if on_relation is None:
                     positions[obj] = fallback_position
                 else:
-                    parent_world_bbox: AxisAlignedBoundingBox = sampled_world_bboxes[on_relation.parent]
+                    parent_world_bbox = _get_sampled_parent_world_bbox(
+                        on_relation.parent, positions, sampled_world_bboxes
+                    )
                     # The positions that keep obj on its parent.
                     child_bbox_given_parent_position = get_child_bbox_given_parent_position(
                         obj, parent_world_bbox, asset_to_bbox
@@ -75,6 +78,22 @@ class OnTreeInitializer(PlacementInitializerBase):
         # Return the positions in the order the caller supplied the objects, rather than in the
         # parents-first order this method sampled them in.
         return {obj: positions[obj] for obj in objects}
+
+
+def _get_sampled_parent_world_bbox(
+    parent: PlaceableAsset,
+    positions: dict[PlaceableAsset, tuple[float, float, float]],
+    sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+) -> AxisAlignedBoundingBox:
+    """Return an On parent's world bounds once the asset that places it has been sampled.
+
+    A parent that is part of a placed asset, such as an articulation link, moves with that asset.
+    """
+    if parent in sampled_world_bboxes:
+        return sampled_world_bboxes[parent]
+    owner = get_placed_owner(parent, sampled_world_bboxes)
+    assert owner is not None, f"On parent '{parent.name}' must be sampled before its children."
+    return get_part_bounding_box_relative_to_owner(parent, owner).translated(positions[owner])
 
 
 def _order_objects_for_sampling(
@@ -117,7 +136,7 @@ def _order_objects_for_sampling(
     while remaining:
         # Recompute the frontier after each object: a newly eligible descendant may supply a
         # reference needed by an object at a shallower level.
-        ready = [obj for obj in remaining if get_relation(obj, On).parent in ordered_set]
+        ready = [obj for obj in remaining if _is_on_parent_ordered(obj, ordered_set)]
         assert ready, (
             "On relations must form a forest rooted at anchors, but no parent could be resolved for "
             f"{[obj.name for obj in remaining]}. Check for a cycle or a parent outside the placement set."
@@ -138,6 +157,11 @@ def _order_objects_for_sampling(
         ordered_set.add(selected)
         remaining.remove(selected)
     return ordered
+
+
+def _is_on_parent_ordered(obj: PlaceableAsset, ordered_set: set[PlaceableAsset]) -> bool:
+    """Return whether the asset that places obj's On parent, the parent or the asset it is part of, is ordered."""
+    return get_placed_owner(get_relation(obj, On).parent, ordered_set) is not None
 
 
 def _get_bounds_from_other_supported_relations(

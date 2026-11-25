@@ -233,10 +233,19 @@ class On(Relation):
 
     Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
+    The parent can be part of a placed asset, such as an ``ObjectReference`` to a tray, shelf or turntable link of
+    an articulated object that is anchored or placed by relations. The child is then placed on that link's bounds
+    at the asset's initial joint positions and moves with the asset, which it is not checked to overlap.
+
     Note: Loss computation is handled by OnLossStrategy in optimization/losses/relation_loss_strategies.py.
 
     Validation:
         The ``on_relation`` check rejects a child off the parent's top or outside its footprint.
+
+    Restrictions:
+        - The parent must take part in placement, or be part of an asset that does.
+        - An asset with a part parent keeps a fixed quarter-turn heading: it cannot use ``FaceTo``, a random-yaw
+          ``ClutterOn`` or ``ObjectPlacerParams.random_yaw_init``.
     """
 
     name = "on"
@@ -271,6 +280,25 @@ class On(Relation):
     ) -> bool:
         """Whether the child bottom lies in the support's contact band, in metres."""
         return support_top - tolerance_m < bottom <= support_top + self.clearance_m + tolerance_m
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a parent that takes part in placement, or a part of a placed asset with a fixed heading."""
+        from isaaclab_arena.relations.geometry.asset_parts import get_fixed_heading_quarters, get_placed_owner
+
+        owner = get_placed_owner(self.parent, objects)
+        assert owner is not None, (
+            f"On parent '{self.parent.name}' of '{subject.name}' must take part in placement, or be part of an"
+            " asset that does, such as a link reference of a placed articulated object."
+        )
+        if owner is self.parent:
+            return
+        # The part's bounds are fixed relative to its owner, so the owner cannot turn during or after solving.
+        assert get_relation(owner, FaceTo) is None, f"'{owner.name}' carries placed parts and cannot use FaceTo."
+        clutter = get_relation(owner, ClutterOn)
+        assert (
+            clutter is None or not clutter.random_yaw
+        ), f"'{owner.name}' carries placed parts and cannot use ClutterOn with random_yaw."
+        get_fixed_heading_quarters(owner)
 
 
 @register_object_relation
@@ -418,6 +446,8 @@ class IsAnchor(RelationBase):
           ``ObjectReference``, this applies to its parent asset's pose.
         - A background with mesh collision cannot have relations, ``IsAnchor`` included. Anchor an
           ``ObjectReference`` to its support prim instead.
+        - An ``ObjectReference`` cannot be an anchor while its root asset is placed by relations; leave the
+          reference without relations so it moves with that asset.
     """
 
     name = "is_anchor"
@@ -426,6 +456,14 @@ class IsAnchor(RelationBase):
     def is_unary() -> bool:
         """Return whether the relation constrains a single object."""
         return True
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Reject an anchored part of an asset that the solver moves."""
+        root = subject.get_placement_root()
+        assert root is subject or root not in objects or root.is_anchor, (
+            f"Anchor '{subject.name}' is part of '{root.name}', which is placed by relations. Remove is_anchor"
+            f" from '{subject.name}' so it moves with '{root.name}'."
+        )
 
 
 @register_object_relation
