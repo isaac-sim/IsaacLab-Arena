@@ -25,8 +25,8 @@ from isaaclab_arena.evaluation.experiment_resource_usage import (
 )
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
 from isaaclab_arena.evaluation.run_status import RunStatus
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage
 from isaaclab_arena.utils.git_stamp import GitStamp
-from isaaclab_arena.utils.resource_usage import ResourceUsage
 from isaaclab_arena.visualization.report import RunExecutionReport
 from isaaclab_arena_benchmarking.benchmarks import registry
 from isaaclab_arena_benchmarking.benchmarks.success_rate.success_rate_exporter import SuccessRateKpiExporter

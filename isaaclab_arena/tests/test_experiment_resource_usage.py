@@ -18,7 +18,7 @@ from isaaclab_arena.evaluation.experiment_resource_usage import (
     aggregate_experiment_resource_usage,
     write_run_resource_usage,
 )
-from isaaclab_arena.utils.resource_usage import ResourceUsage
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage
 
 
 def _usage(vram_mb: list[float]) -> ResourceUsage:

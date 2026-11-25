@@ -7,7 +7,7 @@
 
 import json
 
-from isaaclab_arena.utils.resource_usage import (
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import (
     RESOURCE_NAMES,
     RESOURCE_UNITS,
     MegabyteStatistics,

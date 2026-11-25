@@ -32,8 +32,8 @@ from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
-from isaaclab_arena.utils.resource_usage import ResourceUsage
-from isaaclab_arena.utils.resource_usage_tracker import ResourceUsageTrackerDaemon
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage
+from isaaclab_arena.utils.compute_resource.resource_usage_tracker import ResourceUsageTrackerDaemon
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video

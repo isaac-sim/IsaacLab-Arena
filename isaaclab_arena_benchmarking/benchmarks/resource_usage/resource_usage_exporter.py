@@ -21,8 +21,8 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_RESOURCE_USAGE_FILENAME,
     ArenaExperimentResult,
 )
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import RESOURCE_UNITS
 from isaaclab_arena.utils.git_stamp import GitStamp
-from isaaclab_arena.utils.resource_usage import RESOURCE_UNITS
 from isaaclab_arena_benchmarking.benchmarks.registry import register_kpi_exporter
 from isaaclab_arena_benchmarking.utils.influxdb_kpi_records import InfluxdbKpiExporter, InfluxdbKpiRecord
 

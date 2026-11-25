@@ -13,8 +13,8 @@ import types
 
 import pytest
 
-import isaaclab_arena.utils.resource_usage_tracker as tracker_module
-from isaaclab_arena.utils.resource_usage_tracker import (
+import isaaclab_arena.utils.compute_resource.resource_usage_tracker as tracker_module
+from isaaclab_arena.utils.compute_resource.resource_usage_tracker import (
     ProcessResourceReader,
     ResourceSample,
     ResourceUsageTrackerDaemon,

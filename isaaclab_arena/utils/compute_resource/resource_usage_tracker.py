@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import pynvml
 
-from isaaclab_arena.utils.resource_usage import ResourceUsage
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage
 
 BYTES_PER_MB = 2**20
 

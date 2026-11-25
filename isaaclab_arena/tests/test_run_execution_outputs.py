@@ -12,7 +12,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 from isaaclab_arena.evaluation.arena_run import ArenaRunResult
 from isaaclab_arena.evaluation.run_execution import _write_run_outputs
 from isaaclab_arena.evaluation.run_status import RunStatus
-from isaaclab_arena.utils.resource_usage import ResourceUsage
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage
 
 
 def test_write_run_outputs_writes_timings_and_resources(tmp_path):

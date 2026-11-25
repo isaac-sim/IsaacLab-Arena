@@ -17,7 +17,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
 )
 from isaaclab_arena.evaluation.experiment_timings import EXPERIMENT_RUNNER_APP_NAME
-from isaaclab_arena.utils.resource_usage import ResourceUsage, merge_resource_records
+from isaaclab_arena.utils.compute_resource.compute_resource_usage import ResourceUsage, merge_resource_records
 
 
 def write_run_resource_usage(run_output_directory: Path, usage: ResourceUsage) -> Path:
