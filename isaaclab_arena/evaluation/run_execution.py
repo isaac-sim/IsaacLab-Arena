@@ -72,8 +72,8 @@ def execute_experiment(
         # Clear timers.
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
-        with ResourceUsageTrackerDaemon() as resource_tracker:
-            try:
+        try:
+            with ResourceUsageTrackerDaemon() as resource_tracker:
                 result = build_and_run(
                     run_cfg,
                     output_dir=run_output_dir,
@@ -83,20 +83,20 @@ def execute_experiment(
                         video_base_dir=str(run_output_dir),
                     ),
                 )
-            except Exception as error:
-                results.append(
-                    ArenaRunResult(
-                        run_name=run_cfg.name,
-                        status=RunStatus.FAILED,
-                        start_timestamp_ns=start_timestamp_ns,
-                        end_timestamp_ns=time.time_ns(),
-                    )
+        except Exception as error:
+            results.append(
+                ArenaRunResult(
+                    run_name=run_cfg.name,
+                    status=RunStatus.FAILED,
+                    start_timestamp_ns=start_timestamp_ns,
+                    end_timestamp_ns=time.time_ns(),
                 )
-                print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
-                print(f"Traceback: {traceback.format_exc()}", flush=True)
-                if not continue_on_error:
-                    raise
-                continue
+            )
+            print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
+            print(f"Traceback: {traceback.format_exc()}", flush=True)
+            if not continue_on_error:
+                raise
+            continue
 
         print_timer_stats()
         _write_run_outputs(run_output_dir, result, resource_tracker.get_usage())

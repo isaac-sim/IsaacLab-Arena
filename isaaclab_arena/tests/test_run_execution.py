@@ -611,3 +611,34 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
     for run_name, expected_fills in expected_fills_per_run.items():
         path = tmp_path / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
         assert AggregatedPlacementDiagnostics.load(path) == AggregatedPlacementDiagnostics(expected_fills)
+
+
+def test_execute_experiment_records_a_failed_run_when_the_resource_tracker_cannot_start(monkeypatch, tmp_path):
+    """A tracker start error fails only its Run, so the Experiment still reports every Run."""
+    attempted = []
+
+    class FailingTracker:
+        def __enter__(self):
+            raise RuntimeError("NVML unavailable")
+
+        def __exit__(self, *exc_info):
+            return False
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        attempted.append(run_cfg.name)
+        raise AssertionError("build_and_run must not run when the tracker cannot start")
+
+    monkeypatch.setattr(run_execution, "ResourceUsageTrackerDaemon", FailingTracker)
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    results = run_execution.execute_experiment(
+        _experiment(_run(name="first"), _run(name="second")),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    assert attempted == []
+    assert [(result.run_name, result.status) for result in results] == [
+        ("first", RunStatus.FAILED),
+        ("second", RunStatus.FAILED),
+    ]
