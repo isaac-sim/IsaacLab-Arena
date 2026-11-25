@@ -786,7 +786,7 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
     x, y, z, w = rotation_xyzw
 
     # Must be a pure Z rotation (x and y components must be ~0)
-    if abs(x) >= 1e-3 or abs(y) >= 1e-3:
+    if not (abs(x) < 1e-3 and abs(y) < 1e-3):
         raise ValueError(
             f"Only rotations around Z axis are supported. Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f})."
         )
