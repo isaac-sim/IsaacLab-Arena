@@ -211,7 +211,7 @@ ended, so that row counts eight.
      - 9 of 9
      - 8–12 (mean 9)
      - 19k–30k (mean 23k)
-   * - ``VLMChunkPolicy`` with ``chunk_size: 3``, as shipped
+   * - ``VLMChunkPolicy`` with ``chunk_size: 3``
      - 3 commands
      - One command per step. The policy requests the next chunk when the current one is used
        up.
