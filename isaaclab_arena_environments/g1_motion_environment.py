@@ -34,6 +34,7 @@ class G1MotionEnvironment(ArenaEnvironmentFactory[G1MotionEnvironmentCfg]):
     def build(self, cfg):
         from math import ceil, sqrt
 
+        from isaaclab.sim import GroundPlaneCfg
         from pxr import Usd, UsdGeom
 
         from isaaclab_arena.assets.object import Object
@@ -55,10 +56,12 @@ class G1MotionEnvironment(ArenaEnvironmentFactory[G1MotionEnvironmentCfg]):
         layout = int(cfg.layout == "B")
         _, path = workcell_usd(cfg.scene, layout)
         background = Object(name="workcell", usd_path=path, object_type=ObjectType.BASE, initial_pose=Pose.identity())
+        kitchen = cfg.scene in {"dishwasher", "hanging_pan", "hatch_transfer", "scoop_pour"}
+        hdr = "kiara_interior_robolab" if kitchen else "empty_warehouse_robolab"
         assets = [
             background,
-            self.asset_registry.get_asset_by_name("ground_plane")(),
-            self.asset_registry.get_asset_by_name("light")(),
+            self.asset_registry.get_asset_by_name("ground_plane")(spawner_cfg=GroundPlaneCfg(color=(0.30, 0.31, 0.30))),
+            self.asset_registry.get_asset_by_name("light")(hdr=hdr, intensity=850),
         ]
         for body in BODIES[cfg.scene]:
             assets.append(

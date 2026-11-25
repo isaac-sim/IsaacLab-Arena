@@ -8,6 +8,12 @@ The [illustrated guide](G1_MOTION_GUIDE.pdf) shows the scene and the humanoid's 
 isaaclab.sh -p isaaclab_arena/scripts/environment_runner.py --enable_cameras g1_spatial_motion --scene shelf_bay --layout A --mapped
 ```
 
+The simulator uses Arena library USDs for the worktable, shipping cartons, a KLT storage tote, packaged shelf stock, dishwasher plates and coffee cups. RoboLab indoor lighting places the kitchen tasks in an interior and the other tasks in a warehouse. Four transport scenes have a packing station beyond the working aisle. Both layouts use the same asset identities. The guide shows the underlying workcell geometry. The images below are renders of the registered environments at reset.
+
+![Shelf placement, dishwasher loading, tote extraction and trolley docking in Isaac Sim](WORKCELL_PREVIEW.jpg)
+
+Arena's [GR00T N1.6 G1 example](../pages/example_workflows/locomanipulation/step_5_evaluation.rst) provides a closed-loop baseline for shelf-to-bin box transport. Transfer to these workcells and conditioning that policy on the accumulated map require separate evaluation.
+
 With cameras enabled, both observation conditions receive head-camera RGB and depth. Add `--mapped` to receive `observations["mapped"]["online_map"]`, a bounded point cloud accumulated from the same depth measurements in the current robot frame. An experiment can install a reconstruction through `set_online_map_provider`. The built-in provider voxelizes depth on the fly. Each reset clears only the corresponding episodes.
 
 | Guide pages | Workcell keys |

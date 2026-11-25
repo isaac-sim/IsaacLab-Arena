@@ -193,3 +193,32 @@ def _test_shelf_stop_occlusion(simulation_app):
 
 def test_shelf_stop_occlusion():
     assert run_function_with_persistent_simulation_app(_test_shelf_stop_occlusion)
+
+
+def _test_library_visuals(simulation_app):
+    from pxr import Usd, UsdGeom, UsdPhysics, UsdShade
+
+    from isaaclab_arena_environments.spatial_memory.workcells.physics import workcell_usd
+
+    for scene, body, shape in (("shelf_bay", "load", "load"), ("dishwasher", "plate", "HeldPlate")):
+        _, path = workcell_usd(scene, 0)
+        stage = Usd.Stage.Open(path)
+        actor = stage.GetPrimAtPath("/Workcell/Body_" + body)
+        proxy = actor.GetChild(shape)
+        visual = actor.GetChild("Appearance")
+        assert proxy.HasAPI(UsdPhysics.CollisionAPI)
+        assert UsdGeom.Imageable(proxy).ComputeVisibility() == UsdGeom.Tokens.invisible
+        assert any(p.HasAPI(UsdShade.MaterialBindingAPI) for p in Usd.PrimRange(visual))
+        assert not any(
+            p.HasAPI(UsdPhysics.CollisionAPI) or p.HasAPI(UsdPhysics.RigidBodyAPI) for p in Usd.PrimRange(visual)
+        )
+        cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_, UsdGeom.Tokens.render], False, True)
+        actual = cache.ComputeWorldBound(visual).ComputeAlignedRange()
+        expected = cache.ComputeWorldBound(proxy).ComputeAlignedRange()
+        for a, b in ((actual.GetMin(), expected.GetMin()), (actual.GetMax(), expected.GetMax())):
+            assert (a - b).GetLength() < 0.001, (scene, a, b)
+    return True
+
+
+def test_library_visuals():
+    assert run_function_with_persistent_simulation_app(_test_library_visuals)

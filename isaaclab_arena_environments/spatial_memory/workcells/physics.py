@@ -12,6 +12,7 @@ from pathlib import Path
 
 from pxr import Gf, PhysxSchema, Sdf, Usd, UsdGeom, UsdPhysics, Vt
 
+from isaaclab_arena_environments.spatial_memory.workcells.appearance import add_library_visuals
 from isaaclab_arena_environments.spatial_memory.workcells.bodies import BODIES, SLIDE_BUTTON
 from isaaclab_arena_environments.spatial_memory.workcells.catalog import build_stage
 from isaaclab_arena_environments.spatial_memory.workcells.geometry import Workcell
@@ -194,6 +195,7 @@ def workcell_usd(name, layout):
     directory = tempfile.TemporaryDirectory(prefix="arena-g1-workcell-")
     path = Path(directory.name) / f"{name}.usdc"
     stage = physical_stage(name, layout)
+    add_library_visuals(stage, name)
     if not stage.GetRootLayer().Export(str(path)):
         raise OSError(f"Could not write workcell {path}")
     return directory, str(path)
