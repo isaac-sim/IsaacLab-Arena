@@ -2424,6 +2424,7 @@ class LightwheelToaster053(KitchenButtonAppliance):
     tags = ["object", "pressable", "kitchen"]
     usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Toaster053", file_type="USD")
     pressable_joint_name = "button_cancel_joint"
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_doneness_joint")}
 
 
 @register_asset
@@ -2434,20 +2435,22 @@ class LightwheelBlender004(KitchenButtonAppliance):
     tags = ["object", "pressable", "kitchen"]
     usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Blender004", file_type="USD")
     pressable_joint_name = "power_button_joint"
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_speed_joint")}
 
 
 @register_asset
-class PalatialFoodProcessor(KitchenButtonAppliance):
-    """A Palatial food processor from SimReady Central with a power button on its front control panel."""
+class LightwheelStandMixer012(KitchenButtonAppliance):
+    """A Lightwheel stand mixer with a head-lock button on the left side of its column."""
 
-    registry_name = "palatial_food_processor"
-    tags = ["object", "pressable", "sim-ready", "kitchen"]
-    usd_source = SimReadyCentralUsdSource(
-        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
-        "69a87329036cec0440403351c12230970c4e67d8/D00713/simready_usd/D00713.usd"
-    )
-    spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
-    pressable_joint_name = "power_button_press"
+    registry_name = "lightwheel_stand_mixer012"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="StandMixer012", file_type="USD")
+    pressable_joint_name = "button_head_lock_joint"
+    # The USD leaves the tilting head undriven, so contacts swing it open; this drive holds it closed.
+    spawn_cfg_addon = {
+        "joint_drive_props": get_joint_drive_props("head_joint", stiffness=200.0, damping=20.0, max_force=50.0)
+    }
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_speed_joint")}
 
 
 @register_asset
@@ -2488,6 +2491,7 @@ class PalatialEspressoMachine(KitchenButtonAppliance):
     )
     spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS}
     pressable_joint_name = "panel_button_onoff_press"
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("steam_knob_spindle")}
 
 
 @register_asset
@@ -2498,3 +2502,4 @@ class LightwheelToasterOven010(KitchenButtonAppliance):
     tags = ["object", "pressable", "kitchen"]
     usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="ToasterOven010", file_type="USD")
     pressable_joint_name = "Button001_joint"
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_(temp|time)_joint")}

@@ -54,11 +54,11 @@ runs:
   microwave_cosmos:
     environment: *id006
     policy: *id004
-  food_processor_pi05:
+  stand_mixer_pi05:
     environment: &id007
-      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml
+      type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_stand_mixer_g_shaped_farmhouse2.yaml
     policy: *id002
-  food_processor_cosmos:
+  stand_mixer_cosmos:
     environment: *id007
     policy: *id004
   toaster053_pi05:

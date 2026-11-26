@@ -23,6 +23,10 @@ objects:
   registry_name: plate_small_vomp_robolab
 - id: distractor_2
   registry_name: mustard_bottle
+- id: distractor_3
+  registry_name: banana_ycb_robolab
+- id: distractor_4
+  registry_name: apple_01_objaverse_robolab
 object_references:
 - id: floor
   parent_id: kitchen
@@ -44,6 +48,7 @@ relations:
   subject: appliance
   params:
     yaw_rad: -0.35873
+    max_random_yaw_rad: 0.35
 - kind: 'on'
   subject: droid
   reference: floor
@@ -51,63 +56,66 @@ relations:
   subject: droid
   params:
     yaw_rad: 1.4
+    max_random_yaw_rad: 0.15
 - kind: position_limits_box
   subject: appliance
   params:
     x_limits:
-    - 3.62
-    - 3.78
+    - 3.45
+    - 3.95
     y_limits:
-    - -3.08
-    - -2.98
+    - -3.11
+    - -2.95
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: x
     offset_m: -0.14
-    tolerance_m: 0.1
+    tolerance_m: 0.25
 - kind: align_with
   subject: droid
   reference: appliance
   params:
     axis: y
     offset_m: -1.2
-    tolerance_m: 0.07
+    tolerance_m: 0.1
 - kind: 'on'
   subject: distractor_1
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_1
-  reference: appliance
   params:
-    axis: x
-    offset_m: -0.55
-    tolerance_m: 0.05
-- kind: align_with
-  subject: distractor_1
-  reference: appliance
-  params:
-    axis: y
-    offset_m: -0.12
-    tolerance_m: 0.05
+    x_limits: &id001
+    - 2.3
+    - 4.3
+    y_limits: &id002
+    - -3.4
+    - -2.7
 - kind: 'on'
   subject: distractor_2
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_2
-  reference: appliance
   params:
-    axis: x
-    offset_m: -0.9
-    tolerance_m: 0.05
-- kind: align_with
-  subject: distractor_2
-  reference: appliance
+    x_limits: *id001
+    y_limits: *id002
+- kind: 'on'
+  subject: distractor_3
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_3
   params:
-    axis: y
-    offset_m: -0.12
-    tolerance_m: 0.05
+    x_limits: *id001
+    y_limits: *id002
+- kind: 'on'
+  subject: distractor_4
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_4
+  params:
+    x_limits: *id001
+    y_limits: *id002
 task:
   composition: atomic
   description: Press the right round button above the coffee dispenser.

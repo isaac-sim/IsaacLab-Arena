@@ -23,6 +23,10 @@ objects:
   registry_name: sugar_box
 - id: distractor_2
   registry_name: mug
+- id: distractor_3
+  registry_name: apple_01_objaverse_robolab
+- id: distractor_4
+  registry_name: tomato_soup_can
 object_references:
 - id: floor
   parent_id: kitchen
@@ -32,11 +36,19 @@ object_references:
   parent_id: kitchen
   prim_path: counter_1_left_group
   object_type: base
+- id: sink
+  parent_id: kitchen
+  prim_path: sink_left_group
+  object_type: base
+  params:
+    collision_mode: bbox
 relations:
 - kind: is_anchor
   subject: floor
 - kind: is_anchor
   subject: counter
+- kind: is_anchor
+  subject: sink
 - kind: 'on'
   subject: appliance
   reference: counter
@@ -44,6 +56,7 @@ relations:
   subject: appliance
   params:
     yaw_rad: 1.5708
+    max_random_yaw_rad: 0.35
 - kind: 'on'
   subject: droid
   reference: floor
@@ -51,6 +64,7 @@ relations:
   subject: droid
   params:
     yaw_rad: 3.05
+    max_random_yaw_rad: 0.15
 - kind: position_limits_box
   subject: appliance
   params:
@@ -58,8 +72,8 @@ relations:
     - 0.27
     - 0.43
     y_limits:
-    - -3.25
-    - -3.15
+    - -3.65
+    - -2.75
 - kind: align_with
   subject: droid
   reference: appliance
@@ -73,7 +87,7 @@ relations:
   params:
     axis: y
     offset_m: 0
-    tolerance_m: 0.07
+    tolerance_m: 0.25
 - kind: 'on'
   subject: distractor_1
   reference: counter
@@ -81,16 +95,15 @@ relations:
   subject: distractor_1
   reference: appliance
   params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    axis: y
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_1
   reference: appliance
   params:
-    axis: y
-    offset_m: 0.42
-    tolerance_m: 0.05
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
 - kind: 'on'
   subject: distractor_2
   reference: counter
@@ -98,16 +111,47 @@ relations:
   subject: distractor_2
   reference: appliance
   params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    axis: y
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_2
   reference: appliance
   params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: 'on'
+  subject: distractor_3
+  reference: counter
+- kind: align_with
+  subject: distractor_3
+  reference: appliance
+  params:
     axis: y
-    offset_m: 0.7
-    tolerance_m: 0.05
+    tolerance_m: 0.6
+- kind: align_with
+  subject: distractor_3
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: 'on'
+  subject: distractor_4
+  reference: counter
+- kind: align_with
+  subject: distractor_4
+  reference: appliance
+  params:
+    axis: y
+    tolerance_m: 0.6
+- kind: align_with
+  subject: distractor_4
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
 task:
   composition: atomic
   description: Press the large rectangular door-release button at the bottom right
