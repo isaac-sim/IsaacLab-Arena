@@ -53,7 +53,7 @@ The pages below cover how you define an environment, how it is built, and how ph
 - :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
   Isaac Lab ``ManagerBasedRLEnv``.
 - :doc:`physics_configuration` — where physics settings belong and when they are applied.
-- :doc:`physics_backend_selection` — PhysX vs Newton, ``--presets``,
+- :doc:`physics_backend_selection` — PhysX vs Newton, ``presets``,
   and ``default_physics_backend``.
 - :doc:`env_cfg_override` — graph YAML ``env_cfg_override`` and Hydra ``_target_`` rules.
 
