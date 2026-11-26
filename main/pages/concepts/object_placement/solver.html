@@ -700,13 +700,25 @@ footprint for placement; the robot arm is excluded from those bounds.</p>
 </section>
 <section id="running-the-example">
 <h3>Running the Example<a class="headerlink" href="#running-the-example" title="Link to this heading">#</a></h3>
-<p>Run the example with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<p>The following Experiment selects the graph-spec YAML by its path in
+<code class="docutils literal notranslate"><span class="pre">environment.type</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Places a Droid next to a Lightwheel kitchen counter with spatial relations.</span>
+<span class="c1"># The environment is an ArenaEnvGraphSpec YAML, selected by its path from the</span>
+<span class="c1"># repository root.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">robot_placement</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</pre></div>
+</div>
+<p>Run the example from the repository root with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--env_spec<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/kitchen_bench_robot_placement_experiment.yaml
 </pre></div>
 </div>
 <p>This example uses the Droid stand footprint for geometric placement.

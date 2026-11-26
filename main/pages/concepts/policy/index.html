@@ -646,16 +646,18 @@ An example is VABAR, which runs Graph-as-Policy (GaP) graphs.</p></li>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">action_space</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Registration makes the policy available to both runners. <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span> <span class="pre">--policy_type</span>
-<span class="pre">my_policy</span></code> generates command-line flags from <code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code>. An Experiment Definition selects
-the policy by its import path and fills the same configuration from YAML:</p>
+<p>Registration makes the policy available under its <code class="docutils literal notranslate"><span class="pre">name</span></code>. In an Experiment Definition, a Run
+selects the policy with <code class="docutils literal notranslate"><span class="pre">policy.type</span></code>, which takes a registered policy name or a dotted class
+path. The class path also imports the module that registers the policy. The remaining keys fill
+<code class="docutils literal notranslate"><span class="pre">MyPolicyCfg</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">policy</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package.my_policy.MyPolicy</span>
 <span class="w">  </span><span class="nt">device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda:0</span>
 </pre></div>
 </div>
-<p>Configuration fields named <code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> reuse the runner’s shared flags, so their
-defaults must match the runner defaults.</p>
+<p><code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> turns each configuration field into a command-line flag. Fields named
+<code class="docutils literal notranslate"><span class="pre">device</span></code> or <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> use its shared <code class="docutils literal notranslate"><span class="pre">--device</span></code> and <code class="docutils literal notranslate"><span class="pre">--num_envs</span></code> flags instead, so their
+defaults must match the defaults of those flags.</p>
 </section>
 <section id="next-steps">
 <h2>Next steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>

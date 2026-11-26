@@ -2,7 +2,8 @@ Physics backend selection
 =========================
 
 Arena environments can target **PhysX** or **Newton** for physics simulation.
-Each ``IsaacLabArenaEnvironment`` can specify a default physics backend, which can be overridden at runtime with the ``--presets`` command-line argument.
+Each ``IsaacLabArenaEnvironment`` can specify a default physics backend, which can be overridden at runtime.
+In an Experiment Run, set ``environment_builder.presets``. The Environment Runner supports only PhysX.
 
 Embodiments are intended to be compatible with both backends, with backend-specific configuration hooks invoked based on the runtime-resolved backend.
 Most USD-backed rigid and articulation assets are loadable with both backends, although the current registered object and background libraries are primarily verified for PhysX.
@@ -13,8 +14,8 @@ Backend selection precedence
 
 When ``ArenaEnvBuilder`` builds the Isaac Lab configuration in ``build_env_cfg``, the selected backend is determined as follows:
 
-1. **CLI** — ``--presets`` / ``ArenaEnvBuilderCfg.presets`` takes precedence when set.
-2. **Environment default** — ``IsaacLabArenaEnvironment.default_physics_backend`` (defaults to PhysX) is used when no CLI ``--presets`` is provided.
+1. **Builder override**: ``ArenaEnvBuilderCfg.presets`` takes precedence when set. In an Experiment Run, set ``environment_builder.presets`` to ``PHYSX`` or ``NEWTON``. The Environment Runner supports only PhysX (``--presets physx``), because its mouse interaction requires it.
+2. **Environment default**: ``IsaacLabArenaEnvironment.default_physics_backend`` (defaults to PhysX) is used when ``presets`` is not set.
 
 Authoring and CLI inputs:
 
@@ -92,17 +93,12 @@ Camera renderer
 ---------------
 
 The embodiment cameras render with Isaac RTX by default, with either backend.
-``--camera_renderer newton_warp`` / ``ArenaEnvBuilderCfg.camera_renderer`` selects Newton's Warp ray tracer instead,
+``ArenaEnvBuilderCfg.camera_renderer`` selects Newton's Warp ray tracer instead,
 which renders Newton's model of the scene on the GPU. Isaac Lab pairs Newton Warp with PhysX as well, but Arena
 requires the Newton backend for it: with PhysX, cameras mounted on robot links stay at their start pose and the
 DROID gripper is not drawn.
 
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py --enable_cameras --presets newton \
-       --camera_renderer newton_warp ...
-
-An Experiment Definition sets it under ``environment_builder`` by enum name, as it does ``presets``:
+In an Experiment Run, set it under ``environment_builder`` by enum name, as with ``presets``:
 
 .. code-block:: yaml
 
@@ -123,7 +119,7 @@ Immediately after resolution, ``build_env_cfg`` calls ``embodiment.configure_phy
 - Runs at most once per embodiment instance (reconfiguration raises an assertion).
 - Delegates to ``EmbodimentBase._configure_physics_backend``, which subclasses override for backend-specific spawn, actuators, actions, and observations.
 
-Hooks key off the **resolved** backend (CLI or environment default), not on post-callback edits to ``sim.physics``.
+Hooks key off the **resolved** backend (``presets`` override or environment default), not on post-callback edits to ``sim.physics``.
 Most embodiments use the default no-op hook.
 **DROID** is the shipped example: when the resolved backend is Newton, ``DroidEmbodimentBase`` switches robot spawn to ``spawn_newton_droid``, applies Newton material and gripper actuation, and control-mode subclasses add further Newton tuning (for example differential-IK controller settings).
 PhysX builds keep the default DROID spawn and gripper wiring.
@@ -161,7 +157,7 @@ Backend-sensitive scene assets validate when the environment is registered.
 
 At validation time the asset compares that preset to the backend implied by ``sim.physics`` (treating ``sim.physics is None`` as PhysX, matching Isaac Lab).
 A mismatch fails with an assertion naming the object and the selected backend.
-Library deformables must therefore use the property type that matches the environment default (or the ``--presets`` override).
+Library deformables must therefore use the property type that matches the environment default (or the ``presets`` override).
 
 **Cables** — ``Cable`` assets require ``sim.physics`` to be a ``NewtonCfg``; PhysX or unset physics fails validation.
 

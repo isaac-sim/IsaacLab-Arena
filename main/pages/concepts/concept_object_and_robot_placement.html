@@ -733,21 +733,37 @@ environments</p></td>
 <h2>Try It Out<a class="headerlink" href="#try-it-out" title="Link to this heading">#</a></h2>
 <p id="placement-viewer-display">Run a quick placement example from the repository root. The
 <code class="docutils literal notranslate"><span class="pre">pick_and_place_maple_table</span></code> environment already contains a Rubik’s cube and
-a bowl. The command below adds three registered objects, each with an
+a bowl. The Experiment below adds three registered objects, each with an
 <code class="docutils literal notranslate"><span class="pre">On(table_reference)</span></code> relation. The solver computes a collision-aware pose
 for each one.</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Adds three registered objects to the Maple-table pick-and-place environment.</span>
+<span class="c1"># Each one gets an On(table) relation, and the placement solver computes a</span>
+<span class="c1"># collision-aware pose for it. Change additional_table_objects to try other</span>
+<span class="c1"># registered objects.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">additional_objects</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
+<span class="w">      </span><span class="nt">additional_table_objects</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cracker_box</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mug</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tomato_soup_can</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Commands using <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> require an available graphical display. In a
 remote or container session, configure display forwarding and set
 <code class="docutils literal notranslate"><span class="pre">DISPLAY</span></code> to the active X display, for example <code class="docutils literal notranslate"><span class="pre">export</span> <span class="pre">DISPLAY=:1</span></code>.</p>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<p>Run the Experiment with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>pick_and_place_maple_table<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--additional_table_objects<span class="w"> </span>cracker_box<span class="w"> </span>mug<span class="w"> </span>tomato_soup_can
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/maple_table_additional_objects_experiment.yaml
 </pre></div>
 </div>
 <figure class="align-center" id="id2">
@@ -758,8 +774,15 @@ remote or container session, configure display forwarding and set
 recomputes a collision-aware layout without manual pose changes.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>Replace the names after <code class="docutils literal notranslate"><span class="pre">--additional_table_objects</span></code> with other registered
-objects to see placement adapt to different dimensions and footprints.</p>
+<p>Replace the names in <code class="docutils literal notranslate"><span class="pre">additional_table_objects</span></code> with other registered
+objects to see placement adapt to different dimensions and footprints. You can
+do this from the command line without editing the YAML:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/maple_table_additional_objects_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;runs.additional_objects.environment.additional_table_objects=[sugar_box,mustard_bottle,power_drill]&quot;</span>
+</pre></div>
+</div>
 <div class="toctree-wrapper compound">
 </div>
 </section>

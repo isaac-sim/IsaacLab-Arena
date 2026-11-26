@@ -665,8 +665,8 @@ into a single <code class="docutils literal notranslate"><span class="pre">Manag
 <p>By default, the builder also solves spatial relations for placed objects and
 supported robot embodiments. Set
 <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(solve_relations=False)</span></code> in Python to disable this step.
-Arena command-line runners expose the equivalent <code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code>
-option.</p>
+In an Experiment Run, set <code class="docutils literal notranslate"><span class="pre">environment_builder.solve_relations:</span> <span class="pre">false</span></code>. The
+Environment Runner exposes the equivalent <code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code> option.</p>
 </section>
 <section id="seeds-during-compilation">
 <h2>Seeds during compilation<a class="headerlink" href="#seeds-during-compilation" title="Link to this heading">#</a></h2>
@@ -686,20 +686,21 @@ not fix the other.</p>
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Control</p></th>
-<th class="head"><p>CLI / config</p></th>
+<th class="head"><p>Experiment YAML / config</p></th>
 <th class="head"><p>Default</p></th>
 <th class="head"><p>Locking it reproduces</p></th>
 </tr>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Environment seed</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">--seed</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">environment_builder.seed</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.seed</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">42</span></code></p></td>
 <td><p>Build-time and run-time <a class="reference internal" href="../variations/variations.html"><span class="doc">variation</span></a>
 values, and the simulation RNG (for example reset noise).</p></td>
 </tr>
 <tr class="row-odd"><td><p>Placement seed</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.placement_seed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">environment_builder.placement_seed</span></code> /
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.placement_seed</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">None</span></code> (unlocked)</p></td>
 <td><p>Relation-solver layouts and random
 <a class="reference internal" href="../scene/concept_rigid_object_set.html"><span class="doc">RigidObjectSet</span></a> member
@@ -709,7 +710,7 @@ assignment. With <code class="docutils literal notranslate"><span class="pre">No
 </table>
 </div>
 <p>There is no separate variation seed: each variation draws from its own
-generator, seeded from <code class="docutils literal notranslate"><span class="pre">--seed</span></code> and the variation’s
+generator, seeded from the environment seed and the variation’s
 <code class="docutils literal notranslate"><span class="pre">&lt;asset_name&gt;.&lt;variation_name&gt;</span></code> key. In-order
 <a class="reference internal" href="../variations/variations.html#asset-selection-variation"><span class="std std-ref">asset selection</span></a> does not use the seed. It
 takes the name at the rebuild index, which the Experiment Runner passes to
@@ -722,20 +723,38 @@ values for any <code class="docutils literal notranslate"><span class="pre">num_
 </section>
 <section id="how-to-set-it">
 <h3>How to set it<a class="headerlink" href="#how-to-set-it" title="Link to this heading">#</a></h3>
-<p>Pass the seed you want to lock on the runner CLI (or set the matching field on
-<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg</span></code> / <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>pick_and_place_maple_table
+<p>Set the seeds you want to lock under <code class="docutils literal notranslate"><span class="pre">environment_builder</span></code> in an Experiment
+Run (or set the matching field on <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg</span></code> / <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> in
+Python):</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Locks the environment seed and the placement seed.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">locked_seeds</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
+<span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># Build-time and run-time variation values, and simulation randomness</span>
+<span class="w">      </span><span class="c1"># such as reset noise.</span>
+<span class="w">      </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">      </span><span class="c1"># Object layouts from the relation solver.</span>
+<span class="w">      </span><span class="nt">placement_seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</pre></div>
+</div>
+<p>Run it from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
 </pre></div>
 </div>
 <ul class="simple">
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">--seed</span></code> to fix variation values and simulation draws.</p></li>
-<li><p>Set <code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> to fix layouts and random object-set picks.</p></li>
-<li><p>Omit <code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code> when placement should vary across runs.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">seed</span></code> to fix variation values and simulation draws.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> to fix object layouts.</p></li>
+<li><p>Leave <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> unset when placement should vary across runs. To
+unlock it in this example without editing the YAML, append
+<code class="docutils literal notranslate"><span class="pre">runs.locked_seeds.environment_builder.placement_seed=null</span></code> to the
+command.</p></li>
 </ul>
 <p>The compiled config is then registered with the gym registry under the
 environment’s name, and <code class="docutils literal notranslate"><span class="pre">gym.make()</span></code> returns the gym environment.</p>

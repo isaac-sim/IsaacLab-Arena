@@ -655,19 +655,35 @@ environment and reset.</p>
 <a class="reference internal image-reference" href="../../../_images/same_objects_different_layouts.gif"><img alt="The same objects placed in different layouts across four environments" src="../../../_images/same_objects_different_layouts.gif" style="width: 100%;" />
 </a>
 </figure>
-<p>Run the same registered environment configuration shown in the animation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<p>Run the same registered environment configuration shown in the animation. The
+Experiment selects homogeneous mode:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Places five objects on a Maple table in four parallel environments.</span>
+<span class="c1"># With mode: homogeneous, every environment uses the same objects.</span>
+<span class="c1"># With mode: heterogeneous, each environment can place a different fruit,</span>
+<span class="c1"># bottle, can, tool, and box.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">multi_object_placement</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_table_multi_object_placement</span>
+<span class="w">      </span><span class="nt">embodiment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">droid_abs_joint_pos</span>
+<span class="w">      </span><span class="nt">episode_length_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4.0</span>
+<span class="w">      </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">homogeneous</span>
+<span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">      </span><span class="nt">env_spacing</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3.0</span>
+<span class="w">      </span><span class="nt">placement_seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">      </span><span class="c1"># Draw the next layout from the pool on every reset.</span>
+<span class="w">      </span><span class="nt">resolve_on_reset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span>
+</pre></div>
+</div>
+<p>Run it from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--env_spacing<span class="w"> </span><span class="m">3</span>.0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--resolve_on_reset<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>droid_table_multi_object_placement<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--episode_length_s<span class="w"> </span><span class="m">4</span>.0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--mode<span class="w"> </span>homogeneous
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/droid_table_multi_object_placement_experiment.yaml
 </pre></div>
 </div>
 </section>
@@ -690,24 +706,17 @@ uses:</p>
     <span class="n">placeable_assets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">object_set</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Run the heterogeneous configuration shown in the animation:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<p>Run the heterogeneous configuration shown in the animation. The command uses
+the same Experiment and switches the Run to heterogeneous mode:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--env_spacing<span class="w"> </span><span class="m">3</span>.0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--resolve_on_reset<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">500</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>droid_table_multi_object_placement<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>droid_abs_joint_pos<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--episode_length_s<span class="w"> </span><span class="m">4</span>.0<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--mode<span class="w"> </span>heterogeneous
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/droid_table_multi_object_placement_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.multi_object_placement.environment.mode<span class="o">=</span>heterogeneous
 </pre></div>
 </div>
-<p>The builder must know <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> before assigning object-set members. The
-runner passes this count through <code class="docutils literal notranslate"><span class="pre">--num_envs</span></code>; use a value greater than one to
-observe different members across parallel environments.</p>
+<p>The builder must know <code class="docutils literal notranslate"><span class="pre">num_envs</span></code> before assigning object-set members. The Run
+sets this count in <code class="docutils literal notranslate"><span class="pre">environment_builder.num_envs</span></code>; use a value greater than
+one to see different objects across parallel environments.</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Do not set an initial pose on an object whose pose is determined by

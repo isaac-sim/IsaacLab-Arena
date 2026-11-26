@@ -632,15 +632,17 @@ ends when the recording does. <code class="docutils literal notranslate"><span c
 </div>
 </details><section id="run-an-in-process-policy">
 <h2>Run an in-process policy<a class="headerlink" href="#run-an-in-process-policy" title="Link to this heading">#</a></h2>
-<p>Select the policy with <code class="docutils literal notranslate"><span class="pre">--policy_type</span></code>. Each field of its configuration becomes a flag:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>replay<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--replay_file_path<span class="w"> </span>demo.hdf5<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>&lt;environment&gt;<span class="w"> </span>&lt;environment<span class="w"> </span>arguments&gt;
+<p>Select the policy with <code class="docutils literal notranslate"><span class="pre">policy.type</span></code> in a Run of an Experiment Definition. The other keys set
+fields of its configuration:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">replay</span>
+<span class="w">  </span><span class="nt">replay_file_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">demo.hdf5</span>
 </pre></div>
 </div>
-<p><a class="reference internal" href="../../quickstart/environment_variations.html"><span class="doc">Exploring Environment Variations</span></a> runs <code class="docutils literal notranslate"><span class="pre">zero_action</span></code> through the Experiment
-Runner instead.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">replay</span></code> policy reports the length of its episode, so a Run that uses it can leave out
+<code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code>. <code class="docutils literal notranslate"><span class="pre">zero_action</span></code> has no length, so a Run that uses it must set
+<code class="docutils literal notranslate"><span class="pre">rollout_limit</span></code>. The Experiment in <a class="reference internal" href="../../quickstart/environment_variations.html"><span class="doc">Exploring Environment Variations</span></a> selects
+<code class="docutils literal notranslate"><span class="pre">zero_action</span></code> and sets <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_steps</span></code>.</p>
 </section>
 <section id="add-your-own">
 <h2>Add your own<a class="headerlink" href="#add-your-own" title="Link to this heading">#</a></h2>

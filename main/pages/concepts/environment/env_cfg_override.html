@@ -638,7 +638,8 @@ the live environment configuration.</p>
 <p>The following are rejected at validation time:</p>
 <ul class="simple">
 <li><p>Swapping <code class="docutils literal notranslate"><span class="pre">sim.physics</span></code> to another backend via <code class="docutils literal notranslate"><span class="pre">_target_</span></code> — set
-<code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code> (or <code class="docutils literal notranslate"><span class="pre">--presets</span></code>) instead.</p></li>
+<code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code> (or <code class="docutils literal notranslate"><span class="pre">environment_builder.presets</span></code> in an Experiment
+Run) instead.</p></li>
 <li><p>Overriding <code class="docutils literal notranslate"><span class="pre">class_type</span></code> (derived by Isaac Lab).</p></li>
 <li><p>OmegaConf interpolation (<code class="docutils literal notranslate"><span class="pre">${...}</span></code>) in override values.</p></li>
 <li><p>Hydra targets outside approved Isaac Lab packages (for example <code class="docutils literal notranslate"><span class="pre">builtins.*</span></code>).</p></li>

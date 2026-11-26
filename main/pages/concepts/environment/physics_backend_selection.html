@@ -581,7 +581,8 @@
   <section id="physics-backend-selection">
 <h1>Physics backend selection<a class="headerlink" href="#physics-backend-selection" title="Link to this heading">#</a></h1>
 <p>Arena environments can target <strong>PhysX</strong> or <strong>Newton</strong> for physics simulation.
-Each <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> can specify a default physics backend, which can be overridden at runtime with the <code class="docutils literal notranslate"><span class="pre">--presets</span></code> command-line argument.</p>
+Each <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> can specify a default physics backend, which can be overridden at runtime.
+In an Experiment Run, set <code class="docutils literal notranslate"><span class="pre">environment_builder.presets</span></code>. The Environment Runner supports only PhysX.</p>
 <p>Embodiments are intended to be compatible with both backends, with backend-specific configuration hooks invoked based on the runtime-resolved backend.
 Most USD-backed rigid and articulation assets are loadable with both backends, although the current registered object and background libraries are primarily verified for PhysX.
 Deformable objects and cables are only supported for a single backend.</p>
@@ -589,8 +590,8 @@ Deformable objects and cables are only supported for a single backend.</p>
 <h2>Backend selection precedence<a class="headerlink" href="#backend-selection-precedence" title="Link to this heading">#</a></h2>
 <p>When <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> builds the Isaac Lab configuration in <code class="docutils literal notranslate"><span class="pre">build_env_cfg</span></code>, the selected backend is determined as follows:</p>
 <ol class="arabic simple">
-<li><p><strong>CLI</strong> — <code class="docutils literal notranslate"><span class="pre">--presets</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.presets</span></code> takes precedence when set.</p></li>
-<li><p><strong>Environment default</strong> — <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment.default_physics_backend</span></code> (defaults to PhysX) is used when no CLI <code class="docutils literal notranslate"><span class="pre">--presets</span></code> is provided.</p></li>
+<li><p><strong>Builder override</strong>: <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.presets</span></code> takes precedence when set. In an Experiment Run, set <code class="docutils literal notranslate"><span class="pre">environment_builder.presets</span></code> to <code class="docutils literal notranslate"><span class="pre">PHYSX</span></code> or <code class="docutils literal notranslate"><span class="pre">NEWTON</span></code>. The Environment Runner supports only PhysX (<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code>), because its mouse interaction requires it.</p></li>
+<li><p><strong>Environment default</strong>: <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment.default_physics_backend</span></code> (defaults to PhysX) is used when <code class="docutils literal notranslate"><span class="pre">presets</span></code> is not set.</p></li>
 </ol>
 <p>Authoring and CLI inputs:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Environment factory (Python)</span>
@@ -656,15 +657,11 @@ Isaac Lab and could lead to errors when running with <code class="docutils liter
 <section id="camera-renderer">
 <h2>Camera renderer<a class="headerlink" href="#camera-renderer" title="Link to this heading">#</a></h2>
 <p>The embodiment cameras render with Isaac RTX by default, with either backend.
-<code class="docutils literal notranslate"><span class="pre">--camera_renderer</span> <span class="pre">newton_warp</span></code> / <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.camera_renderer</span></code> selects Newton’s Warp ray tracer instead,
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg.camera_renderer</span></code> selects Newton’s Warp ray tracer instead,
 which renders Newton’s model of the scene on the GPU. Isaac Lab pairs Newton Warp with PhysX as well, but Arena
 requires the Newton backend for it: with PhysX, cameras mounted on robot links stay at their start pose and the
 DROID gripper is not drawn.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span>--enable_cameras<span class="w"> </span>--presets<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--camera_renderer<span class="w"> </span>newton_warp<span class="w"> </span>...
-</pre></div>
-</div>
-<p>An Experiment Definition sets it under <code class="docutils literal notranslate"><span class="pre">environment_builder</span></code> by enum name, as it does <code class="docutils literal notranslate"><span class="pre">presets</span></code>:</p>
+<p>In an Experiment Run, set it under <code class="docutils literal notranslate"><span class="pre">environment_builder</span></code> by enum name, as with <code class="docutils literal notranslate"><span class="pre">presets</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">environment_builder</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">presets</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NEWTON</span>
 <span class="w">  </span><span class="nt">camera_renderer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NEWTON_WARP</span>
@@ -682,7 +679,7 @@ intrinsics variation, need Isaac RTX.</p>
 <li><p>Runs at most once per embodiment instance (reconfiguration raises an assertion).</p></li>
 <li><p>Delegates to <code class="docutils literal notranslate"><span class="pre">EmbodimentBase._configure_physics_backend</span></code>, which subclasses override for backend-specific spawn, actuators, actions, and observations.</p></li>
 </ul>
-<p>Hooks key off the <strong>resolved</strong> backend (CLI or environment default), not on post-callback edits to <code class="docutils literal notranslate"><span class="pre">sim.physics</span></code>.
+<p>Hooks key off the <strong>resolved</strong> backend (<code class="docutils literal notranslate"><span class="pre">presets</span></code> override or environment default), not on post-callback edits to <code class="docutils literal notranslate"><span class="pre">sim.physics</span></code>.
 Most embodiments use the default no-op hook.
 <strong>DROID</strong> is the shipped example: when the resolved backend is Newton, <code class="docutils literal notranslate"><span class="pre">DroidEmbodimentBase</span></code> switches robot spawn to <code class="docutils literal notranslate"><span class="pre">spawn_newton_droid</span></code>, applies Newton material and gripper actuation, and control-mode subclasses add further Newton tuning (for example differential-IK controller settings).
 PhysX builds keep the default DROID spawn and gripper wiring.</p>
@@ -714,7 +711,7 @@ Backend-sensitive scene assets validate when the environment is registered.</p>
 </ul>
 <p>At validation time the asset compares that preset to the backend implied by <code class="docutils literal notranslate"><span class="pre">sim.physics</span></code> (treating <code class="docutils literal notranslate"><span class="pre">sim.physics</span> <span class="pre">is</span> <span class="pre">None</span></code> as PhysX, matching Isaac Lab).
 A mismatch fails with an assertion naming the object and the selected backend.
-Library deformables must therefore use the property type that matches the environment default (or the <code class="docutils literal notranslate"><span class="pre">--presets</span></code> override).</p>
+Library deformables must therefore use the property type that matches the environment default (or the <code class="docutils literal notranslate"><span class="pre">presets</span></code> override).</p>
 <p><strong>Cables</strong> — <code class="docutils literal notranslate"><span class="pre">Cable</span></code> assets require <code class="docutils literal notranslate"><span class="pre">sim.physics</span></code> to be a <code class="docutils literal notranslate"><span class="pre">NewtonCfg</span></code>; PhysX or unset physics fails validation.</p>
 <p>Rigid bodies and articulations are not checked automatically; pairing them with the wrong backend is still an authoring error, but only deformables and cables get an explicit Arena guard today.</p>
 <p><code class="docutils literal notranslate"><span class="pre">build_registered</span></code> (after <code class="docutils literal notranslate"><span class="pre">build_env_cfg</span></code> returns):</p>

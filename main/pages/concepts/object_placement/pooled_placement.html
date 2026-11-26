@@ -651,7 +651,8 @@ layouts to change without solving on every reset, although uniqueness is not
 guaranteed. If the pool is empty, Arena generates more layouts during the
 reset.</p>
 <p>Set <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.resolve_on_reset=False</span></code> to reuse the layout assigned
-during environment creation. The equivalent command-line option is
+during environment creation. In an Experiment Run, the equivalent is
+<code class="docutils literal notranslate"><span class="pre">environment_builder.resolve_on_reset:</span> <span class="pre">false</span></code>. The Environment Runner accepts
 <code class="docutils literal notranslate"><span class="pre">--no-resolve_on_reset</span></code>. Keep the default to change layouts across episodes.</p>
 </section>
 <section id="diagnosing-placement">
@@ -666,17 +667,31 @@ is recorded, where to read it, and how to act on it.</p>
 <p>Set <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> when placement must be reproducible. Given the same
 Arena environment definition, placement seed, and environment count, Arena
 reproduces layout generation and random object-set assignment.</p>
-<p>For example:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--placement_seed<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>pick_and_place_maple_table
+<p>For example, this Experiment locks both seeds:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Locks the environment seed and the placement seed.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">locked_seeds</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pick_and_place_maple_table</span>
+<span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># Build-time and run-time variation values, and simulation randomness</span>
+<span class="w">      </span><span class="c1"># such as reset noise.</span>
+<span class="w">      </span><span class="nt">seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">      </span><span class="c1"># Object layouts from the relation solver.</span>
+<span class="w">      </span><span class="nt">placement_seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zero_action</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">--seed</span></code> controls general simulation randomness, while <code class="docutils literal notranslate"><span class="pre">--placement_seed</span></code>
-controls placement-specific randomness.</p>
+<p>Run it from the repository root:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">environment_builder.seed</span></code> controls general simulation randomness, while
+<code class="docutils literal notranslate"><span class="pre">environment_builder.placement_seed</span></code> controls placement-specific randomness.</p>
 </section>
 <section id="recommended-workflow-and-configuration">
 <h2>Recommended Workflow and Configuration<a class="headerlink" href="#recommended-workflow-and-configuration" title="Link to this heading">#</a></h2>
