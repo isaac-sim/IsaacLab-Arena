@@ -13,6 +13,7 @@ def _test_task_registry_resolves_concrete_tasks(simulation_app):
         "NoTask",
         "PickAndPlaceTask",
         "PlaceUprightTask",
+        "LiftObjectTask",
         "LiftObjectTaskRL",
         "GoalPoseTask",
         "PressButtonTask",
