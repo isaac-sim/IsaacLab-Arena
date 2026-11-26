@@ -1,0 +1,41 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# The RoboLab banana-and-bowl scene with the banana on a spinning turntable.
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
+  params: {}
+objects:
+- id: turntable
+  registry_name: turntable
+  params: {}
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table_oak_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: turntable
+  reference: table_oak_robolab
+  params: {}
+- kind: 'on'
+  subject: banana
+  reference: turntable
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: table_oak_robolab
+  params: {}
