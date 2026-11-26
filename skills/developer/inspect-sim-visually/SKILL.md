@@ -107,21 +107,31 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state |
    | `pause_when(condition)` | Pauses on the first update while running where `condition(env)` is true, for events faster than a request; follows newly built envs and can be armed before the env exists or while paused. A new call replaces the previous condition; join several with `or` |
    | `pause_at_next_episode(step=2, env_index=0)` | Pauses when the next episode reaches `step`, in this env or a newly built one |
-   | `is_paused()` | Whether the simulation is paused; the reply is `true` or `false`. Wait for a `pause_when` condition with `until [ "$(python3 -I <scripts>/run_in_sim.py --port <port> --code 'is_paused()')" = true ]; do sleep 0.5; done` |
+   | `is_paused()` | Whether the simulation is paused; the reply is `true` or `false` |
    | `save_policy_camera_images(output_dir, env_index=0)` | Saves the camera images the policy got at the last step (`obs_buf["camera_obs"]`), one PNG per camera term; needs `enable_cameras: true` in the Run's environment |
    | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request; the ended episodes count toward the Run's episode limit |
-   | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
+   | `move_object(scene_key, t_E_O, env_index=0)` | Teleports a rigid object to `t_E_O`, its position relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["robot"].data.joint_pos.torch` (Isaac Lab data fields need `.torch`) |
 
    Requests run inside Kit's update loop. Never call `app.update()`, `sim.step()`, `sim.render()` or
    `render_rgb_array()` in a request. Variables a request defines stay available to later requests. The reply shows
    a value only when the code is a single expression; use `print()` in longer code.
 
+   To wait for a `pause_when` or `pause_at_next_episode` condition:
+
+   ```bash
+   for attempt in $(seq 600); do
+     [ "$(python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> --code 'is_paused()')" = true ] && break
+     grep -q "Command failed" /tmp/<run>/run.log && break
+     sleep 0.5
+   done
+   ```
+
    To see a scene right after a reset later on, start a new episode instead of waiting for the current one to end:
 
    ```bash
    python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
-     --code 'pause_at_next_episode(); end_episode()'
+     --code 'pause_at_next_episode(); end_episode(); resume_physics()'
    ```
 
    The run pauses within about a second, and the new episode draws its own layout. For the start of the next rebuild

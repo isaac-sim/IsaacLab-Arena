@@ -17,6 +17,22 @@ Requests run inside Kit's update loop, so these helpers only schedule work and n
 _arena_env = globals().get("_arena_env")
 
 
+def _find_open_arena_envs():
+    """Return the Arena environments in this process that have finished building and are not closed."""
+    import gc
+
+    # Match by class name instead of importing the class: Isaac Lab removes its modules from sys.modules while the
+    # app starts, and an import from a request in that window loads a second copy that breaks the env build.
+    open_arena_envs = []
+    for candidate in gc.get_objects():
+        # type() of a weakref proxy is the proxy type, so proxies to the env do not match.
+        is_arena_env = any(cls.__name__ == "IsaacLabArenaManagerBasedRLEnv" for cls in type(candidate).__mro__)
+        # Isaac Lab keeps _is_closed set until the env finishes building and again after close().
+        if is_arena_env and not candidate._is_closed:
+            open_arena_envs.append(candidate)
+    return open_arena_envs
+
+
 def find_arena_env():
     """Return the Arena environment running in this process (the unwrapped env).
 
@@ -24,19 +40,11 @@ def find_arena_env():
     """
     global _arena_env
     if _arena_env is None or _arena_env._is_closed:
-        import gc
-
-        # Match by class name instead of importing the class: Isaac Lab removes its modules from sys.modules while
-        # the app starts, and an import from a request in that window loads a second copy that breaks the env build.
-        arena_envs = []
-        for candidate in gc.get_objects():
-            # type() of a weakref proxy is the proxy type, so proxies to the env do not match.
-            is_arena_env = any(cls.__name__ == "IsaacLabArenaManagerBasedRLEnv" for cls in type(candidate).__mro__)
-            # Isaac Lab keeps _is_closed set until the env finishes building and again after close().
-            if is_arena_env and not candidate._is_closed:
-                arena_envs.append(candidate)
-        assert len(arena_envs) == 1, f"Expected one open Arena environment in this process, found {len(arena_envs)}."
-        _arena_env = arena_envs[0]
+        open_arena_envs = _find_open_arena_envs()
+        assert (
+            len(open_arena_envs) == 1
+        ), f"Expected one open Arena environment in this process, found {len(open_arena_envs)}."
+        _arena_env = open_arena_envs[0]
     return _arena_env
 
 
@@ -64,11 +72,12 @@ def set_camera(eye, target, env_index=None):
     """
     from isaaclab_physx.renderers.kit_viewport_utils import set_kit_renderer_camera_view
 
+    eye_W, target_W = list(eye), list(target)
     if env_index is not None:
         t_W_E = find_arena_env().scene.env_origins[env_index].tolist()
-        eye = [eye_coordinate + origin for eye_coordinate, origin in zip(eye, t_W_E)]
-        target = [target_coordinate + origin for target_coordinate, origin in zip(target, t_W_E)]
-    set_kit_renderer_camera_view(eye=eye, target=target, camera_prim_path="/OmniverseKit_Persp")
+        eye_W = [eye_coordinate + origin for eye_coordinate, origin in zip(eye, t_W_E)]
+        target_W = [target_coordinate + origin for target_coordinate, origin in zip(target, t_W_E)]
+    set_kit_renderer_camera_view(eye=eye_W, target=target_W, camera_prim_path="/OmniverseKit_Persp")
 
 
 def print_scene_state(env_index=0):
@@ -93,11 +102,13 @@ def print_scene_state(env_index=0):
 
 
 def save_policy_camera_images(output_dir, env_index=0):
-    """Save the camera images the policy received at the last env step as PNGs, one per camera observation term.
+    """Save the RGB camera images the policy received at the last env step as PNGs, one per camera term.
 
     Reads ``obs_buf["camera_obs"]``, which stays fixed while paused; the camera sensors themselves may already hold a newer
-    frame. Needs a run launched with --enable_cameras.
+    frame. Terms that are not RGB images, such as depth, are skipped. Needs ``enable_cameras: true`` in the Run's
+    environment.
     """
+    import numpy as np
     import os
 
     from PIL import Image
@@ -106,20 +117,23 @@ def save_policy_camera_images(output_dir, env_index=0):
     env = find_arena_env()
     camera_obs = env.obs_buf["camera_obs"]
     for term_name in sorted(camera_obs.keys()):
-        image = camera_obs[term_name][env_index].detach().cpu().numpy()[..., :3]
+        image = camera_obs[term_name][env_index].detach().cpu().numpy()
+        if image.dtype != np.uint8 or image.ndim != 3 or image.shape[-1] not in (3, 4):
+            print(f"skipped {term_name}: {image.dtype} {tuple(image.shape)} is not an RGB image")
+            continue
         image_path = os.path.join(output_dir, f"{term_name}.png")
-        Image.fromarray(image).save(image_path)
+        Image.fromarray(image[..., :3]).save(image_path)
         print(image_path)
 
 
-def move_object(scene_key, position, env_index=0):
-    """Teleport a rigid object to position (meters, relative to the env origin), keeping its orientation, at rest."""
+def move_object(scene_key, t_E_O, env_index=0):
+    """Teleport a rigid object to t_E_O (meters, relative to the env origin), keeping its orientation, at rest."""
     import torch
 
     env = find_arena_env()
     rigid_object = env.scene.rigid_objects[scene_key]
     T_W_O = env.arena_world.get_pose_w(scene_key)[env_index : env_index + 1].clone()
-    T_W_O[0, :3] = env.scene.env_origins[env_index] + torch.tensor(position, device=T_W_O.device)
+    T_W_O[0, :3] = env.scene.env_origins[env_index] + torch.tensor(t_E_O, device=T_W_O.device)
     rigid_object.write_root_pose_to_sim_index(root_pose=T_W_O, env_ids=[env_index])
     rigid_object.write_root_velocity_to_sim_index(
         root_velocity=torch.zeros((1, 6), device=T_W_O.device), env_ids=[env_index]
@@ -164,6 +178,9 @@ def pause_when(condition):
 
     timeline = omni.timeline.get_timeline_interface()
     next_env_search_time = 0.0
+    # Run the condition once now when an env is open, so a mistake in it shows up in this request's reply.
+    if (_arena_env is not None and not _arena_env._is_closed) or _find_open_arena_envs():
+        condition(find_arena_env())
 
     def pause_if_condition_holds(_event):
         global _pause_observer
@@ -177,10 +194,9 @@ def pause_when(condition):
             if time.monotonic() < next_env_search_time:
                 return
             next_env_search_time = time.monotonic() + 1.0
-            try:
-                find_arena_env()
-            except AssertionError:
+            if not _find_open_arena_envs():
                 return
+            find_arena_env()
         if condition(_arena_env):
             timeline.pause()
             # Dropping the observer handle unsubscribes it, so resume_physics() is not undone.
