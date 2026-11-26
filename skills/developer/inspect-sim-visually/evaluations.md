@@ -34,7 +34,7 @@ Query: "The cube falls through the table in my environment. Look at it from the 
 
 Expected behavior:
 
-- Uses the running-sim mode and `pause_when` with a condition on the object's height or speed; polling with separate
+- Uses `pause_when` with a condition on the object's height or speed; polling with separate
   requests is too slow for a fall.
 - Captures the frozen state from at least two camera poses with `set_camera(..., env_index=0)`, then
   `resume_physics()`.
@@ -45,22 +45,20 @@ Known failure modes:
 - Calls `app.update()`, `sim.render()` or `render_rgb_array()` inside a request.
 - Uses `/isaac-sim/skills/isaac-sim-remote/scripts/viewport_screenshot.py`.
 
-## Scenario 3: Images From Your Own Script With Several Envs
+## Scenario 3: One Env Among Several
 
-Setup: the agent is writing its own debug script that builds the environment with 4 envs.
+Setup: an environment run with 4 envs.
 
-Query: "In my debug script, save a picture of env 2 after reset."
+Query: "Show me env 2 right after reset."
 
 Expected behavior:
 
-- Launches the script with `HEADLESS=1`, `DISPLAY` unset, `--viz kit` and
-  `--experience isaaclab.python.headless.rendering.kit` (or `--enable_cameras`).
-- Moves the camera with `set_kit_renderer_camera_view` to env 2's origin plus an offset
-  (`env.unwrapped.scene.env_origins[2]`), calls `render_rgb_array()` a few times, saves the last frame.
+- Launches with `--num_envs 4`, catches the start of a new episode with `pause_when` plus
+  `end_episode()`, and aims the camera at env 2 with `set_camera(..., env_index=2)` before capturing.
 
 Known failure modes:
 
-- Launches without a rendering experience and hits `ModuleNotFoundError: No module named 'omni.replicator'`.
+- Captures the default view and reports it as env 2; the default view follows env 0.
 - Uses `--record_viewport_video` or `env.render()`, which produce no image.
 
 ## Scenario 4: Camera-Policy Run That Also Needs Viewer Images

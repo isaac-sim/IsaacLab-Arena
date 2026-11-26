@@ -5,16 +5,8 @@ description: Gets images of an Isaac Lab-Arena simulation without desktop screen
 
 # Inspect the Simulation Visually
 
-Ask the simulation for a PNG of its viewer and read the file. Never take a desktop or X11 screenshot without asking the
+Ask the running simulation for PNGs and read the files. Never take a desktop or X11 screenshot without asking the
 user: it captures their whole screen, and it needs a visible window.
-
-| Need | Mode |
-|---|---|
-| Look around a running scene: other angles, pause, object positions, repeated looks | [Running sim](#running-sim) (default) |
-| Images at fixed points of a script you are writing anyway | [Images from your own script](#images-from-your-own-script) |
-| Many images or a video as one picture | [Several images in one picture](#several-images-in-one-picture) |
-
-## Running sim
 
 The simulation runs Isaac Sim's `isaacsim.code_editor.python_server`. From the host, `run_in_sim.py` sends it Python
 code, and `sim_helpers.py` adds one-line helpers. One launch serves any number of looks.
@@ -36,7 +28,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
         --viz kit <environment> [environment args] > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
    ```
 
-   It prints the run's session id; keep it for step 4. `--num_steps 20000` ends a forgotten run after roughly
+   It prints the run's session id; keep it for step 5. `--num_steps 20000` ends a forgotten run after roughly
    20-40 minutes; launch again if you need longer.
 
    - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
@@ -121,75 +113,41 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    `print_scene_state`. For surfaces and other background geometry, USD bounding boxes are fine, but those of moving
    objects, and of a robot that placement moves at reset, show their spawn pose while Fabric is on.
 
-4. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
+4. **Combine images** (optional). To see many captures at once, tile them into one labeled picture of at most about
+   1568 px width. First bring every image to the same size and pixel format and label it with its file name (names
+   without `:`); ffmpeg's tile filter silently drops panels when sizes or formats differ, as between viewer captures
+   (RGBA) and camera images (RGB):
+
+   ```bash
+   for f in /tmp/<run>/cap_*.png; do
+     ffmpeg -v error -y -i "$f" -vf "scale=384:216:force_original_aspect_ratio=decrease,pad=384:216:(ow-iw)/2:(oh-ih)/2,format=rgb24,drawtext=text='$(basename "$f" .png)':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6" "/tmp/<run>/label_$(basename "$f")"
+   done
+   ffmpeg -v error -y -pattern_type glob -i '/tmp/<run>/label_cap_*.png' -vf "tile=3x2:padding=4" -frames:v 1 /tmp/<run>/sheet.png
+   ```
+
+   A grid holds columns x rows panels and leaves the rest black, so match it to the number of images.
+
+5. **Stop** the run when done; the server runs any code sent to its port. Stop the whole session, because Kit's
    telemetry process outlives the main process:
 
    ```bash
    docker exec <container> bash -c 'pkill -TERM -s <sid>; sleep 5; pkill -KILL -s <sid>; pgrep -s <sid> || echo stopped'
    ```
 
-## Images from your own script
-
-For a script that builds the env itself (see `main()` in `isaaclab_arena/scripts/environment_runner.py` for the launch
-pattern), launch with `HEADLESS=1`, `DISPLAY` unset, and
-`--viz kit --experience isaaclab.python.headless.rendering.kit` (`--enable_cameras` also works):
-
-```python
-env_cfg, env_kwargs = arena_builder.build_env_cfg()
-env_cfg.viewer.resolution = (640, 360)  # default 1280x720
-env = arena_builder.make_registered(env_cfg, env_kwargs)
-env.reset()
-viewer = next(v for v in env.unwrapped.sim.visualizers if v.cfg.visualizer_type == "kit")
-
-from isaaclab_physx.renderers.kit_viewport_utils import set_kit_renderer_camera_view
-from PIL import Image
-
-set_kit_renderer_camera_view(eye=[0.5, -0.7, 0.2], target=[0.45, 0.0, 0.05], camera_prim_path="/OmniverseKit_Persp")
-for _ in range(3):  # the first frame after a change is noisy
-    frame = viewer.render_rgb_array()  # uint8, (height, width, 3)
-Image.fromarray(frame).save("/tmp/<run>/side.png")
-```
-
-With `HEADLESS=1 --viz kit`, camera observations (`obs["camera_obs"]`) only update on steps after a
-`render_rgb_array()` call. Do not use this mode for runs whose policy reads cameras.
-
-## Several images in one picture
-
-Tile images into one picture of at most about 1568 px width. For PNGs, first bring every image to the same size and
-pixel format and label it with its file name (names without `:`); ffmpeg's tile filter silently drops panels when
-sizes or formats differ, as between viewer captures (RGBA) and camera images (RGB):
-
-```bash
-for f in /tmp/<run>/cap_*.png; do
-  ffmpeg -v error -y -i "$f" -vf "scale=384:216:force_original_aspect_ratio=decrease,pad=384:216:(ow-iw)/2:(oh-ih)/2,format=rgb24,drawtext=text='$(basename "$f" .png)':x=6:y=6:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6" "/tmp/<run>/label_$(basename "$f")"
-done
-ffmpeg -v error -y -pattern_type glob -i '/tmp/<run>/label_cap_*.png' -vf "tile=3x2:padding=4" -frames:v 1 /tmp/<run>/sheet.png
-```
-
-For a video, take every 5th frame (change the 5 to spread the panels over the clip):
-
-```bash
-ffmpeg -v error -y -i clip.mp4 -vf "select='not(mod(n\,5))',scale=320:-2,tile=4x3:padding=4" -frames:v 1 /tmp/<run>/sheet.png
-```
-
-A grid holds columns x rows panels and leaves the rest black, so match it to the number of images.
-
 ## Pitfalls
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `OverrideParseException: --headless` | The flag no longer exists | Unset `DISPLAY` (running sim) or set `HEADLESS=1` (script) |
+| `OverrideParseException: --headless` | The flag no longer exists | Launch with `--viz kit` and `DISPLAY` unset as in step 1 |
 | `No reply ... within` during the rollout | Launched with `HEADLESS=1`, or without `--viz kit` and cameras: nothing updates Kit while stepping | Relaunch as in step 1. During app start or env build the pause is normal |
 | Capture shows the previous view | Camera move and capture in one request, or captured right after the move | Send them as separate requests and wait about a second |
 | Capture is completely black | The camera eye is inside geometry, such as a cabinet | Move the eye |
-| Camera move has no effect in a headless script | `sim.set_camera_view()` and the viewer's `set_camera_view()` do not reach the headless capture | `set_kit_renderer_camera_view(...)` as above |
 | Capture shows only the ground plane | Launched without `--viz kit`; scene partitioning hides the envs | Add `--/rtx/scenePartitioning/showAllPartitionsByDefault=true` to `--kit_args` |
 | `NameError: name 'capture_viewer' is not defined` | New simulation process, or another run shares the port | Send `sim_helpers.py` again; if it keeps returning, check the port with `ss` and stop the other run |
 | `TypeError: SimulationCfg.physics must be a concrete PhysicsCfg` while the env builds | A request imported an Isaac Lab or Arena module while the app was starting | Relaunch; send only the helpers and `find_arena_env()` until the env exists |
 | Red, green and blue arrows in the image | Isaac Lab debug markers for frames such as the goal and the end effector | Hide with `find_arena_env().command_manager.set_debug_vis(False)` and `set_debug_vis(False)` on frame sensors, e.g. `find_arena_env().scene["ee_frame"]` |
 | `AssertionError: The Kit timeline is stopped` | Newton run launched without `--viz kit` | Capture while it steps, or relaunch with `--viz kit` |
 | Run ends with `step_index must advance by exactly one per environment between resets` | Seen once in about a dozen pauses in Arena's progress tracker; not reproduced | Relaunch |
-| `ModuleNotFoundError: No module named 'omni.replicator'` | Script launched without a rendering experience | Add `--experience isaaclab.python.headless.rendering.kit` or `--enable_cameras` |
 | `--record_viewport_video` writes no video | Isaac Lab no longer renders `render_mode="rgb_array"`; `env.render()` returns `None` | Use this skill's captures |
 | `/isaac-sim/skills/isaac-sim-remote` scripts fail (`isaacsim.core.experimental`) or freeze the sim | Written for the Isaac Sim app, not Isaac Lab | Use `sim_helpers.py` |
 | `outputs/` appears in the repository | `policy_runner.py` default output directory | Pass `--output_base_dir /tmp/<run>/outputs` |
@@ -197,5 +155,5 @@ A grid holds columns x rows panels and leaves the rest black, so match it to the
 
 Verified from 2026-11-20 to 2026-11-25 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`) with
 `lift_object` (PhysX; `policy_runner` and `environment_runner`; 1 and 4 envs), the 17 KitchenBench task configs
-(`--env_spec`, DROID) and `yam_cable_routing` (Newton, with and without `--enable_cameras`). The native uv route is not verified; check that the `isaacsim.code_editor.python_server`
-extension loads there.
+(`--env_spec`, DROID) and `yam_cable_routing` (Newton, with and without `--enable_cameras`). The native uv route is
+not verified; check that the `isaacsim.code_editor.python_server` extension loads there.
