@@ -504,6 +504,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../references/performance.html">Performance and scaling</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../references/release_notes.html">Release Notes</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../references/migration_guide_v0_4.html">Migrating from v0.3 to v0.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../references/migration_guide_v0_5.html">Migrating from v0.4 to v0.5</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../references/citing_us.html">Citing Isaac Lab-Arena</a></li>
@@ -720,6 +721,52 @@ episode count and success rate across all rebuilds of the Run. Only values that 
 row; a value that no episode drew is not listed. In this Experiment, only <code class="docutils literal notranslate"><span class="pre">swap_objects</span></code> has rows,
 one per selected pick-up object.</p>
 </section>
+<section id="read-the-episode-results">
+<h2>Read the episode results<a class="headerlink" href="#read-the-episode-results" title="Link to this heading">#</a></h2>
+<p>Open <code class="docutils literal notranslate"><span class="pre">baseline/episode_results_rebuild0.jsonl</span></code> in the Experiment output directory. The file
+has one JSON object per finished episode. Here is the zero-action episode, formatted with
+some fields omitted.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;env_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;episode_in_env&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;episode_length&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">23</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;overall_score&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.3333333432674408</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;criteria_by_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;pick_and_place&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;is_complete&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;active_predicates&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;default_sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;object_is_above_height(object_name=&#39;pick_up_object&#39;, use_settled_state=True)&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;events&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;step&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;predicate_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;objects_settled&quot;</span><span class="p">}],</span>
+<span class="w">    </span><span class="nt">&quot;consecutive_step_summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="p">{</span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;waiting&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;consecutive_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;required_steps&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}</span>
+<span class="w">    </span><span class="p">]</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">success:</span> <span class="pre">false</span></code> records the task outcome. The episode reached the time limit with the
+pick-and-place task still incomplete.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">progress.events</span></code> shows that the cube settled at control step 1. That completed the first of
+three equally weighted stages so the episode reached 33% progress.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">active_predicates</span></code> shows that lifting the cube was the next stage. The placement check in
+<code class="docutils literal notranslate"><span class="pre">consecutive_step_summary</span></code> was still <code class="docutils literal notranslate"><span class="pre">waiting</span></code> because it only starts after the lift is complete.</p></li>
+</ul>
+<p>For the same episode in the HTML report, open <code class="docutils literal notranslate"><span class="pre">index.html</span></code> in the Experiment output directory.
+Select <strong>baseline</strong> under <strong>Runs</strong>, then open the episode. <strong>Task completion summary</strong> shows the
+placement check as <strong>Not reached</strong>. The <code class="docutils literal notranslate"><span class="pre">pick_and_place</span></code> criteria below it show the completed
+settling check.</p>
+<a class="reference internal image-reference" href="../../_images/first_arena_experiment_episode_summary.png"><img alt="Baseline episode 0 in the HTML report, marked Partial with 33% progress and placement Not reached." src="../../_images/first_arena_experiment_episode_summary.png" style="width: 100%;" />
+</a>
+<p>See <a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html"><span class="doc">Predicates and Subtask Progress Tracking</span></a>
+for how Arena records subtask progress and <a class="reference internal" href="../concepts/task/concept_progress_tracking_design.html#consecutive-step-episode-summary"><span class="std std-ref">Episode consecutive-step summary</span></a> for the
+meaning of each status in <strong>Task completion summary</strong>.</p>
+</section>
 <section id="change-values-from-the-command-line">
 <h2>Change values from the command line<a class="headerlink" href="#change-values-from-the-command-line" title="Link to this heading">#</a></h2>
 <p>You can adjust declared values without editing the YAML. This command changes the shared episode
@@ -805,6 +852,7 @@ precedence order and configuration rules.</p>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#define-the-experiment">Define the Experiment</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#run-the-experiment-locally">Run the Experiment locally</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#read-the-episode-results">Read the episode results</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#change-values-from-the-command-line">Change values from the command line</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next steps</a></li>
 </ul>
