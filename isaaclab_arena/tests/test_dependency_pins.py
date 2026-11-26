@@ -12,6 +12,8 @@ requirements are intentionally broad.
 """
 
 import re
+import shlex
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -47,11 +49,11 @@ def _isaaclab_pin(package: str) -> str:
 
 def test_isaaclab_uv_overrides_match_submodule():
     """Arena mirrors the source checkout's backend and torch overrides exactly."""
+    # Isaac Sim's schema pin already satisfies Lab; Arena does not override it.
     packages = {
         "mujoco",
         "mujoco-warp",
         "newton",
-        "newton-usd-schemas",
         "torch",
         "torchvision",
         "usd-exchange",
@@ -123,3 +125,59 @@ def test_isaaclab_from_source_packages_have_path_sources():
         path = (_REPO_ROOT / entry["path"]).resolve()
         assert path.is_relative_to(submodule_root), f"{package} source path {path} escapes the submodule"
         assert (path / "pyproject.toml").is_file(), f"{package} source path {path} has no pyproject.toml"
+
+
+def _export_locked_packages(selection_args: list[str]) -> dict[str, dict]:
+    """Return packages selected from the frozen lock without installing or downloading them."""
+    result = subprocess.run(
+        [
+            "uv",
+            "export",
+            "--project",
+            str(_REPO_ROOT),
+            "--frozen",
+            "--offline",
+            "--format",
+            "pylock.toml",
+            "--no-emit-project",
+            *selection_args,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return {package["name"]: package for package in tomllib.loads(result.stdout)["packages"]}
+
+
+def test_docker_selects_native_newton_runtime():
+    """Docker must select the same locked Newton stack as the native default groups."""
+    script = (_REPO_ROOT / "docker/setup/install_arena_deps.sh").read_text().replace("\\\n", "")
+    sync_commands = []
+    for line in script.splitlines():
+        command = shlex.split(line, comments=True)
+        if command[:2] == ["uv", "sync"]:
+            sync_commands.append(command[2:])
+    assert len(sync_commands) == 1, "Expected one Arena dependency sync in the Docker installer"
+
+    selection_args = []
+    arguments = iter(sync_commands[0])
+    for argument in arguments:
+        if argument in ("--group", "--extra"):
+            selection_args.extend((argument, next(arguments)))
+        elif argument == "--no-default-groups":
+            selection_args.append(argument)
+
+    docker_packages = _export_locked_packages(selection_args)
+    native_packages = _export_locked_packages([])
+    assert not any(
+        name.startswith("isaaclab") for name in docker_packages
+    ), "Docker must retain its inherited Lab install"
+    newton_packages = {"newton", "newton-usd-schemas", "mujoco", "mujoco-warp", "warp-lang"}
+    assert newton_packages <= native_packages.keys()
+    missing = newton_packages - docker_packages.keys()
+    assert not missing, f"Docker leaves these packages to Lab's separate lock: {sorted(missing)}"
+    for package in sorted(newton_packages):
+        assert (
+            docker_packages[package] == native_packages[package]
+        ), f"Docker/native lock selection differs for {package}"
