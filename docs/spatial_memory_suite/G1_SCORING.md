@@ -40,3 +40,44 @@ The bounds below are inclusive, in metres, in the floor-aligned workcell frame. 
 | `closing_door` — Carry the parcel through the closing door. | First pass the parcel through the opening, center in (-0.18, -0.08, 0.68) to (0.18, 0.08, 1.3). parcel center in (-0.16, 0.36, 0.72) to (0.16, 1.1, 1.25). robot center in (-0.39, 0.24, 0.45) to (0.39, 1.3, 1.12). | yes |
 | `moving_carriage` — Take the part from the crossing carriage. | part center in (-0.72, -0.49, 1.24) to (0.72, 0.16, 1.63). | yes |
 | `descending_hood` — Draw the tray clear of the descending hood. | tray center in (-0.24, -0.85, 0.81) to (0.24, -0.52, 1.14). | yes |
+
+## GR00T N1.6 transfer results
+
+The G1 loco-manipulation checkpoint succeeded on 0 of 60 workcell episodes at seed 42. 56 ended on time out, 4 ended on guard contact. The same checkpoint completed the Galileo shelf-to-bin task, with lift at step 59 and placement at step 1,022. The control is scored separately. [Checkpoint revision](https://huggingface.co/nvidia/GN1x-Tuned-Arena-G1-Loco-Manipulation/tree/dfe74af855007f26093f362cd2d7a2f404b64b93).
+
+Both layouts used a single RGB stream, G1 state, the workcell's instruction and the checkpoint's 50-command chunks. Neither workcell-specific fine-tuning nor a map-conditioned policy was evaluated. The results measure transfer from one trained task. One trial per layout provides limited evidence about a policy's success probability.
+
+The table uses one result per current layout. Two early guard contacts also occurred under zero commands before the clearance corrections. Dishwasher B originally ended at step 1. Panel-corner B originally ended at step 9, compared with step 8 under zero commands. Both updated layouts passed 100 control steps with standing joint and pelvis targets before timing out in the GR00T reruns.
+
+| Workcell | Layout A | Layout B |
+|---|---|---|
+| `reverse_gap` | time out at 30 s | time out at 30 s |
+| `shelf_bay` | time out at 30 s | time out at 30 s |
+| `partition_delivery` | guard contact at 3.98 s | guard contact at 3.14 s |
+| `cabinet_reach` | time out at 30 s | time out at 30 s |
+| `tote_extraction` | time out at 30 s | time out at 30 s |
+| `hanging_pan` | time out at 30 s | time out at 30 s |
+| `valve_turn` | time out at 30 s | time out at 30 s |
+| `seam_inspection` | time out at 30 s | time out at 30 s |
+| `panel_catches` | time out at 30 s | time out at 30 s |
+| `dishwasher` | time out at 30 s | time out at 30 s |
+| `billet_insertion` | time out at 30 s | time out at 30 s |
+| `rail_support` | time out at 30 s | time out at 30 s |
+| `stack_bracing` | time out at 30 s | time out at 30 s |
+| `worktop_clamp` | time out at 30 s | time out at 30 s |
+| `loaded_drawer` | guard contact at 6.54 s | time out at 30 s |
+| `pipe_bracket` | time out at 30 s | time out at 30 s |
+| `panel_removal` | time out at 30 s | time out at 30 s |
+| `hatch_transfer` | time out at 30 s | time out at 30 s |
+| `probe_withdrawal` | time out at 30 s | time out at 30 s |
+| `display_cover` | time out at 30 s | time out at 30 s |
+| `scoop_pour` | time out at 30 s | time out at 30 s |
+| `panel_corner` | time out at 30 s | time out at 30 s |
+| `aisle_retreat` | time out at 30 s | time out at 30 s |
+| `platform_step` | time out at 30 s | time out at 30 s |
+| `beam_clearance` | time out at 30 s | time out at 30 s |
+| `trolley_dock` | time out at 30 s | time out at 30 s |
+| `pillar_pass` | time out at 30 s | time out at 30 s |
+| `closing_door` | time out at 30 s | time out at 30 s |
+| `moving_carriage` | time out at 30 s | time out at 30 s |
+| `descending_hood` | guard contact at 14.24 s | time out at 30 s |
