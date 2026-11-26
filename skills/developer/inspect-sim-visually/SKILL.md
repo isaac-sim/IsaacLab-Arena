@@ -17,25 +17,42 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 
    Pick a port in 18200-18299 that nothing listens on: `ss -Hltn 'sport = :<port>'` must print nothing. The server
    binds with `SO_REUSEPORT`, so a second run on a busy port starts without an error and receives some of the
-   requests. Take the runtime prefix from `arena-runtime`; the Docker form is:
+   requests.
+
+   Write a one-Run Experiment to `/tmp/<run>/inspect.yaml`:
+
+   ```yaml
+   runs:
+     inspect:
+       environment:
+         type: <environment name, or path to an environment YAML>
+       policy:
+         type: zero_action
+       rollout_limit:
+         num_steps: 20000
+   ```
+
+   Launch it with `experiment_runner.py`. Take the runtime prefix from `arena-runtime`; the Docker form is:
 
    ```bash
    mkdir -p /tmp/<run>
    docker exec -e OPENBLAS_NUM_THREADS=1 -w /workspaces/isaaclab_arena --user "$(id --user --name)" <container> bash -c \
-     "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py \
-        --policy_type zero_action --num_steps 20000 --num_envs 1 --output_base_dir /tmp/<run>/outputs \
+     "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+        --experiment_config /tmp/<run>/inspect.yaml --output_base_dir /tmp/<run>/outputs \
         --kit_args '--enable isaacsim.code_editor.python_server --/exts/isaacsim.code_editor.python_server/port=<port>' \
-        --viz kit <environment> [environment args] > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
+        --viz kit > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
    ```
 
-   It prints the run's session id; keep it for step 5. `--num_steps 20000` ends a forgotten run after roughly
-   20-40 minutes; launch again if you need longer.
+   It prints the run's session id; keep it for step 5. `num_steps` bounds how long a forgotten run keeps stepping,
+   from minutes to hours depending on the scene; a paused run never ends on its own, so always stop it.
 
    - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
      which the server needs to answer. Do not set `HEADLESS=1` here.
-   - Without a policy, `isaaclab_arena/scripts/environment_runner.py --viz kit --device cpu --kit_args '...'
-     <environment>` also works (PhysX, one env).
-   - Add `--enable_cameras` when the run needs camera observations.
+   - An environment YAML path is resolved inside the container: give it relative to the repository root, such as
+     `isaaclab_arena_environments/kitchen_bench/<task>.yaml`.
+   - The Run takes any Experiment settings: environment arguments under `environment`, `enable_cameras: true` there for
+     camera observations, `environment_builder: {num_envs: 4}` next to `environment` for several envs, or another
+     `policy`.
    - `/tmp` is shared with the container and the container uses host networking, so the host client and `Read` work
      on the same paths.
 
@@ -80,7 +97,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state |
    | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request; can be armed while paused. A new call replaces the previous condition; join several with `or` |
    | `is_paused()` | Whether the simulation is paused; the reply is `true` or `false`. Wait for a `pause_when` condition with `until [ "$(python3 -I <scripts>/run_in_sim.py --port <port> --code 'is_paused()')" = true ]; do sleep 0.5; done` |
-   | `save_policy_camera_images(output_dir, env_index=0)` | Saves the camera images the policy got at the last step (`obs_buf["camera_obs"]`), one PNG per camera term; needs `--enable_cameras` |
+   | `save_policy_camera_images(output_dir, env_index=0)` | Saves the camera images the policy got at the last step (`obs_buf["camera_obs"]`), one PNG per camera term; needs `enable_cameras: true` in the Run's environment |
    | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request |
    | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["robot"].data.joint_pos.torch` (Isaac Lab data fields need `.torch`) |
@@ -96,9 +113,9 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
      --code 'pause_when(lambda env: int(env.episode_length_buf[0]) == 2); end_episode()'
    ```
 
-   The run pauses within about a second. The new episode draws its own layout, so it differs from the one before. With
-   absolute joint-position robots such as DROID, the zero-action policy is already moving the arm toward zero joint
-   angles at that point.
+   The run pauses within about a second; `[0]` selects env 0. The new episode draws its own layout, so it differs from
+   the one before. Objects may still be settling at that point, and with absolute joint-position robots such as DROID
+   the zero-action policy is already moving the arm toward zero joint angles.
 
    When checking how a scene assembles, also read the placement lines in the run log:
    `grep -E "\[placement\]|best-loss" /tmp/<run>/run.log`. A check that passes 0 of the candidate layouts, or
@@ -150,10 +167,10 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 | Run ends with `step_index must advance by exactly one per environment between resets` | Seen once in about a dozen pauses in Arena's progress tracker; not reproduced | Relaunch |
 | `--record_viewport_video` writes no video | Isaac Lab no longer renders `render_mode="rgb_array"`; `env.render()` returns `None` | Use this skill's captures |
 | `/isaac-sim/skills/isaac-sim-remote` scripts fail (`isaacsim.core.experimental`) or freeze the sim | Written for the Isaac Sim app, not Isaac Lab | Use `sim_helpers.py` |
-| `outputs/` appears in the repository | `policy_runner.py` default output directory | Pass `--output_base_dir /tmp/<run>/outputs` |
+| `outputs/` appears in the repository | `experiment_runner.py` default output directory | Pass `--output_base_dir /tmp/<run>/outputs` |
 | Faint copy of an object at its old place | Renderer temporal accumulation after a jump | Capture again |
 
-Verified from 2026-11-20 to 2026-11-25 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`) with
-`lift_object` (PhysX; `policy_runner` and `environment_runner`; 1 and 4 envs), the 17 KitchenBench task configs
-(`--env_spec`, DROID) and `yam_cable_routing` (Newton, with and without `--enable_cameras`). The native uv route is
-not verified; check that the `isaacsim.code_editor.python_server` extension loads there.
+Verified from 2026-11-20 to 2026-11-26 in the Docker route (Isaac Sim 6.2.0-rc.14, Isaac Lab `e3f7d9ff1`), launching
+through `experiment_runner.py` with `lift_object` (PhysX), KitchenBench tasks given as environment YAML paths (DROID, with
+cameras) and `yam_cable_routing` (Newton, 2 envs). The helpers were also checked with 4 envs and on all 17 KitchenBench
+tasks. The native uv route is not verified; check that the `isaacsim.code_editor.python_server` extension loads there.

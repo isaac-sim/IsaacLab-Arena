@@ -8,8 +8,8 @@ Query: "Show me what `lift_object` looks like right after reset, then the grippe
 
 Expected behavior:
 
-- Launches one `policy_runner.py` zero-action run (or `environment_runner.py`) with the Python server in `--kit_args`,
-  `--viz kit`, `DISPLAY` unset, and `--output_base_dir` under `/tmp`.
+- Writes a one-Run zero-action Experiment and launches it with `experiment_runner.py`, the Python server in
+  `--kit_args`, `--viz kit`, `DISPLAY` unset, and `--output_base_dir` under `/tmp`.
 - Waits with the skill's loop, sends `sim_helpers.py`, catches the start of a new episode with `pause_when` on
   the episode step plus `end_episode()`, captures the default view, then moves the camera and captures again in a
   separate request; reads both PNGs.
@@ -69,7 +69,8 @@ Query: "While this camera policy runs, show me the viewer every few hundred step
 
 Expected behavior:
 
-- Keeps the viewer updating every step: `--viz kit` with `DISPLAY` unset plus `--enable_cameras`.
+- Keeps the viewer updating every step: `--viz kit` with `DISPLAY` unset, and `enable_cameras: true` in the Run's
+  environment.
 - Captures through the Python server.
 
 Known failure modes:

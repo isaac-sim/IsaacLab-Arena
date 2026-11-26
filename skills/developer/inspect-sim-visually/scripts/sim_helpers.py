@@ -95,6 +95,7 @@ def save_policy_camera_images(output_dir, env_index=0):
 
     from PIL import Image
 
+    os.makedirs(output_dir, exist_ok=True)
     env = find_arena_env()
     camera_obs = env.obs_buf["camera_obs"]
     for term_name in sorted(camera_obs.keys()):
