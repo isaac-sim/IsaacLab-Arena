@@ -154,7 +154,9 @@ class ArenaEnvBuilder:
         """Select the renderer of the embodiment camera rig as ``cfg.camera_renderer`` asks."""
         if self.cfg.camera_renderer is CameraRenderer.NEWTON_WARP:
             # Isaac Lab also pairs Newton Warp with PhysX, but in Arena that leaves cameras on robot links at their
-            # start pose and does not draw the DROID gripper.
+            # start pose. Fixed cameras, such as the DROID external cameras, render correctly.
+            # TODO(xyao, 2026-11-25): Allow PhysX once Arena pins an Isaac Lab release with #8780, which refreshes
+            # the pose of link-mounted cameras under PhysX (release/3.1.0 has it; the current pin e3f7d9ff1f does not).
             assert self.resolved_physics_backend is PhysicsBackend.NEWTON, (
                 "camera_renderer 'newton_warp' requires the Newton physics backend, but this build uses"
                 f" '{self.resolved_physics_backend}'. With PhysX, Newton Warp leaves cameras on robot links at their"
