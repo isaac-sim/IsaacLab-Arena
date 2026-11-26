@@ -17,6 +17,32 @@ tables in the :doc:`imitation_learning/index` and
    :depth: 1
 
 
+Spatial Memory
+--------------
+
+g1_spatial_motion
+^^^^^^^^^^^^^^^^^
+
+Select one of 30 short G1 manipulation and locomotion tasks with ``--scene`` and
+its physical layout with ``--layout A`` or ``--layout B``. With cameras enabled,
+``--mapped`` adds a point cloud accumulated from head-camera depth in the robot
+frame. For example, launch shelf placement in layout B:
+
+.. code-block:: bash
+
+   isaaclab.sh -p isaaclab_arena/scripts/environment_runner.py --enable_cameras g1_spatial_motion --scene shelf_bay --layout B --mapped
+
+The :download:`illustrated workcell guide <../../spatial_memory_suite/G1_MOTION_GUIDE.pdf>`
+shows each scene and the humanoid view. The :doc:`scoring guide <../../spatial_memory_suite/G1_SCORING>`
+lists physical success conditions and GR00T outcomes for both layouts.
+
+.. toctree::
+   :hidden:
+
+   ../../spatial_memory_suite/README
+   ../../spatial_memory_suite/G1_SCORING
+
+
 Pick & Place
 ------------
 

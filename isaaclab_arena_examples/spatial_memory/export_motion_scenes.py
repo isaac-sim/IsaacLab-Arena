@@ -7,6 +7,7 @@
 
 import argparse
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from PIL import Image
 
@@ -18,7 +19,8 @@ def render_views(app, path):
     import omni.usd
 
     context = omni.usd.get_context()
-    assert context.open_stage(str(path)), f"Could not open {path}"
+    if not context.open_stage(str(path)):
+        raise OSError(f"Could not open {path}")
     timeline = omni.timeline.get_timeline_interface()
     timeline.pause()
     timeline.set_current_time(0)
@@ -38,6 +40,18 @@ def render_views(app, path):
         finally:
             rgb.detach(product)
             product.destroy()
+
+
+def export_scene(stage, path: Path, app=None):
+    """Write the scene and optional camera views after all requested outputs have been generated."""
+    with TemporaryDirectory(dir=path.parent) as directory:
+        staged_path = Path(directory) / path.name
+        if not stage.GetRootLayer().Export(str(staged_path)):
+            raise OSError(f"Could not export {path}")
+        if app is not None:
+            render_views(app, staged_path)
+        for artifact in staged_path.parent.iterdir():
+            artifact.replace(path.parent / artifact.name)
 
 
 def main():
@@ -65,9 +79,7 @@ def main():
         for name in names:
             stage = build_stage(name, args.seed)
             path = output / f"{name}.usda"
-            stage.GetRootLayer().Export(str(path))
-            if not args.usd_only:
-                render_views(context.app_launcher.app, path)
+            export_scene(stage, path, app=None if args.usd_only else context.app_launcher.app)
             print(f"Exported {name}", flush=True)
 
 

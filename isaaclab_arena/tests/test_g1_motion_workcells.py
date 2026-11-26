@@ -45,16 +45,17 @@ def _test_registered_workcells(simulation_app, layout):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena_environments.cli import ensure_environments_registered
-    from isaaclab_arena_environments.g1_motion_environment import G1MotionEnvironmentCfg
     from isaaclab_arena_environments.spatial_memory.workcells.bodies import BODIES
     from isaaclab_arena_environments.spatial_memory.workcells.outcomes import reached_goal
     from isaaclab_arena_environments.spatial_memory.workcells.task import move_fixture
 
     ensure_environments_registered()
-    factory = EnvironmentRegistry().get_component_by_name("g1_spatial_motion")()
+    registry = EnvironmentRegistry()
+    factory = registry.get_component_by_name("g1_spatial_motion")()
+    cfg_type = registry.get_environment_cfg_types()[factory.name]
     for name in BODIES:
         print(f"Building G1 workcell {name} / {layout}", flush=True)
-        arena = factory.build(G1MotionEnvironmentCfg(scene=name, layout=layout))
+        arena = factory.build(cfg_type(scene=name, layout=layout))
         env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
         try:
             env.reset()

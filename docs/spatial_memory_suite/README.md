@@ -1,3 +1,8 @@
+---
+myst:
+  all_links_external: false
+---
+
 # Spatial-memory task suite
 
 ## Short G1 motions
@@ -12,7 +17,7 @@ The simulator uses Arena library USDs for the worktable, shipping cartons, a KLT
 
 ![Shelf placement, dishwasher loading, tote extraction and trolley docking in Isaac Sim](WORKCELL_PREVIEW.jpg)
 
-Arena's [GR00T N1.6 G1 example](../pages/example_workflows/locomanipulation/step_5_evaluation.rst) provides a closed-loop baseline for shelf-to-bin box transport. The [workcell experiment](../../isaaclab_arena_environments/experiment_configs/g1_spatial_motion_gr00t_experiment.yaml) evaluates that checkpoint once in each layout of each task. Start the G1 policy server as in the example, then run the following command from the repository root. The [scoring guide](G1_SCORING.md) describes each task's physical success conditions and termination thresholds.
+Arena's [GR00T N1.6 G1 example](../pages/example_workflows/locomanipulation/step_5_evaluation.rst) provides a closed-loop baseline for shelf-to-bin box transport. The [workcell experiment](../../isaaclab_arena_environments/experiment_configs/g1_spatial_motion_gr00t_experiment.yaml) evaluates that checkpoint once in each layout of each task. Start the G1 policy server as in the example, then run the following command from the repository root. The [scoring guide](G1_SCORING.md) lists each task’s physical success conditions, termination thresholds and GR00T results for both layouts.
 
 ```bash
 isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py --viz none --enable_cameras \
@@ -35,10 +40,9 @@ The G1 starts beside the fixture. Pickup rests support items the guide depicts a
 
 ## Original spatial-memory environments
 
-Thirteen Isaac Lab-Arena environments in which the geometry that matters at action time is out of the egocentric camera's
-view, so a policy must have remembered or mapped it. Every task has four observation variants, a difficulty knob, a
-privileged scripted oracle, a "blind" scripted controller, collision and visibility logging, and tests that check that
-the suite tests what it claims. Design notes and the decisions taken along the way are in [PLAN.md](PLAN.md).
+The thirteen tasks below move relevant geometry outside the egocentric camera view during part of the episode.
+Each has four observation variants, a difficulty setting, scripted oracle and blind controllers, and episode records
+for collisions and visibility. The results below describe those controllers on the tested layouts.
 
 The code lives in `isaaclab_arena_environments/spatial_memory/` (shared infrastructure and one module per task under
 `tasks/`), the registered environments in `isaaclab_arena_environments/spatial_memory_environments.py`, and the
@@ -167,7 +171,7 @@ The environment flags select the observation variant and the difficulty:
 | --- | --- |
 | `--observation_variant current` | the egocentric image and proprioception only (default) |
 | `--observation_variant history_k` | as `current`, with the last `k` frames of every observation group stacked (`--history_k`, default 3 s of control steps) |
-| `--observation_variant oracle_map` | adds an `oracle_map` group: a labelled point cloud of every fixture and object surface, hidden ones included, in the robot base frame |
+| `--observation_variant oracle_map` | adds an `oracle_map` group: surface samples labelled by part index, plus the pose and half extents of each box, including hidden parts, in the robot base frame |
 | `--observation_variant mapped` | adds `mapped.online_map`, up to 4,096 XYZ points from registered egocentric depth accumulated during the episode, in the current robot frame, with a binary validity channel |
 | `--difficulty <value>` | the task's difficulty knob (see the table above) |
 
@@ -208,9 +212,9 @@ every task:
 
 - `SpatialMemoryOraclePolicy` reads the true layout, hidden geometry included, and follows the task's waypoint plan
   (Franka: its own damped inverse kinematics with a null-space posture term; G1: velocity commands to the walking
-  controller and arm postures). It shows that a policy with a perfect map can solve the task.
+  controller and arm postures). Its success rate measures the scripted plan with access to simulator state.
 - `SpatialMemoryBlindPolicy` uses the same skills but ignores the hidden geometry: a straight-line reach or walk, a
-  nominal-layout guess, or (task 10) the pose seen at the start. It shows that the task is not solved by luck.
+  nominal-layout guess, or (task 10) the pose seen at the start. Its success rate measures that specific baseline.
 
 ```bash
 python isaaclab_arena/evaluation/policy_runner.py \
@@ -236,7 +240,7 @@ The scripted controllers read privileged state; they ignore the observation vari
 Each episode also writes a `spatial_memory` record to the episode JSONL: the sampled layout, the first collision
 (bodies, time and position), whether the robot searched again and for how long, when the instruction came and when the
 hidden phase started, which hidden targets were seen during the hidden phase and for how long, which targets were seen
-before it, the largest displacement of static geometry while hidden, the tool (Franka) or pelvis (G1) path length,
+before it, the largest displacement of static geometry while hidden, the tool (Franka) or pelvis (G1) path length measured from the first post-step pose,
 and the success terms at the end.
 
 ## Tests and results
