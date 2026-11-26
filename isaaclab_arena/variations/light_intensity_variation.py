@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.variations.sampler_base import SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -21,8 +22,8 @@ if TYPE_CHECKING:
 class LightIntensityVariationCfg(VariationBaseCfg):
     """Configuration for LightIntensityVariation."""
 
-    sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[100.0], high=[2000.0]))
-    """Uniform distribution over light intensity."""
+    sampler_cfg: SamplerBaseCfg = field(default_factory=lambda: UniformSamplerCfg(low=[100.0], high=[2000.0]))
+    """Distribution over light intensity: a uniform range by default, or a ChoiceSamplerCfg set of values."""
 
 
 class LightIntensityVariation(BuildTimeVariationBase):
@@ -47,5 +48,5 @@ class LightIntensityVariation(BuildTimeVariationBase):
 
     def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightIntensityVariation: sampler not set."
-        intensity = float(self.sampler.sample(num_samples=1)[0, 0])
+        intensity = float(sample_float_rows(self.sampler, 1, (1,))[0, 0])
         self._light.set_intensity(intensity)

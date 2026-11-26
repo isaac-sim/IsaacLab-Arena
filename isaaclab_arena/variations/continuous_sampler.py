@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import abstractmethod
+from dataclasses import MISSING
 
 from isaaclab.utils.configclass import configclass
 
@@ -16,6 +17,10 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 @configclass
 class ContinuousSamplerCfg(SamplerBaseCfg):
     """Config for ContinuousSampler."""
+
+    distribution: str = MISSING
+    """Name of the sampler's distribution, such as ``"uniform"``. Each concrete subclass sets its own name. In a
+    variation override, ``<variation>.sampler_cfg.distribution=<name>`` selects the sampler with that name."""
 
     def build(self) -> ContinuousSampler:
         """Return the live ContinuousSampler described by this cfg."""

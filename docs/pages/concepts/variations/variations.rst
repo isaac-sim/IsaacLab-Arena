@@ -85,6 +85,7 @@ defaults:
        Enable: pick_up_object.mass.enabled=true  (default: False)
        Fields:
          pick_up_object.mass.recompute_inertia = True
+         pick_up_object.mass.sampler_cfg.distribution = 'uniform'
          pick_up_object.mass.sampler_cfg.high = [2.0]
          pick_up_object.mass.sampler_cfg.low = [0.05]
 
@@ -146,6 +147,28 @@ append the same variation overrides to the recording command, for example
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
 See :doc:`Teleoperation Data Collection <../../example_workflows/sequential_static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
+
+
+.. _fixed-set-variation-values:
+
+Drawing from a fixed set of values
+----------------------------------
+
+Numeric variations, such as object mass, light intensity, color and direction, and camera
+extrinsics and intrinsics, draw from a uniform range by default. They can draw from a fixed set of
+values instead, such as two apple masses of 0.17 kg and 0.24 kg. This suits evaluations that
+compare a few known settings rather than a spread. The same choice sampler picks an HDR image or an
+asset from a list of names.
+
+A fixed set is used in one of two ways:
+
+- **Random:** each reset picks a value at random, seeded like other variations, optionally
+  weighted toward some values.
+- **One value per environment:** each parallel environment keeps one value across resets, cycling
+  through the set, so every value is evaluated with no randomness. A variation applied when the
+  environment is built uses the first value.
+
+``--list_variations`` shows each variation's sampler fields.
 
 
 Configuring variations in an experiment config

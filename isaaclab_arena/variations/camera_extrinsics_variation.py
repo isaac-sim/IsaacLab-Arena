@@ -26,7 +26,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
+from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -42,13 +42,14 @@ class CameraExtrinsicsVariationCfg(VariationBaseCfg):
     (+X right, +Y down, +Z forward).
     """
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: SamplerBaseCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-0.005, -0.005, -0.005],
             high=[0.005, 0.005, 0.005],
         )
     )
-    """Uniform distribution over decalibration XYZ in the ROS camera frame [m]."""
+    """Distribution over decalibration XYZ in the ROS camera frame [m]: a uniform range by default, or a
+    ChoiceSamplerCfg set of offsets."""
 
 
 class CameraExtrinsicsVariation(RunTimeVariationBase):
@@ -112,16 +113,11 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         super().__init__(cfg, env)
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        sampler: ContinuousSampler = cfg.params["sampler"]
 
         camera = env.scene[asset_cfg.name]
         assert isinstance(camera, (Camera, TiledCamera)), (
             "apply_camera_extrinsics_from_sampler expects a Camera or TiledCamera at "
             f"scene['{asset_cfg.name}']; got {type(camera).__name__}."
-        )
-        assert tuple(sampler.shape_per_sample) == (3,), (
-            "apply_camera_extrinsics_from_sampler expects a sampler with shape_per_sample (3,) over XYZ; "
-            f"got {tuple(sampler.shape_per_sample)}."
         )
 
         self._camera = camera
@@ -134,7 +130,7 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         env: ManagerBasedEnv,  # noqa: ARG002
         env_ids: torch.Tensor,
         asset_cfg: SceneEntityCfg,  # noqa: ARG002
-        sampler: ContinuousSampler,
+        sampler: SamplerBase,
     ):
         view = self._camera._view
         assert view is not None, "Camera view was not initialized."
@@ -151,7 +147,7 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
 
         # Sample a decalibration vector in the camera's ROS-style optical frame. Pass env_ids so
         # sample listeners (e.g. the variation recorder) can attribute each row to its env.
-        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        sample = sample_float_rows(sampler, len(env_ids), (3,), env_ids)
         t_C_Cnew_in_Cros = sample.to(device=self._t_parent_C_in_parent.device, dtype=self._t_parent_C_in_parent.dtype)
 
         # Isaac Lab tensors use xyzw. 180 deg about +X maps ROS optical axes to OpenGL camera axes.

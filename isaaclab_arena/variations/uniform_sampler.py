@@ -18,6 +18,9 @@ from isaaclab_arena.variations.continuous_sampler import ContinuousSampler, Cont
 class UniformSamplerCfg(ContinuousSamplerCfg):
     """Config for :class:`UniformSampler`."""
 
+    distribution: str = "uniform"
+    """Selects this sampler in a variation override: ``<variation>.sampler_cfg.distribution=uniform``."""
+
     low: list[float] = field(default_factory=lambda: [0.0])
     """Lower bound per dimension. Length determines the sampler's shape_per_sample."""
 

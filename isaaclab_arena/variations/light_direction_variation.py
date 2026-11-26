@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_from_angle_axis
 
+from isaaclab_arena.variations.sampler_base import SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -51,13 +52,13 @@ class LightDirectionVariationCfg(VariationBaseCfg):
     The sampler draws azimuth and elevation angles (in radians).
     """
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: SamplerBaseCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-math.pi, math.radians(0.0)],
             high=[math.pi, math.radians(80.0)],
         )
     )
-    """Uniform distribution over (azimuth, elevation).
+    """Distribution over (azimuth, elevation): a uniform range by default, or a ChoiceSamplerCfg set of values.
 
     The default range goes down to 80 degrees elevation to ensure we still cast shadows.
     """
@@ -113,5 +114,5 @@ class LightDirectionVariation(BuildTimeVariationBase):
 
     def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
-        azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()
+        azimuth, elevation = sample_float_rows(self.sampler, 1, (2,))[0].tolist()
         self._light.set_orientation(quat_xyzw_from_azimuth_elevation(azimuth, elevation))

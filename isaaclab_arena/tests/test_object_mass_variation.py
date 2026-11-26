@@ -262,6 +262,42 @@ def _test_hydra_override_applies_object_mass_variation(simulation_app):
     return True
 
 
+def _test_hydra_override_applies_choice_object_masses_per_env(simulation_app):
+    import torch
+
+    import warp as wp
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "3"])
+    env = ArenaEnvBuilder(
+        get_test_environment(enabled=False),
+        arena_env_builder_cfg_from_argparse(args_cli),
+        hydra_overrides=[
+            f"{TEST_ASSET_NAME}.mass.enabled=true",
+            f"{TEST_ASSET_NAME}.mass.sampler_cfg.distribution=choice",
+            f"{TEST_ASSET_NAME}.mass.sampler_cfg.values=[[{TEST_MASS}],[{TEST_HYDRA_MASS}]]",
+            f"{TEST_ASSET_NAME}.mass.sampler_cfg.random_choice=false",
+        ],
+    ).make_registered()
+    try:
+        # Env i takes values[i % 2] on every reset.
+        expected_masses = [TEST_MASS, TEST_HYDRA_MASS, TEST_MASS]
+        asset = env.unwrapped.scene[TEST_ASSET_NAME]
+        record = env.unwrapped.variation_recorder[f"{TEST_ASSET_NAME}.mass"]
+        for _ in range(2):
+            env.reset()
+            masses = wp.to_torch(asset.data.body_mass)[:, 0].clone()
+            assert masses.tolist() == pytest.approx(expected_masses, abs=1e-6)
+            for env_id, expected_mass in enumerate(expected_masses):
+                recorded_mass = record.sample_for_episode(env_id, env.unwrapped.get_episode_index(env_id))
+                assert torch.as_tensor(recorded_mass).tolist() == pytest.approx([expected_mass], abs=1e-6)
+    finally:
+        env.close()
+    return True
+
+
 def _test_object_mass_variation_partial_reset_accepts_sequence_env_ids(simulation_app):
     import warp as wp
 
@@ -357,6 +393,13 @@ def test_object_mass_variation_scales_inertia():
 def test_hydra_override_applies_object_mass_variation():
     assert run_function_with_persistent_simulation_app(
         _test_hydra_override_applies_object_mass_variation,
+        headless=HEADLESS,
+    )
+
+
+def test_hydra_override_applies_choice_object_masses_per_env():
+    assert run_function_with_persistent_simulation_app(
+        _test_hydra_override_applies_choice_object_masses_per_env,
         headless=HEADLESS,
     )
 

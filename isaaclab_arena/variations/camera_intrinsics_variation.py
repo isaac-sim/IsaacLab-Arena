@@ -18,7 +18,7 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
+from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -36,13 +36,14 @@ class CameraIntrinsicsVariationCfg(VariationBaseCfg):
     lengths (``fx, fy -> fx, fy * (1 + d_f)``).
     """
 
-    sampler_cfg: UniformSamplerCfg = field(
+    sampler_cfg: SamplerBaseCfg = field(
         default_factory=lambda: UniformSamplerCfg(
             low=[-0.1],
             high=[0.1],
         )
     )
-    """Uniform distribution over a shared fractional focal-length perturbation."""
+    """Distribution over a shared fractional focal-length perturbation: a uniform range by default, or a
+    ChoiceSamplerCfg set of values."""
 
 
 class CameraIntrinsicsVariation(RunTimeVariationBase):
@@ -109,16 +110,11 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
         super().__init__(cfg, env)
 
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
-        sampler: ContinuousSampler = cfg.params["sampler"]
 
         camera = env.scene[asset_cfg.name]
         assert isinstance(camera, (Camera, TiledCamera)), (
             "apply_camera_intrinsics_from_sampler expects a Camera or TiledCamera at "
             f"scene['{asset_cfg.name}']; got {type(camera).__name__}."
-        )
-        assert tuple(sampler.shape_per_sample) == (1,), (
-            "apply_camera_intrinsics_from_sampler expects a sampler with shape_per_sample (1,) over "
-            f"a shared focal-length delta; got {tuple(sampler.shape_per_sample)}."
         )
 
         self._camera = camera
@@ -130,12 +126,12 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
         env: ManagerBasedEnv,  # noqa: ARG002
         env_ids: torch.Tensor,
         asset_cfg: SceneEntityCfg,  # noqa: ARG002
-        sampler: ContinuousSampler,
+        sampler: SamplerBase,
     ):
         if self._nominal_intrinsic_matrices is None:
             self._nominal_intrinsic_matrices = self._camera.data.intrinsic_matrices.torch.clone()
 
-        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        sample = sample_float_rows(sampler, len(env_ids), (1,), env_ids)
         # Focal lengths scale by (1 + d); deltas <= -1 would make them non-positive.
         assert bool((sample > -1.0).all()), (
             "apply_camera_intrinsics_from_sampler expects focal-length deltas > -1.0 so focal lengths stay "
