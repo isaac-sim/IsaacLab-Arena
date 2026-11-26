@@ -1,0 +1,86 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# No robot is spawned. The source counter is over four metres from the fridge.
+env_name: lightwheel_put_pepper_in_fridge_l_shaped_scandinavian
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_l_shaped_scandinavian
+  params:
+    collision_mode: mesh
+objects:
+- id: pepper
+  registry_name: red_bell_pepper_objaverse_robolab
+object_references:
+- id: source_counter
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_left
+  object_type: base
+- id: fridge
+  parent_id: kitchen
+  prim_path: fridge_right_group
+  object_type: articulation
+  params:
+    openable_joint_name: fridge_door_joint
+- id: fridge_shelf
+  parent_id: kitchen
+  # Fixed shelf immediately above the produce drawer.
+  prim_path: fridge_right_group/Refrigerator049/Collisions/Refrigerator049_C006
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: source_counter
+- kind: is_anchor
+  subject: fridge
+- kind: 'on'
+  subject: pepper
+  reference: source_counter
+- kind: align_with
+  subject: pepper
+  reference: source_counter
+  params:
+    axis: x
+    offset_m: 0.27
+    tolerance_m: 0.12
+- kind: align_with
+  subject: pepper
+  reference: source_counter
+  params:
+    axis: y
+    offset_m: -0.12
+    tolerance_m: 0.05
+task:
+  composition: sequential
+  description: Pick up the red bell pepper from the counter beside the toaster oven, carry it across the
+    kitchen to the fridge, open the fridge door, and place the pepper on the lower shelf above the produce
+    drawer.
+  subtasks:
+  - kind: LiftObjectTask
+    params:
+      lift_object: pepper
+      background_scene: kitchen
+      minimum_lift_m: 0.15
+      episode_length_s: 15.0
+  - kind: OpenDoorTask
+    params:
+      openable_object: fridge
+      openness_threshold: 0.8
+      reset_openness: 0.0
+      episode_length_s: 30.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: pepper
+      destination_location: fridge_shelf
+      destination_object: fridge_shelf
+      background_scene: kitchen
+      episode_length_s: 30.0
+      placement_consecutive_steps: 10
+env_cfg_override:
+  task_progress:
+    # Pickup only needs to succeed once; the door must stay open and the pepper must stay on the shelf.
+    desired_subtask_success_state: [null, true, true]
+  viewer:
+    eye: [0.1, -2.1, 3.2]
+    lookat: [3.7, -2.1, 1.0]
