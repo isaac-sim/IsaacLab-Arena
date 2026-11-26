@@ -5,20 +5,25 @@
 
 """Helpers for looking at a running Arena simulation through Isaac Sim's Python server.
 
-Send this file once per simulation process; the functions stay defined in the server's default context::
+Send this file once per simulation process; the functions stay defined in the server's default context. Sending it
+again keeps the found environment and an armed pause_when()::
 
     python3 -I run_in_sim.py --port PORT --file sim_helpers.py
 
 Requests run inside Kit's update loop, so these helpers only schedule work and never call ``app.update()``.
 """
 
-_arena_env = None
+# Keep state when the file is sent again into the same process.
+_arena_env = globals().get("_arena_env")
 
 
 def find_arena_env():
-    """Return the Arena environment running in this process (the unwrapped env)."""
+    """Return the Arena environment running in this process (the unwrapped env).
+
+    Follows the newest environment when the runner builds a new one, for example for the next Run of an Experiment.
+    """
     global _arena_env
-    if _arena_env is None:
+    if _arena_env is None or _arena_env._is_closed:
         import gc
 
         # Match by class name instead of importing the class: Isaac Lab removes its modules from sys.modules while
@@ -26,9 +31,11 @@ def find_arena_env():
         arena_envs = []
         for candidate in gc.get_objects():
             # type() of a weakref proxy is the proxy type, so proxies to the env do not match.
-            if any(cls.__name__ == "IsaacLabArenaManagerBasedRLEnv" for cls in type(candidate).__mro__):
+            is_arena_env = any(cls.__name__ == "IsaacLabArenaManagerBasedRLEnv" for cls in type(candidate).__mro__)
+            # Isaac Lab keeps _is_closed set until the env finishes building and again after close().
+            if is_arena_env and not candidate._is_closed:
                 arena_envs.append(candidate)
-        assert len(arena_envs) == 1, f"Expected one Arena environment in this process, found {len(arena_envs)}."
+        assert len(arena_envs) == 1, f"Expected one open Arena environment in this process, found {len(arena_envs)}."
         _arena_env = arena_envs[0]
     return _arena_env
 
@@ -133,32 +140,48 @@ def pause_physics():
     timeline.pause()
 
 
-_pause_observer = None
+_pause_observer = globals().get("_pause_observer")
 
 
 def pause_when(condition):
     """Pause the simulation on the first Kit update where condition(env) is true.
 
     For events faster than a request round trip, such as an object falling. The pause takes effect a step or two later.
-    Can be armed while paused, before resume_physics(). A new call replaces the previous condition, so watch several
-    things with one condition joined by ``or``. Needs PhysX or --viz kit, like pause_physics().
+    The condition gets the current environment, so it keeps working when the runner builds a new one, and it can be
+    armed before the environment exists or while paused. It fires once; a new call replaces the previous condition, so
+    watch several things with one condition joined by ``or``. Pausing needs PhysX or --viz kit, like pause_physics().
 
     Args:
         condition: Function of the Arena env that returns true when to pause, for example
             ``lambda env: env.arena_world.get_root_linear_velocity_w("dex_cube")[0, 2] < -1.0``.
     """
     global _pause_observer
+    import time
+
     import carb.eventdispatcher
     import omni.kit.app
     import omni.timeline
 
-    env = find_arena_env()
     timeline = omni.timeline.get_timeline_interface()
-    assert not timeline.is_stopped(), "The Kit timeline is stopped; pausing needs PhysX or --viz kit."
+    next_env_search_time = 0.0
 
     def pause_if_condition_holds(_event):
         global _pause_observer
-        if _pause_observer is not None and condition(env):
+        nonlocal next_env_search_time
+        # Check only while the simulation runs, so a condition that already holds does not fire again while paused.
+        if _pause_observer is None or not timeline.is_playing():
+            return
+        if _arena_env is None or _arena_env._is_closed:
+            # No open env while the app starts or the next env builds. Searching scans every Python object, so do it
+            # at most once per second.
+            if time.monotonic() < next_env_search_time:
+                return
+            next_env_search_time = time.monotonic() + 1.0
+            try:
+                find_arena_env()
+            except AssertionError:
+                return
+        if condition(_arena_env):
             timeline.pause()
             # Dropping the observer handle unsubscribes it, so resume_physics() is not undone.
             _pause_observer = None
@@ -169,6 +192,22 @@ def pause_when(condition):
         on_event=pause_if_condition_holds,
         observer_name="sim_helpers.pause_when",
     )
+
+
+def pause_at_next_episode(step=2, env_index=0):
+    """Pause when the next episode reaches the given step, whether it starts in this env or in a newly built one.
+
+    Arm it before the environment exists to see the first episode, before end_episode() to see a new one, or after
+    resuming to see the start of the next rebuild or Run.
+    """
+    armed_env = _arena_env if _arena_env is not None and not _arena_env._is_closed else None
+    armed_episode = armed_env.get_episode_index(env_index) if armed_env is not None else None
+
+    def next_episode_reached_step(env):
+        is_new_episode = env is not armed_env or env.get_episode_index(env_index) != armed_episode
+        return is_new_episode and int(env.episode_length_buf[env_index]) >= step
+
+    pause_when(next_episode_reached_step)
 
 
 def resume_physics():

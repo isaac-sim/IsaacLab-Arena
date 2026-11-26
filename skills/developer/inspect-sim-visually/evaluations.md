@@ -10,9 +10,8 @@ Expected behavior:
 
 - Writes a one-Run zero-action Experiment and launches it with `experiment_runner.py`, the Python server in
   `--kit_args`, `--viz kit`, `DISPLAY` unset, and `--output_base_dir` under `/tmp`.
-- Waits with the skill's loop, sends `sim_helpers.py`, catches the start of a new episode with `pause_when` on
-  the episode step plus `end_episode()`, captures the default view, then moves the camera and captures again in a
-  separate request; reads both PNGs.
+- Loads `sim_helpers.py`, arms `pause_at_next_episode()` before the environment is ready, captures the default view
+  at the pause, then moves the camera and captures again in a separate request; reads both PNGs.
 - Stops the run by the session id printed at launch (`pkill -s <sid>`) and confirms with `pgrep -s <sid>` that
   nothing is left.
 
@@ -23,7 +22,7 @@ Known failure modes:
   telemetry process running.
 - Passes `--headless`, or sets `HEADLESS=1` together with the Python server, so requests never return.
 - Relaunches the simulation for every camera angle.
-- Waits minutes for the current episode to time out instead of using `end_episode()`.
+- Waits minutes for the current episode to time out instead of using `pause_at_next_episode()`.
 - Moves the camera with `sim.set_camera_view()` or adds a camera sensor to get a side view.
 
 ## Scenario 2: Object Falls Through The Table
@@ -53,27 +52,28 @@ Query: "Show me env 2 right after reset."
 
 Expected behavior:
 
-- Launches with `--num_envs 4`, catches the start of a new episode with `pause_when` plus
-  `end_episode()`, and aims the camera at env 2 with `set_camera(..., env_index=2)` before capturing.
+- Launches with `environment_builder: {num_envs: 4}`, pauses at the start of an episode with
+  `pause_at_next_episode()`, and aims the camera at env 2 with `set_camera(..., env_index=2)` before capturing.
 
 Known failure modes:
 
 - Captures the default view and reports it as env 2; the default view follows env 0.
 - Uses `--record_viewport_video` or `env.render()`, which produce no image.
 
-## Scenario 4: Camera-Policy Run That Also Needs Viewer Images
+## Scenario 4: Existing Experiment With A Camera Policy
 
-Setup: an environment whose policy reads `obs["camera_obs"]`.
+Setup: an Experiment YAML whose policy reads `obs["camera_obs"]`, with its policy server running.
 
-Query: "While this camera policy runs, show me the viewer every few hundred steps."
+Query: "While this evaluation runs, show me the viewer and what the policy sees every few hundred steps."
 
 Expected behavior:
 
-- Keeps the viewer updating every step: `--viz kit` with `DISPLAY` unset, and `enable_cameras: true` in the Run's
-  environment.
-- Captures through the Python server.
+- Launches the existing Experiment as it is with `experiment_runner.py`, adding the Python server in `--kit_args`,
+  `--viz kit` with `DISPLAY` unset, and `--output_base_dir` under `/tmp`; does not write a new Experiment.
+- Captures the viewer and calls `save_policy_camera_images` through the Python server.
 
 Known failure modes:
 
+- Writes a zero-action Experiment instead of inspecting the policy's own Run.
 - Uses `HEADLESS=1 --viz kit`, which freezes camera observations between viewer captures and stops the server from
   answering.

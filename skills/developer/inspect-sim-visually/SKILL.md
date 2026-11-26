@@ -19,7 +19,33 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    binds with `SO_REUSEPORT`, so a second run on a busy port starts without an error and receives some of the
    requests.
 
-   Write a one-Run Experiment to `/tmp/<run>/inspect.yaml`:
+   Start the Experiment you want to inspect with `experiment_runner.py`, as `run-experiment` describes (including any
+   policy server it needs), and add the Python server, a windowless viewer and an output folder under `/tmp`. Take the
+   runtime prefix from `arena-runtime`; the Docker form is:
+
+   ```bash
+   mkdir -p /tmp/<run>
+   docker exec -e OPENBLAS_NUM_THREADS=1 -w /workspaces/isaaclab_arena --user "$(id --user --name)" <container> bash -c \
+     "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
+        --experiment_config <experiment.yaml> --output_base_dir /tmp/<run>/outputs \
+        --kit_args '--enable isaacsim.code_editor.python_server --/exts/isaacsim.code_editor.python_server/port=<port>' \
+        --viz kit > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
+   ```
+
+   It prints the run's session id; keep it for step 5. A paused run never ends on its own, so always stop it.
+
+   - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
+     which the server needs to answer. Do not set `HEADLESS=1` here.
+   - The Experiment's Runs and their rebuilds run one after another; the helpers follow each newly built environment. To look at one Run
+     only, launch a copy of the file that keeps just that Run.
+   - While a step waits for a policy server, requests wait too.
+   - `/tmp` is shared with the container and the container uses host networking, so the host client and `Read` work
+     on the same paths.
+
+   To look at an environment without a policy, launch this one-Run Experiment instead, written to
+   `/tmp/<run>/inspect.yaml`. Give an environment YAML path relative to the repository root, such as
+   `isaaclab_arena_environments/kitchen_bench/<task>.yaml`. Add `enable_cameras: true` under `environment` for camera
+   observations, or `environment_builder: {num_envs: 4}` next to it for several envs:
 
    ```yaml
    runs:
@@ -32,43 +58,27 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
          num_steps: 20000
    ```
 
-   Launch it with `experiment_runner.py`. Take the runtime prefix from `arena-runtime`; the Docker form is:
-
-   ```bash
-   mkdir -p /tmp/<run>
-   docker exec -e OPENBLAS_NUM_THREADS=1 -w /workspaces/isaaclab_arena --user "$(id --user --name)" <container> bash -c \
-     "env -u DISPLAY setsid nohup isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
-        --experiment_config /tmp/<run>/inspect.yaml --output_base_dir /tmp/<run>/outputs \
-        --kit_args '--enable isaacsim.code_editor.python_server --/exts/isaacsim.code_editor.python_server/port=<port>' \
-        --viz kit > /tmp/<run>/run.log 2>&1 < /dev/null & echo \$!"
-   ```
-
-   It prints the run's session id; keep it for step 5. `num_steps` bounds how long a forgotten run keeps stepping,
-   from minutes to hours depending on the scene; a paused run never ends on its own, so always stop it.
-
-   - `--viz kit` with `DISPLAY` unset starts the viewer without a window. The viewer then updates Kit every step,
-     which the server needs to answer. Do not set `HEADLESS=1` here.
-   - An environment YAML path is resolved inside the container: give it relative to the repository root, such as
-     `isaaclab_arena_environments/kitchen_bench/<task>.yaml`.
-   - The Run takes any Experiment settings: environment arguments under `environment`, `enable_cameras: true` there for
-     camera observations, `environment_builder: {num_envs: 4}` next to `environment` for several envs, or another
-     `policy`.
-   - `/tmp` is shared with the container and the container uses host networking, so the host client and `Read` work
-     on the same paths.
-
-2. **Wait for the environment and load the helpers.** The server answers during app start, then pauses while the
+2. **Load the helpers and wait for the environment.** The server answers during app start, then pauses while the
    environment builds (40-50 s after launch when warm; the first launch in a new container can stay silent for about
-   8 minutes). Until the environment exists, send only the helpers and `find_arena_env()`: Isaac Lab removes its
-   modules from `sys.modules` while the app starts, and a request that imports an Isaac Lab or Arena module then
-   breaks the run.
+   8 minutes). Until the environment exists, send only the helper calls shown here: Isaac Lab removes its modules from
+   `sys.modules` while the app starts, and a request that imports an Isaac Lab or Arena module then breaks the run.
 
-   From the repository root:
+   From the repository root, load the helpers as soon as the server answers:
 
    ```bash
    C=skills/developer/inspect-sim-visually/scripts
+   until python3 -I $C/run_in_sim.py --port <port> --file $C/sim_helpers.py --timeout 10 > /dev/null 2>&1; do
+     grep -q "Command failed" /tmp/<run>/run.log && { tr '\r' '\n' < /tmp/<run>/run.log | tail -30; break; }
+     sleep 2
+   done
+   ```
+
+   To see the scene as it was built, arm `pause_at_next_episode()` now; the run then pauses at step 2 of the first
+   episode. Then wait until the environment is ready:
+
+   ```bash
    for attempt in $(seq 120); do
-     python3 -I $C/run_in_sim.py --port <port> --file $C/sim_helpers.py --timeout 10 > /dev/null 2>&1 &&
-       python3 -I $C/run_in_sim.py --port <port> --code 'find_arena_env().common_step_counter' --timeout 10 2> /dev/null && break
+     python3 -I $C/run_in_sim.py --port <port> --code 'find_arena_env().common_step_counter' --timeout 10 2> /dev/null && break
      grep -q "Command failed" /tmp/<run>/run.log && { tr '\r' '\n' < /tmp/<run>/run.log | tail -30; break; }
      sleep 5
    done
@@ -95,10 +105,11 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    | `set_camera(eye, target, env_index=None)` | Points the viewer camera; meters, relative to env `env_index`'s origin, else world frame. Keep the eye offset sideways from the target: straight down gives an arbitrary roll |
    | `print_scene_state(env_index=0)` | Position relative to the env origin, speed, and tilt of every rigid object and articulation |
    | `pause_physics()` / `resume_physics()` | Freezes the simulation, including the episode clock, for several looks at one state |
-   | `pause_when(condition)` | Pauses on the first update where `condition(env)` is true, for events faster than a request; can be armed while paused. A new call replaces the previous condition; join several with `or` |
+   | `pause_when(condition)` | Pauses on the first update while running where `condition(env)` is true, for events faster than a request; follows newly built envs and can be armed before the env exists or while paused. A new call replaces the previous condition; join several with `or` |
+   | `pause_at_next_episode(step=2, env_index=0)` | Pauses when the next episode reaches `step`, in this env or a newly built one |
    | `is_paused()` | Whether the simulation is paused; the reply is `true` or `false`. Wait for a `pause_when` condition with `until [ "$(python3 -I <scripts>/run_in_sim.py --port <port> --code 'is_paused()')" = true ]; do sleep 0.5; done` |
    | `save_policy_camera_images(output_dir, env_index=0)` | Saves the camera images the policy got at the last step (`obs_buf["camera_obs"]`), one PNG per camera term; needs `enable_cameras: true` in the Run's environment |
-   | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request |
+   | `end_episode()` | Starts a new episode in every env at the next step, through Isaac Lab's reset request; the ended episodes count toward the Run's episode limit |
    | `move_object(scene_key, position, env_index=0)` | Teleports a rigid object to `position` relative to the env origin, at rest |
    | `find_arena_env()` | The unwrapped Arena env, for anything else, e.g. `find_arena_env().scene["robot"].data.joint_pos.torch` (Isaac Lab data fields need `.torch`) |
 
@@ -106,16 +117,17 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    `render_rgb_array()` in a request. Variables a request defines stay available to later requests. The reply shows
    a value only when the code is a single expression; use `print()` in longer code.
 
-   To see the scene as assembled, catch the start of a new episode instead of waiting for the current one to end:
+   To see a scene right after a reset later on, start a new episode instead of waiting for the current one to end:
 
    ```bash
    python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
-     --code 'pause_when(lambda env: int(env.episode_length_buf[0]) == 2); end_episode()'
+     --code 'pause_at_next_episode(); end_episode()'
    ```
 
-   The run pauses within about a second; `[0]` selects env 0. The new episode draws its own layout, so it differs from
-   the one before. Objects may still be settling at that point, and with absolute joint-position robots such as DROID
-   the zero-action policy is already moving the arm toward zero joint angles.
+   The run pauses within about a second, and the new episode draws its own layout. For the start of the next rebuild
+   or Run, arm `pause_at_next_episode()` before `resume_physics()` instead. Objects may still be settling at step 2,
+   and with absolute joint-position robots such as DROID the zero-action policy is already moving the arm toward zero
+   joint angles.
 
    When checking how a scene assembles, also read the placement lines in the run log:
    `grep -E "\[placement\]|best-loss" /tmp/<run>/run.log`. A check that passes 0 of the candidate layouts, or
