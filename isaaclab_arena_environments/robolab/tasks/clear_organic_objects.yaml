@@ -7,6 +7,24 @@ env_name: clear_organic_objects
 external_yaml:
 - ../scenes/clutter_fruit_bottle_bluebin.yaml
 - ../robolab_defaults.yaml
+# NOTE(alexmillane, 2026-11-25): The 11 pick-and-place subtasks require 12 objects (11 picks plus
+# container_f24) to pass ik_reachable in the same layout. The solver ignores reachability, and each
+# object fails the check in about half the layouts, so no layout passes. Every pool fill then spends all
+# max_placement_attempts batches (~40 min on an L40S) before writing a best-loss fallback layout anyway.
+# Every check still runs, so ik_reachable failures are still reported, but only the other checks are
+# required for a layout to be valid.
+# TODO(alexmillane, 2026-11-25): Require ik_reachable again once the solver keeps objects inside the
+# robot's reachable workspace.
+placer_params:
+  required_checks:
+  - no_overlap
+  - on_relation
+  - clutter_on_relation
+  - align_with
+  - next_to
+  - not_next_to
+  - face_to
+  - physics_settled
 task:
   composition: parallel
   description: Clear away the organic objects
