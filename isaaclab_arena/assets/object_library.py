@@ -5,6 +5,7 @@
 
 
 import copy
+import pathlib
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
@@ -166,6 +167,24 @@ class Microwave(LibraryObject, Openable):
             openable_joint_name=self.openable_joint_name,
             openable_threshold=self.openable_threshold,
         )
+
+
+@register_asset
+class Turntable(LibraryObject):
+    """A fixed-base turntable whose disc spins about the vertical axis at a constant speed.
+
+    The disc's USD drive sets the speed, so the asset has no Isaac Lab actuator: one would overwrite the drive's
+    target velocity with zero on every step. Objects resting on the disc keep moving, so they never pass Arena's
+    settle checks, such as placement pool validation and the ``objects_settled`` predicate.
+    """
+
+    registry_name = "turntable"
+    tags = ["object"]
+    # TODO(cvolk, 2026-11-26): Upload the USD to the Arena assets on S3 and load it from ARENA_NUCLEUS_DIR like the
+    # other library objects. Until then it is read from this local path.
+    usd_path = str(pathlib.Path.home() / ".cache/isaaclab_arena/local_assets/object_library/turntable/turntable.usda")
+    object_type = ObjectType.ARTICULATION
+    spawn_cfg_addon = {"fix_root_link": True}
 
 
 @register_asset
