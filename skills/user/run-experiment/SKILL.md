@@ -1,6 +1,6 @@
 ---
 name: run-experiment
-description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), direct Policy Runner workflows, or OSMO preview, submission, or management.
+description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), visual inspection of a scene or running simulation (inspect-sim-visually), direct Policy Runner workflows, or OSMO preview, submission, or management.
 allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *) Bash(xdg-open *)
 ---
 
@@ -144,6 +144,8 @@ preserved partial artifacts or failures.
 - Use `setup-arena` for installation, container creation, mounts, or readiness repair.
 - Use `run-tests` for pytest and regression checks.
 - Use the Environment Runner for interactive inspection without a policy.
+- Use [inspect-sim-visually](../../developer/inspect-sim-visually/SKILL.md) when an agent needs to see a scene or
+  running simulation.
 - Use the Policy Runner for external environments or an explicitly requested direct rollout
   outside an Experiment Definition.
 - Use a separate OSMO submission skill for previews, cluster resources, submission, monitoring, or
