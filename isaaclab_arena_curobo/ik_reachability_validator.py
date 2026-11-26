@@ -15,8 +15,10 @@ candidate -- the robot base, the grasps, their IK errors; see ``isaaclab_arena_c
 from __future__ import annotations
 
 import torch
+import trimesh
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.geometry.background_collision_object import FixedCollisionObject
 from isaaclab_arena.relations.optimization.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_diagnostics import Rejection
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
@@ -27,7 +29,7 @@ from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
-from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
+from isaaclab_arena_curobo.ik_solver import BACKGROUND_MESH_NAME, CuroboIKSolver
 from isaaclab_arena_curobo.utils.frame_utils import top_down_grasp_pose_from_world_poses
 from isaaclab_arena_curobo.utils.ik_solver_utils import (
     AABBCollisionCuboid,
@@ -80,6 +82,11 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         self._ik_pos_threshold = config.ik_position_threshold_m
         self._ik_rot_threshold = config.ik_rotation_threshold_rad
         self._require_collision_free = config.require_collision_free
+        self._include_background = config.include_background_obstacles
+        # Joined from the placer's fixed background meshes on the first batch; it does not change between layouts.
+        self._background_mesh_W: trimesh.Trimesh | None = None
+        # Robot base pose the background mesh pose was last updated for; it is updated again only when the base moves.
+        self._background_mesh_pose_base_pose_w: Pose | None = None
         self._solver = CuroboIKSolver(
             get_embodiment_curobo_cfg(config.embodiment),
             position_threshold=self._ik_pos_threshold,
@@ -116,6 +123,10 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
     def _validate_batch(
         self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject], rejections: list[Rejection]
     ) -> list[bool]:
+        if self._include_background and self._background_mesh_W is None:
+            self._background_mesh_W = _join_background_meshes(collision_objects)
+            # The whole mesh is loaded once; each layout only moves it relative to the robot base.
+            self._solver.load_background_mesh_obstacle(self._background_mesh_W)
         return [
             self._validate(candidate.positions, candidate.orientations, rejections, layout_index_within_batch=i)
             for i, candidate in enumerate(batch.candidates)
@@ -132,9 +143,9 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
         Rebuilds each object's world pose, builds a collision cuboid per object -- what makes them block a
         grasp when collision checking is on -- then IK-solves each target's top-down grasp against a world
-        holding every other object. A layout with nothing to grasp (anchor-only, or no target present) is
-        trivially reachable. The robot stands where this layout puts it when it is relation-placed too,
-        so the grasps are solved from the base pose the layout would actually spawn.
+        holding every other object and, when enabled, the background. A layout with nothing to
+        grasp (anchor-only, or no target present) is trivially reachable. The robot stands where this layout puts it
+        when it is relation-placed too, so the grasps are solved from the base pose the layout would actually spawn.
 
         Args:
             positions: Solved (x, y, z) per object.
@@ -183,6 +194,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             )
             for obj in targets
         ])
+        self._update_background_mesh_pose_using_robot_base(robot_base_pose_w)
         ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
         if self._rerun_layer is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
@@ -198,6 +210,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
                 # The pose the arm ended up in is what explains a rejection, so it is drawn alongside it.
                 robot_spheres=robot_collision_spheres(self._solver, ik.joint_positions),
                 muted_sphere_mask=hand_sphere_mask(self._solver) if self._require_collision_free else None,
+                background_mesh_W=self._background_mesh_W,
             )
         self._record_failure(rejections, targets, ik)
         return bool(ik.feasible.all().item())
@@ -235,19 +248,22 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         Returns:
             One ``IKFeasibility`` whose per-target entries are ordered like ``targets``.
         """
+        # Load the layout's world once; each target is only switched off for its own grasp.
+        self._solver.update_world(
+            list(cuboid_per_object.values()), robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw
+        )
         per_target = []
         for target_index, target in enumerate(targets):
-            obstacles = [cuboid for obj, cuboid in cuboid_per_object.items() if obj is not target]
-            self._solver.update_world(obstacles, robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw)
-            per_target.append(
-                solve_ik_feasibility(
-                    self._solver,
-                    grasp_poses[target_index : target_index + 1],
-                    position_threshold=self._ik_pos_threshold,
-                    rotation_threshold=self._ik_rot_threshold,
-                    require_collision_free=self._require_collision_free,
-                )
-            )
+            target_cuboid_name = cuboid_per_object[target].name
+            # Off for its own grasp: the gripper has to reach into the object it picks up.
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, False)
+            grasp_pose = grasp_poses[target_index : target_index + 1]
+            ik = self._solve_ik(grasp_pose)
+            if not ik.feasible.item() and self._has_background_mesh():
+                ik = self._solve_ik_seeded_by_solution_without_background(grasp_pose, ik)
+            per_target.append(ik)
+            # On so the next target's grasp treats this object as an obstacle.
+            self._solver.set_obstacle_collision_enabled(target_cuboid_name, True)
         return IKFeasibility(
             feasible=torch.cat([ik.feasible for ik in per_target]),
             position_error=torch.cat([ik.position_error for ik in per_target]),
@@ -255,6 +271,69 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
             joint_positions=torch.cat([ik.joint_positions for ik in per_target]),
         )
 
+    def _solve_ik(self, grasp_pose: torch.Tensor, seed_config: torch.Tensor | None = None) -> IKFeasibility:
+        """IK-solve one grasp against the loaded world, optionally starting from a given joint configuration."""
+        return solve_ik_feasibility(
+            self._solver,
+            grasp_pose,
+            seed_config=seed_config,
+            position_threshold=self._ik_pos_threshold,
+            rotation_threshold=self._ik_rot_threshold,
+            require_collision_free=self._require_collision_free,
+        )
+
+    def _solve_ik_seeded_by_solution_without_background(
+        self, grasp_pose: torch.Tensor, ik_with_background: IKFeasibility
+    ) -> IKFeasibility:
+        """Re-solve a grasp the background blocked, starting from the arm pose found without the background.
+
+        The background's collision cost can stop every random start short of the target even when a clear pose
+        exists; starting from the pose found without the background reaches it.
+
+        Args:
+            grasp_pose: ``(1, 4, 4)`` grasp transform in the robot base frame.
+            ik_with_background: The failed solve, returned when the grasp is unreachable without the background too.
+        """
+        self._solver.set_obstacle_collision_enabled(BACKGROUND_MESH_NAME, False)
+        ik_without_background = self._solve_ik(grasp_pose)
+        self._solver.set_obstacle_collision_enabled(BACKGROUND_MESH_NAME, True)
+        if not ik_without_background.feasible.item():
+            return ik_with_background
+        return self._solve_ik(grasp_pose, seed_config=ik_without_background.joint_positions)
+
+    def _has_background_mesh(self) -> bool:
+        """Whether a non-empty background mesh is loaded into the solver."""
+        return self._background_mesh_W is not None and len(self._background_mesh_W.faces) > 0
+
+    def _update_background_mesh_pose_using_robot_base(self, robot_base_pose_w: Pose) -> None:
+        """Update the loaded background mesh's pose relative to the robot base; its vertices are not touched.
+
+        Skipped when the base pose equals the last layout's, or when the background is off or the scene has none.
+
+        Args:
+            robot_base_pose_w: World pose of the robot base.
+        """
+        if not self._has_background_mesh():
+            return
+        if robot_base_pose_w != self._background_mesh_pose_base_pose_w:
+            self._solver.update_background_mesh_pose_using_robot_base(
+                robot_base_pose_w.position_xyz, robot_base_pose_w.rotation_xyzw
+            )
+            self._background_mesh_pose_base_pose_w = robot_base_pose_w
+
     def _select_reachability_targets(self, objects: list[ObjectBase], anchors: set[ObjectBase]) -> list[ObjectBase]:
         """Movable objects the task marked as reachability targets (carry a RequiresReachability relation)."""
         return [obj for obj in objects if obj not in anchors and obj.has_relation(RequiresReachability)]
+
+
+def _join_background_meshes(collision_objects: list[CollisionObject]) -> trimesh.Trimesh:
+    """Return the placer's whole-scene background meshes (``FixedCollisionObject``) joined into one world-frame mesh.
+
+    Returns an empty mesh when the scene has none.
+    """
+    meshes_W = [obj.get_collision_mesh() for obj in collision_objects if isinstance(obj, FixedCollisionObject)]
+    if not meshes_W:
+        return trimesh.Trimesh()
+    mesh_W = trimesh.util.concatenate(meshes_W)
+    print(f"[ReachabilityValidator] Background mesh loaded with {len(mesh_W.faces)} triangle(s).")
+    return mesh_W
