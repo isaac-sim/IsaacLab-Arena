@@ -138,6 +138,59 @@ def test_experiment_runner_rejects_unknown_non_hydra_arguments():
     assert "Unrecognized arguments: --headles" in result.stderr
 
 
+def test_experiment_runner_requires_the_kit_visualizer_for_viewport_video():
+    """Reject a viewport video request without the Kit visualizer before the app starts."""
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.evaluation_dir}/experiment_runner.py",
+            "--experiment_config",
+            f"{TestConstants.arena_environments_dir}/experiment_configs/smoke_test_experiment.yaml",
+            "--record_viewport_video",
+            "--viz",
+            "none",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+
+    assert result.returncode != 0
+    assert "--record_viewport_video records the Kit viewer; pass --viz kit" in result.stderr
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_records_one_viewport_video_per_rebuild(tmp_path):
+    """Record the Kit viewer of every rebuild of a Run to its own mp4."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text(
+        """
+runs:
+  viewport_video:
+    environment:
+      type: cube_goal_pose
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 3
+    num_rebuilds: 2
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "output"
+
+    run_experiment_runner(
+        str(experiment_config_path),
+        headless=False,
+        extra_args=["--experiment_output_directory", str(output_dir), "--record_viewport_video"],
+    )
+
+    video_paths = sorted((output_dir / "viewport_video").glob("*.mp4"))
+    assert [path.name for path in video_paths] == ["viewport-rebuild0_0000.mp4", "viewport-rebuild1_0000.mp4"]
+    assert all(path.stat().st_size > 0 for path in video_paths)
+
+
 def run_experiment_runner(
     experiment_config_path: str,
     headless: bool = HEADLESS,

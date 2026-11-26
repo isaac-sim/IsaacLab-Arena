@@ -33,7 +33,7 @@ from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, add_viewport_video_recorder, wrap_env_for_video
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -127,12 +127,13 @@ def build_and_run(
             rebuild_video_cfg = replace(
                 video_cfg,
                 video_base_dir=output_dir,
+                viewport_name_prefix=f"viewport-rebuild{rebuild_index}",
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
             rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
             env = _build_environment_from_cfg(
                 rebuild_cfg,
-                rebuild_video_cfg.render_mode,
+                rebuild_video_cfg,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
             )
@@ -150,7 +151,7 @@ def build_and_run(
                 policy,
                 num_episodes,
             )
-            env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
+            env = wrap_env_for_video(env, rebuild_video_cfg)
             rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
         except Exception as error:
             # A failed fill leaves no pool to read its diagnostics from, so they are taken from its error.
@@ -201,7 +202,7 @@ def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
 
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
-    render_mode: str | None,
+    video_cfg: VideoRecordingCfg,
     output_dir: str | Path,
     rebuild_index: int = 0,
 ) -> gym.Env:
@@ -209,7 +210,7 @@ def _build_environment_from_cfg(
 
     Args:
         cfg: The run whose environment is being built.
-        render_mode: Render mode required by the enabled video recorders.
+        video_cfg: Video recording options; a requested viewport video adds a recorder to the environment.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
     """
@@ -219,7 +220,10 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    return arena_builder.make_registered(render_mode=render_mode)
+    env_cfg, env_kwargs = arena_builder.build_env_cfg()
+    if video_cfg.record_viewport_video:
+        add_viewport_video_recorder(env_cfg, video_cfg)
+    return arena_builder.make_registered(env_cfg, env_kwargs)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:

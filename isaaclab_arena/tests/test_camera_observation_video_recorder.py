@@ -369,12 +369,7 @@ def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_pa
     env = _make_env()
     _configure_step(env)
 
-    wrapped = wrap_env_for_video(
-        env,
-        VideoRecordingCfg(record_camera_video=True, video_base_dir=str(tmp_path)),
-        num_steps=1,
-        num_episodes=None,
-    )
+    wrapped = wrap_env_for_video(env, VideoRecordingCfg(record_camera_video=True, video_base_dir=str(tmp_path)))
 
     assert isinstance(wrapped, CameraObsVideoRecorder)
     assert isinstance(wrapped.env, EnvStepTimerWrapper)
@@ -398,7 +393,7 @@ def test_wrap_env_for_video_adds_no_timer_when_recording_is_disabled(tmp_path):
     reset_timer_stats()
     env = _make_env()
 
-    wrapped = wrap_env_for_video(env, VideoRecordingCfg(video_base_dir=str(tmp_path)), 1, None)
+    wrapped = wrap_env_for_video(env, VideoRecordingCfg(video_base_dir=str(tmp_path)))
 
     assert wrapped is env
     assert get_timer_stats() == {}

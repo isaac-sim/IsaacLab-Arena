@@ -117,7 +117,8 @@ class ExperimentRunnerTask(BaseTask):
             "--experiment_output_directory",
             OSMO_TASK_OUTPUT_DIR,
             "--viz",
-            "none",
+            # The viewport recorder captures the Kit viewer, which runs without a window in the task container.
+            "kit" if self.task_cfg.record_viewport_video else "none",
             "--enable_cameras",
         ]
         if self.task_cfg.record_camera_video:

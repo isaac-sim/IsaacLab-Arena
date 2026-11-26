@@ -96,7 +96,7 @@ def run_sim_preview(
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
-    from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
+    from isaaclab_arena.video.video_recording import VideoRecordingCfg, add_viewport_video_recorder
 
     started_at = time.monotonic()
     _preview_log(started_at, "run_sim_preview started")
@@ -140,10 +140,10 @@ def run_sim_preview(
 
         _preview_log(started_at, "spawning sim scene (gym.make)…")
         t_spawn = time.monotonic()
-        env = builder.make_registered(env_cfg, env_kwargs, render_mode=video_cfg.render_mode)
+        add_viewport_video_recorder(env_cfg, video_cfg)
+        env = builder.make_registered(env_cfg, env_kwargs)
         _preview_log(started_at, f"sim scene ready ({time.monotonic() - t_spawn:.1f}s)")
 
-        env = wrap_env_for_video(env, video_cfg, num_steps=num_steps, num_episodes=None)
         obs, _ = env.reset()
         for _ in range(num_steps):
             action = policy.get_action(env, obs)

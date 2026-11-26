@@ -31,6 +31,7 @@ from isaaclab_arena.relations.placement_diagnostics import (
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.utils.timer import Timer
+from isaaclab_arena.video.video_recording import VideoRecordingCfg
 
 
 @dataclass
@@ -94,10 +95,14 @@ class _ArenaEnvBuilder:
 
     def __init__(self, recorders):
         self.env_cfg = SimpleNamespace(recorders=recorders)
+        self.env_kwargs = {}
         self.made_with = None
 
-    def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
-        self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
+    def build_env_cfg(self):
+        return self.env_cfg, self.env_kwargs
+
+    def make_registered(self, env_cfg=None, env_kwargs=None):
+        self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs)
         return _environment()
 
 
@@ -147,13 +152,13 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     rollout_limits = []
     received_run_cfgs = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
 
     def record_rollout(env, policy, num_steps, num_episodes):
@@ -189,13 +194,13 @@ def test_build_and_run_gives_each_rebuild_its_listed_episodes(monkeypatch, tmp_p
     rollout_limits = []
     received_run_cfgs = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
     monkeypatch.setattr(
         run_execution,
@@ -237,13 +242,13 @@ def test_build_and_run_resolves_variation_replay_budget(
     received_run_cfgs = []
     rollout_limits = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
     monkeypatch.setattr(
         run_execution,
@@ -280,13 +285,13 @@ def test_build_and_run_assigns_one_replay_file_per_rebuild(
     received_run_cfgs = []
     rollout_limits = []
 
-    def make_environment(cfg, render_mode, **kwargs):
+    def make_environment(cfg, video_cfg, **kwargs):
         received_run_cfgs.append(cfg)
         return _environment()
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
     monkeypatch.setattr(
         run_execution,
@@ -338,10 +343,10 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode, **kwargs: environment,
+        lambda cfg, video_cfg, **kwargs: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(
         run_execution,
         "close_run_resources",
@@ -370,7 +375,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode, **kwargs: environment,
+        lambda cfg, video_cfg, **kwargs: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(
@@ -483,7 +488,7 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
 
     run_execution._build_environment_from_cfg(
         run,
-        render_mode="rgb_array",
+        VideoRecordingCfg(),
         output_dir=tmp_path,
         rebuild_index=2,
     )
@@ -494,17 +499,56 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
     assert captured["rebuild_index"] == 2
     assert run.environment_builder.recorder_dataset_export_dir_path is None
     assert run.environment_builder.recorder_dataset_filename is None
-    assert builder.made_with.render_mode == "rgb_array"
+    assert builder.made_with.env_cfg is builder.env_cfg
 
 
 def test_build_environment_tolerates_an_environment_without_recorders(monkeypatch, tmp_path):
-    builder = _builder(monkeypatch, None)
+    _builder(monkeypatch, None)
     run = _run(environment_builder=ArenaEnvBuilderCfg(record_trajectories=True))
 
-    env = run_execution._build_environment_from_cfg(run, render_mode=None, output_dir=tmp_path)
+    env = run_execution._build_environment_from_cfg(run, VideoRecordingCfg(), output_dir=tmp_path)
 
     assert env is not None
-    assert builder.made_with.render_mode is None
+
+
+@pytest.mark.parametrize("record_viewport_video", [False, True])
+def test_build_environment_adds_the_viewport_recorder_when_requested(monkeypatch, tmp_path, record_viewport_video):
+    builder = _builder(monkeypatch, None)
+    env_cfgs_with_viewport_recorder = []
+    monkeypatch.setattr(
+        run_execution,
+        "add_viewport_video_recorder",
+        lambda env_cfg, video_cfg: env_cfgs_with_viewport_recorder.append(env_cfg),
+    )
+
+    run_execution._build_environment_from_cfg(
+        _run(), VideoRecordingCfg(record_viewport_video=record_viewport_video), output_dir=tmp_path
+    )
+
+    assert env_cfgs_with_viewport_recorder == ([builder.env_cfg] if record_viewport_video else [])
+    assert builder.made_with.env_cfg is builder.env_cfg
+
+
+def test_build_and_run_names_the_viewport_video_after_the_rebuild(monkeypatch, tmp_path):
+    viewport_name_prefixes = []
+
+    def make_environment(cfg, video_cfg, **kwargs):
+        viewport_name_prefixes.append(video_cfg.viewport_name_prefix)
+        return _environment()
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(run_execution, "rollout_policy", lambda *args, **kwargs: None)
+
+    run_execution.build_and_run(
+        _run(rollout_limit=RolloutLimitCfg(num_steps=2), num_rebuilds=2),
+        output_dir=tmp_path,
+        video_cfg=VideoRecordingCfg(record_viewport_video=True),
+    )
+
+    assert viewport_name_prefixes == ["viewport-rebuild0", "viewport-rebuild1"]
 
 
 def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
@@ -574,7 +618,7 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
         ("failing_fill", 0): second_build,
     }
 
-    def build_environment(cfg, render_mode, output_dir, rebuild_index):
+    def build_environment(cfg, video_cfg, output_dir, rebuild_index):
         if (cfg.name, rebuild_index) == ("failing_fill", 1):
             raise PlacementPoolFillError("pool could not fill", failed_fill)
         return _environment(diagnostics_per_build.get((cfg.name, rebuild_index)))
@@ -588,7 +632,7 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", build_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
     monkeypatch.setattr(run_execution, "rollout_policy", roll_out)
 

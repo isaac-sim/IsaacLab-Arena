@@ -12,11 +12,6 @@ output file corresponds to exactly one complete episode. Partial episodes cut of
 
 Output filename: ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``
 
-policy_runner.py wraps the env with this alongside ``RecordVideo`` so
-the kit viewport mp4 (third-person scene view) and the embodiment-
-mounted RGB camera mp4s (what the policy actually sees) are written
-together when ``--record_viewport_video --record_camera_video`` is set.
-
 Memory note: This class uses incremental ffmpeg encoding to avoid storing the raw frames in
 memory, which uses substantial amounts of RAM.
 """
