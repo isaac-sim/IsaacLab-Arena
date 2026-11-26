@@ -64,7 +64,8 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
-    scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
+    embodiment_id = graph_spec.embodiment.id if graph_spec.embodiment is not None else None
+    scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != embodiment_id]
     override = graph_spec.env_cfg_override
     env_cfg_callback = partial(apply_env_cfg_override, override=override) if override is not None else None
     default_physics_backend = (
@@ -73,7 +74,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
-        embodiment=assets_by_node_id[graph_spec.embodiment.id],
+        embodiment=assets_by_node_id[embodiment_id] if embodiment_id is not None else None,
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
         placer_params=build_placer_params_from_override(graph_spec.placer_params),
         env_cfg_callback=env_cfg_callback,
@@ -174,12 +175,13 @@ def instantiate_assets_from_spec(
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
     assets_by_node_id: dict[str, PlaceableAsset] = {}
 
-    embodiment_params = parse_asset_params(graph_spec.embodiment.params)
-    if enable_cameras:
-        embodiment_params.setdefault("enable_cameras", True)
-    assets_by_node_id[graph_spec.embodiment.id] = asset_registry.get_asset_by_name(graph_spec.embodiment.registry_name)(
-        **embodiment_params
-    )
+    if graph_spec.embodiment is not None:
+        embodiment_params = parse_asset_params(graph_spec.embodiment.params)
+        if enable_cameras:
+            embodiment_params.setdefault("enable_cameras", True)
+        assets_by_node_id[graph_spec.embodiment.id] = asset_registry.get_asset_by_name(
+            graph_spec.embodiment.registry_name
+        )(**embodiment_params)
 
     assets_by_node_id[graph_spec.background.id] = asset_registry.get_asset_by_name(graph_spec.background.registry_name)(
         **parse_asset_params(graph_spec.background.params)

@@ -267,7 +267,8 @@ def print_background_prim_tree(env_graph_spec_path: Path) -> None:
 
 
 def _iter_printable_assets(spec: ArenaEnvGraphSpec):
-    yield "embodiment", spec.embodiment.id, spec.embodiment.registry_name, spec.embodiment.params
+    if spec.embodiment is not None:
+        yield "embodiment", spec.embodiment.id, spec.embodiment.registry_name, spec.embodiment.params
     yield "background", spec.background.id, spec.background.registry_name, spec.background.params
     for obj in spec.objects:
         yield "object", obj.id, obj.registry_name, obj.params
