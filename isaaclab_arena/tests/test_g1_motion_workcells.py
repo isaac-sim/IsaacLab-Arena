@@ -61,6 +61,12 @@ def _test_registered_workcells(simulation_app, layout):
             base = env.unwrapped
             if name != "seam_inspection":
                 assert not reached_goal(base, name, int(layout == "B")).any(), name
+            if name == "dishwasher":
+                # The stocked plate must settle without tripping the rack finger.
+                actions = torch.zeros(env.action_space.shape, device=base.device)
+                for _ in range(5):
+                    _, _, terminated, truncated, _ = env.step(actions)
+                    assert not (terminated | truncated).any(), (name, layout)
             if name == "panel_catches":
                 for body in ("left", "right"):
                     asset = base.scene[body]

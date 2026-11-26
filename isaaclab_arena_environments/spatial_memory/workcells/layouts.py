@@ -88,7 +88,7 @@ LAYOUTS = {
         "Seat this plate in this rack slot.",
         "RackFinger",
         (0.025, 0.035, 0.15),
-        ((-0.1, 0.068, 0.962), (-0.1, 0.118, 0.962)),
+        ((-0.1, 0.068, 0.962), (-0.1, 0.022, 0.962)),
         guards=(("FingerRunner", (-0.1, 0.09, 0.88), (0.043, 0.19, 0.026)),),
     ),
     "billet_insertion": WorkcellLayout(
