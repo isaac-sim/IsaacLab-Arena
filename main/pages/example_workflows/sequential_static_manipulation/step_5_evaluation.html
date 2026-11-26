@@ -652,6 +652,9 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 <span class="w">  </span>--device<span class="w"> </span>cuda<span class="w"> </span>--host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span>--port<span class="w"> </span><span class="m">5555</span>
 </pre></div>
 </div>
+<p>If you trained with the Low Hardware Requirements option in <a class="reference internal" href="step_4_policy_training.html"><span class="doc">Policy Post-training</span></a>, pass
+<code class="docutils literal notranslate"><span class="pre">checkpoint-30000</span></code> to <code class="docutils literal notranslate"><span class="pre">--model-path</span></code> instead. That training also keeps <code class="docutils literal notranslate"><span class="pre">checkpoint-20000</span></code>, which
+is only two thirds of the way through training.</p>
 <section id="step-1-run-single-environment-evaluation">
 <h2>Step 1: Run Single Environment Evaluation<a class="headerlink" href="#step-1-run-single-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>We first run the policy in a single environment with visualization via the GUI.</p>
@@ -674,67 +677,81 @@ uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </sp
 </pre></div>
 </div>
 </div>
-</details><p>Test the policy in a single environment with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
+</details><p>The evaluation itself is an <a class="reference internal" href="../../concepts/concept_arena_experiments.html"><span class="doc">Arena Experiment</span></a> with
+one Run. It selects the environment, the <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> embodiment and the ranch dressing bottle, loads
+the GR00T client config above, connects the client to the server, and stops after 2000 steps.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Experiment file (<code class="docutils literal notranslate"><span class="pre">gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Evaluate the GR00T policy from the sequential static manipulation workflow on the ranch dressing</span>
+<span class="c1"># bottle it was trained on, in one environment for 2000 steps.</span>
+<span class="c1"># To evaluate 10 parallel environments, add this override to the experiment_runner.py command:</span>
+<span class="c1">#   runs.gr1_put_ranch_bottle_in_fridge_and_close_door.environment_builder.num_envs=10</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">gr1_put_ranch_bottle_in_fridge_and_close_door</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">put_item_in_fridge_and_close_door</span>
+<span class="w">      </span><span class="nt">enable_cameras</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">embodiment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_joint</span>
+<span class="w">      </span><span class="nt">object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ranch_dressing_hope_robolab</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span>
+<span class="w">      </span><span class="nt">policy_config_yaml_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span>
+<span class="w">      </span><span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda:0</span>
+<span class="w">      </span><span class="nt">remote_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
+<span class="w">      </span><span class="nt">remote_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5555</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2000</span>
 </pre></div>
 </div>
-<p>At the end of the evaluation, the policy runner writes the evaluation report, which shows the number of finished
-episodes and the success rate for this sequential task.
-Each episode’s subtask completion is recorded in the <code class="docutils literal notranslate"><span class="pre">progress</span></code> field of its episode results record.
-You should see similar results. The success rate shall be greater than 0.9, and the number of episodes should be in the range of 3-6.</p>
-<p>Note that the success rate is computed over the entire evaluation process, and is affected by the quality of
-post-trained policy, the quality of the dataset, and number of steps in the evaluation.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-2">
-Best Quality</label><div class="sd-tab-content docutils">
-<p>5 episodes with a success rate of 1.0.</p>
 </div>
-<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-3">
-Low Hardware Requirements</label><div class="sd-tab-content docutils">
-<p>Evaluated with checkpoint-30000, instead of checkpoint-20000 referenced in the policy configuration file.
-4 episodes with a success rate of 0.75.</p>
+</details><p>Test the policy in a single environment with visualization via the GUI run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml
+</pre></div>
 </div>
+<p>At the end of the evaluation, the console shows the Run table with the number of recorded episodes,
+the success rate, and the success rate of each subtask: placing the bottle, then closing the door.
+With the pre-trained checkpoint, the output looks like this:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+|                    Run Name                   |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate | Subtask Success Rates |
++-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+| gr1_put_ranch_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    1     |    2000   |     None     |      1       |         5         |    0.8000    |     0.8000, 0.8000    |
++-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+</pre></div>
 </div>
+<p>The rates cover all episodes that finish within the 2000 steps. They depend on the quality of the
+post-trained policy, the quality of the dataset, and the number of steps in the evaluation, and they
+vary between evaluations, especially with few episodes.</p>
 </section>
 <section id="step-2-run-parallel-environments-evaluation">
 <h2>Step 2: Run Parallel environments Evaluation<a class="headerlink" href="#step-2-run-parallel-environments-evaluation" title="Link to this heading">#</a></h2>
-<p>Parallel evaluation of the policy in multiple parallel environments is also supported by the policy runner.</p>
+<p>The same Experiment can evaluate the policy in several parallel environments. Set the number of
+environments on the command line instead of editing the file: <code class="docutils literal notranslate"><span class="pre">runs.&lt;Run</span> <span class="pre">name&gt;.&lt;field&gt;=&lt;value&gt;</span></code>
+changes one field of that Run.</p>
 <p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--object<span class="w"> </span>ranch_dressing_hope_robolab
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/gr1_put_ranch_bottle_in_fridge_gr00t_experiment.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>runs.gr1_put_ranch_bottle_in_fridge_and_close_door.environment_builder.num_envs<span class="o">=</span><span class="m">10</span>
 </pre></div>
 </div>
-<p>And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the microwave door is opened),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy for terminated env_ids: tensor([7], device=&#39;cuda:0&#39;) and truncated env_ids: tensor([], device=&#39;cuda:0&#39;, dtype=torch.int64)
+<p>During the evaluation, the console shows which environments reset because their episode ended,
+for example because the task finished or the episode ran out of time:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Resetting policy state for env_ids: tensor([5], device=&#39;cuda:0&#39;)
 </pre></div>
 </div>
-<p>At the end of the evaluation, the evaluation report shows 50 finished episodes with a success rate of 0.98.
-The success rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
-than the single environment evaluation because of the parallel evaluation.</p>
+<p>At the end of the evaluation, the console shows the Run table. With 10 environments, the same number of
+steps covers about ten times as many episodes as the single environment evaluation, so the success
+rate is a more reliable estimate.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+|                    Run Name                   |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate | Subtask Success Rates |
++-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+| gr1_put_ranch_bottle_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    2000   |     None     |      1       |         46        |    0.8261    |     0.8261, 0.8261    |
++-----------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Note that the embodiment used in closed-loop policy inference is <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code>, which is different
@@ -745,46 +762,83 @@ GR00T N1.6 policy is trained on upper body joint positions, so we use
 <code class="docutils literal notranslate"><span class="pre">gr1_joint</span></code> for closed-loop policy inference.</p>
 </div>
 </section>
-<section id="step-3-multi-object-heterogeneous-evaluation">
-<h2>Step 3: Multi-object Heterogeneous Evaluation<a class="headerlink" href="#step-3-multi-object-heterogeneous-evaluation" title="Link to this heading">#</a></h2>
-<p>This step demonstrates evaluation of the policy in heterogeneous environments with multiple objects.</p>
-<p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
---viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
---policy_type<span class="w"> </span>isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy<span class="w"> </span><span class="se">\</span>
---policy_config_yaml_path<span class="w"> </span>isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml<span class="w"> </span><span class="se">\</span>
---remote_host<span class="w"> </span><span class="m">127</span>.0.0.1<span class="w"> </span><span class="se">\</span>
---remote_port<span class="w"> </span><span class="m">5555</span><span class="w"> </span><span class="se">\</span>
---num_steps<span class="w"> </span><span class="m">2000</span><span class="w"> </span><span class="se">\</span>
---num_envs<span class="w"> </span><span class="m">10</span><span class="w"> </span><span class="se">\</span>
---enable_cameras<span class="w"> </span><span class="se">\</span>
-put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
---embodiment<span class="w"> </span>gr1_joint<span class="w"> </span><span class="se">\</span>
---object_set<span class="w"> </span>ketchup_bottle_hope_robolab<span class="w"> </span>ranch_dressing_hope_robolab<span class="w"> </span>bbq_sauce_bottle_hope_robolab<span class="w"> </span>mayonnaise_bottle_hope_robolab
+<section id="step-3-evaluate-on-several-sauce-bottles">
+<h2>Step 3: Evaluate on Several Sauce Bottles<a class="headerlink" href="#step-3-evaluate-on-several-sauce-bottles" title="Link to this heading">#</a></h2>
+<p>This step evaluates the same policy on four sauce bottles: ketchup, ranch dressing, barbecue sauce and
+mayonnaise. The <a class="reference internal" href="../../concepts/variations/variations.html#asset-selection-variation"><span class="std std-ref">asset selection</span></a> variation makes the Run build the
+scene once per bottle, in list order. All 10 parallel environments of a build use the same bottle,
+and each build runs 10 of the 40 episodes.</p>
+<p>The variation belongs to the object that the robot puts in the fridge. That object keeps the name
+<code class="docutils literal notranslate"><span class="pre">ranch_dressing_hope_robolab</span></code> from <code class="docutils literal notranslate"><span class="pre">environment.object</span></code>, while the variation replaces its asset
+with each listed bottle in turn.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Experiment file (<code class="docutils literal notranslate"><span class="pre">gr1_put_sauce_bottles_in_fridge_gr00t_experiment.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Evaluate the GR00T policy from the sequential static manipulation workflow on four sauce bottles.</span>
+<span class="c1"># Asset selection builds the scene once per bottle, in list order, with the same bottle in all</span>
+<span class="c1"># 10 parallel environments. Each build runs 10 of the 40 episodes. The variation belongs to the</span>
+<span class="c1"># object named ranch_dressing_hope_robolab after environment.object and replaces its asset.</span>
+<span class="nt">runs</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">gr1_put_sauce_bottles_in_fridge_and_close_door</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">put_item_in_fridge_and_close_door</span>
+<span class="w">      </span><span class="nt">enable_cameras</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">embodiment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gr1_joint</span>
+<span class="w">      </span><span class="nt">object</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ranch_dressing_hope_robolab</span>
+<span class="w">    </span><span class="nt">environment_builder</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_envs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+<span class="w">    </span><span class="nt">policy</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy</span>
+<span class="w">      </span><span class="nt">policy_config_yaml_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml</span>
+<span class="w">      </span><span class="nt">policy_device</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cuda:0</span>
+<span class="w">      </span><span class="nt">remote_host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">127.0.0.1</span>
+<span class="w">      </span><span class="nt">remote_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5555</span>
+<span class="w">    </span><span class="nt">num_rebuilds</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">    </span><span class="nt">rollout_limit</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">num_episodes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">40</span>
+<span class="w">    </span><span class="nt">variations</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">ranch_dressing_hope_robolab.asset_selection.enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">      </span><span class="nt">ranch_dressing_hope_robolab.asset_selection.registry_names</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">[</span><span class="nv">ketchup_bottle_hope_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">ranch_dressing_hope_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">bbq_sauce_bottle_hope_robolab</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mayonnaise_bottle_hope_robolab</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>Each environment has a different object spawned from the object set. The same policy is used for all those environments.
-At the end of the evaluation, the evaluation report shows 30 finished episodes with a success rate of 0.87.</p>
-<p>The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
-when evaluated on structurally similar sauce bottles.
-While this represents a slight performance regression compared to the training object,
-it indicates that the model has successfully learned geometric features common to the category rather than
-just over-fitting to a single object mesh.</p>
+</div>
+</details><p>Test the policy in 10 parallel environments with visualization via the GUI run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--experiment_config<span class="w"> </span>isaaclab_arena_environments/experiment_configs/gr1_put_sauce_bottles_in_fridge_gr00t_experiment.yaml
+</pre></div>
+</div>
+<p>At the end of the evaluation, the console shows the Run table over all 40 episodes, followed by the
+success rate for each bottle:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>+------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+|                    Run Name                    |   Status  |       Policy Type       | Num Envs | Num Steps | Num Episodes | Num Rebuilds | Recorded Episodes | Success Rate | Subtask Success Rates |
++------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
+| gr1_put_sauce_bottles_in_fridge_and_close_door | completed | gr00t_remote_closedloop |    10    |    None   |      40      |      4       |         40        |    0.6000    |     0.7000, 0.7000    |
++------------------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+-------------------+--------------+-----------------------+
++------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+|                      Run                       |                  Variation                  |              Value               | Episodes | Successes | Unknown | Success Rate |
++------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+| gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection | &quot;bbq_sauce_bottle_hope_robolab&quot;  |    10    |     5     |    0    |    50.0%     |
+| gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection |  &quot;ketchup_bottle_hope_robolab&quot;   |    10    |     6     |    0    |    60.0%     |
+| gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection | &quot;mayonnaise_bottle_hope_robolab&quot; |    10    |     5     |    0    |    50.0%     |
+| gr1_put_sauce_bottles_in_fridge_and_close_door | ranch_dressing_hope_robolab.asset_selection |  &quot;ranch_dressing_hope_robolab&quot;   |    10    |     8     |    0    |    80.0%     |
++------------------------------------------------+---------------------------------------------+----------------------------------+----------+-----------+---------+--------------+
+</pre></div>
+</div>
+<p>The policy was trained only on the ranch dressing bottle and succeeds with it in 8 of 10 episodes.
+On each of the other three bottles it succeeds in 5 or 6 of 10 episodes, so it partly transfers to
+bottles it has not seen.</p>
 </section>
 <section id="step-4-sequential-batch-evaluation">
 <h2>Step 4: Sequential Batch Evaluation<a class="headerlink" href="#step-4-sequential-batch-evaluation" title="Link to this heading">#</a></h2>
-<p>A sequential batch of runs, i.e. different tasks, objects, embodiments or policies, can be evaluated by the <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> script.
-It minimizes the overhead of reloading system modules and environment classes for each run while keeping the simulation application alive.
-The batch is defined in an Experiment YAML file. The example below evaluates the policy on an unseen jug and on the ranch dressing bottle.</p>
+<p>An Experiment can also hold several Runs. <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> evaluates them one after another
+in the same simulation application, and each Run reports its own success rate.
+The Experiment below evaluates the policy on an unseen jug and on the ranch dressing bottle as two Runs.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">gr1_sequential_static_manip_gr00t_experiment.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).</span>
-<span class="c1"># All rights reserved.</span>
-<span class="c1">#</span>
-<span class="c1"># SPDX-License-Identifier: Apache-2.0</span>
-
-<span class="c1"># Evaluate the GR00T policy from the sequential static manipulation workflow on an unseen jug and</span>
+<span class="sd-summary-text">Experiment file (<code class="docutils literal notranslate"><span class="pre">gr1_sequential_static_manip_gr00t_experiment.yaml</span></code>):</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Evaluate the GR00T policy from the sequential static manipulation workflow on an unseen jug and</span>
 <span class="c1"># on the ranch dressing bottle it was trained on. Both Runs use the language instruction from the</span>
 <span class="c1"># policy config, so only the object differs.</span>
 <span class="nt">shared</span><span class="p">:</span>
@@ -890,7 +944,7 @@ This is expected as the policy is not trained on the jug, comparing to the succe
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-1-run-single-environment-evaluation">Step 1: Run Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-2-run-parallel-environments-evaluation">Step 2: Run Parallel environments Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-multi-object-heterogeneous-evaluation">Step 3: Multi-object Heterogeneous Evaluation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-3-evaluate-on-several-sauce-bottles">Step 3: Evaluate on Several Sauce Bottles</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#step-4-sequential-batch-evaluation">Step 4: Sequential Batch Evaluation</a></li>
 </ul>
   </nav></div>
