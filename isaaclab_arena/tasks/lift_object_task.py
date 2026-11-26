@@ -47,7 +47,9 @@ class LiftObjectTask(TaskBase):
             task_description: Optional natural-language instruction.
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
-        assert math.isfinite(minimum_lift_m) and minimum_lift_m > 0
+        assert (
+            math.isfinite(minimum_lift_m) and minimum_lift_m > 0
+        ), f"minimum_lift_m must be finite and positive, got {minimum_lift_m}"
         self.lift_object = lift_object
         self.background_scene = background_scene
         self.minimum_lift_m = minimum_lift_m
