@@ -68,20 +68,22 @@ def _make_desk_box_pool(num_envs: int = 1, min_layouts_per_env: int = 2):
 def _patch_curobo(monkeypatch, feasible_fn):
     """Replace the cuRobo solver build and the batched IK solve; return the captured fake solver.
 
-    ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility. The fake solver records the
-    cuboids passed to ``update_world``, and each solve records the world it ran against, so a test can
-    assert which objects were obstacles to which grasp.
+    ``feasible_fn(num_grasps) -> list[bool]`` decides per-grasp feasibility for one batched solve. The fake
+    solver records the worlds passed to ``load_collision_worlds``, and each solve records the world every grasp
+    ran against, so a test can assert which objects were obstacles to which grasp.
     """
     import isaaclab_arena_curobo.ik_reachability_validator as mod
 
     class _FakeSolver:
         def __init__(self, *args, **kwargs):
             self.device = torch.device("cpu")
-            self.world_cuboids = None
+            self.world_cuboids_per_problem = None
 
-        def update_world(self, cuboids, base_pos, base_quat):
-            self.world_cuboids = cuboids
-            captured.setdefault("base_poses_per_world_update", []).append((tuple(base_pos), tuple(base_quat)))
+        def load_collision_worlds(self, cuboids_per_problem, base_pos_per_problem, base_quat_per_problem):
+            self.world_cuboids_per_problem = cuboids_per_problem
+            captured.setdefault("base_poses_per_world_update", []).extend(
+                (tuple(pos), tuple(quat)) for pos, quat in zip(base_pos_per_problem, base_quat_per_problem)
+            )
 
     captured = {}
 
@@ -96,9 +98,12 @@ def _patch_curobo(monkeypatch, feasible_fn):
         feasible = torch.tensor(feasible_fn(num), dtype=torch.bool)
         captured["num_grasps"] = num
         captured["total_grasps"] = captured.get("total_grasps", 0) + num
+        captured.setdefault("grasps_per_solve", []).append(num)
         captured["ik_kwargs"] = kwargs
-        # The world in force at solve time, one entry per solve: what this grasp was checked against.
-        captured.setdefault("worlds_per_solve", []).append([cuboid.name for cuboid in solver.world_cuboids])
+        # The world each grasp was checked against, in grasp order.
+        captured.setdefault("worlds_per_grasp", []).extend(
+            [cuboid.name for cuboid in world] for world in solver.world_cuboids_per_problem
+        )
         return IKFeasibility(feasible, torch.zeros(num), torch.zeros(num), torch.zeros(num, DOF))
 
     monkeypatch.setattr(mod, "CuroboIKSolver", _make_solver)
@@ -290,7 +295,7 @@ def test_validator_accepts_when_all_grasps_feasible(monkeypatch):
     layout = _make_desk_box_pool().layouts_per_env()[0][0]
     assert validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), []) == [True]
     # One collision cuboid per non-target object (the desk); one grasp per target (the box).
-    assert [cuboid.name for cuboid in captured["solver"].world_cuboids] == ["desk"]
+    assert [cuboid.name for cuboid in captured["solver"].world_cuboids_per_problem[0]] == ["desk"]
     assert captured["total_grasps"] == 1
 
 
@@ -378,7 +383,7 @@ def test_grasp_targets_do_not_obstruct_their_own_grasp(monkeypatch):
     layout = _make_two_box_pool().layouts_per_env()[0][0]
     validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), [])
 
-    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids) == ["box_b", "desk"]
+    assert sorted(cuboid.name for cuboid in captured["solver"].world_cuboids_per_problem[0]) == ["box_b", "desk"]
 
 
 @pytest.mark.curobo_deps
@@ -391,15 +396,14 @@ def test_sibling_targets_obstruct_each_others_grasps(monkeypatch):
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
     assert validator.validate_batch(make_candidate_batch([layout.positions], [layout.orientations], [{}]), []) == [True]
 
-    assert [sorted(names) for names in captured["worlds_per_solve"]] == [["box_b", "desk"], ["box_a", "desk"]]
+    assert [sorted(names) for names in captured["worlds_per_grasp"]] == [["box_b", "desk"], ["box_a", "desk"]]
     assert captured["total_grasps"] == 2
 
 
 @pytest.mark.curobo_deps
 def test_validator_rejects_when_one_sibling_target_is_infeasible(monkeypatch):
     """Every target is solved and the verdict is the conjunction, so one bad sibling sinks the layout."""
-    verdicts = iter([True, False])
-    _patch_curobo(monkeypatch, feasible_fn=lambda n: [next(verdicts)] * n)
+    _patch_curobo(monkeypatch, feasible_fn=lambda n: [True, False][:n])
     validator = _make_reachability_validator(_fake_embodiment())
 
     layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
@@ -438,3 +442,40 @@ def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsy
     # No grasp was ever solved (the IK path is skipped entirely when there are no targets).
     assert "num_grasps" not in captured
     assert capsys.readouterr().out.count("resolved zero reachability targets") == 1
+
+
+@pytest.mark.curobo_deps
+def test_validator_solves_all_grasps_of_a_batch_together_and_maps_verdicts_to_layouts(monkeypatch):
+    """The grasps of every layout go into one solve; a layout passes only when all of its own grasps do."""
+    # Grasp order: layout 0's two targets, then layout 1's two targets.
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [True, True, True, False][:n])
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    layout = _make_two_box_pool(stamped=("box_a", "box_b")).layouts_per_env()[0][0]
+    batch = make_candidate_batch(
+        [layout.positions, layout.positions], [layout.orientations, layout.orientations], [{}, {}]
+    )
+    rejections = []
+    assert validator.validate_batch(batch, [], rejections) == [True, False]
+
+    assert captured["grasps_per_solve"] == [4]
+    # The rejection names the infeasible grasp's target, the second target of the second layout.
+    assert len(rejections) == 1
+    assert "'box_b'" in rejections[0].cause
+
+
+@pytest.mark.curobo_deps
+def test_validator_splits_grasps_over_solves_of_the_solver_batch_size(monkeypatch):
+    """More grasps than one solve holds are solved in chunks, and verdicts keep their layout order."""
+    import isaaclab_arena_curobo.ik_reachability_validator as mod
+
+    monkeypatch.setattr(mod, "IK_MAX_BATCH_SIZE", 2)
+    feasibility_per_grasp = iter([True, False, True])
+    captured = _patch_curobo(monkeypatch, feasible_fn=lambda n: [next(feasibility_per_grasp) for _ in range(n)])
+    validator = _make_reachability_validator(_fake_embodiment())
+
+    layout = _make_desk_box_pool().layouts_per_env()[0][0]
+    batch = make_candidate_batch([layout.positions] * 3, [layout.orientations] * 3, [{}] * 3)
+    assert validator.validate_batch(batch, []) == [True, False, True]
+
+    assert captured["grasps_per_solve"] == [2, 1]

@@ -88,3 +88,50 @@ def test_obstacle_blocks_a_collision_free_solve_until_cleared(droid_solver):
         droid_solver.update_world([], (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
     result = solve_ik_feasibility(droid_solver, T_B_E, require_collision_free=True)
     assert result.feasible.tolist() == [True]
+
+
+@pytest.fixture(scope="module")
+def droid_batch_solver():
+    """Real cuRobo IK solver for the Droid embodiment, for batches of two poses."""
+    from isaaclab_arena_curobo.embodiment_curobo_registry import get_curobo_cfg_by_name
+    from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
+
+    return CuroboIKSolver(get_curobo_cfg_by_name("droid"), num_seeds=8, max_batch_size=2)
+
+
+def test_load_collision_worlds_gives_each_pose_its_own_world(droid_batch_solver):
+    """A cuboid around the end-effector pose blocks the pose of the world holding it, not the other's."""
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_batch_solver)
+    t_B_E = tuple(T_B_E[0, :3, 3].tolist())
+    block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
+    identity_pos, identity_quat = (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0)
+
+    droid_batch_solver.load_collision_worlds([[block], []], [identity_pos] * 2, [identity_quat] * 2)
+    result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
+    assert result.feasible.tolist() == [False, True]
+
+    # Swapping the worlds swaps the verdicts: no obstacle is left behind in a slot.
+    droid_batch_solver.load_collision_worlds([[], [block]], [identity_pos] * 2, [identity_quat] * 2)
+    result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
+    assert result.feasible.tolist() == [True, False]
+
+
+def test_load_collision_worlds_expresses_obstacles_in_each_robot_base_frame(droid_batch_solver):
+    """The same world-frame cuboid blocks the end effector only for the robot base it is expressed relative to."""
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_curobo.utils.ik_solver_utils import AABBCollisionCuboid, solve_ik_feasibility
+
+    T_B_E = _default_ee_pose(droid_batch_solver)
+    t_B_E = tuple(T_B_E[0, :3, 3].tolist())
+    # Sits on the end effector for a robot at the world origin; the second robot stands 3 m away along x.
+    block = AABBCollisionCuboid(name="block", dims_xyz=(0.4, 0.4, 0.4), pose_W_O=Pose(position_xyz=t_B_E))
+    identity_quat = (0.0, 0.0, 0.0, 1.0)
+
+    droid_batch_solver.load_collision_worlds(
+        [[block], [block]], [(0.0, 0.0, 0.0), (3.0, 0.0, 0.0)], [identity_quat] * 2
+    )
+    result = solve_ik_feasibility(droid_batch_solver, T_B_E.repeat(2, 1, 1), require_collision_free=True)
+    assert result.feasible.tolist() == [False, True]
