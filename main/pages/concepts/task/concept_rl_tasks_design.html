@@ -580,27 +580,24 @@
                   
   <section id="rl-tasks">
 <h1>RL Tasks<a class="headerlink" href="#rl-tasks" title="Link to this heading">#</a></h1>
-<p>RL tasks extend their imitation learning counterparts with the components Isaac Lab’s
-reinforcement-learning training scripts require: a command manager that samples
-a new goal each episode, reward terms, and goal-conditioned observations.</p>
-<p>The pattern is straightforward — an RL task subclasses the corresponding IL task,
-and implements the RL-specific parts:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">LiftObjectTaskRL</span><span class="p">(</span><span class="n">LiftObjectTask</span><span class="p">):</span>
+<p>RL tasks add the components Isaac Lab’s reinforcement-learning training scripts
+require: a command manager that samples a new goal each episode, reward terms,
+and goal-conditioned observations.</p>
+<p>An RL task is a <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> subclass that defines the usual task parts (scene config,
+termination conditions) and also overrides the RL hooks that <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code>
+leaves empty:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">LiftObjectTaskRL</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-       <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_observation_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_rewards_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-       <span class="k">pass</span>
+        <span class="k">pass</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_commands_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-       <span class="k">pass</span>
+        <span class="k">pass</span>
 </pre></div>
 </div>
-<p>This means the RL task inherits everything from the IL task (scene config,
-termination conditions) and adds the RL-specific parts on top.
-Note the the RL task is also likely to <em>modify</em> the IL task’s configuration.
-For example, adding privileged information to the observations.</p>
 <section id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">lift_object</span> <span class="o">=</span> <span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)()</span>

@@ -39,8 +39,8 @@ Its success condition calls ``openable.is_open()`` and its reset calls ``openabl
 This is what makes tasks modular — the same task works across different objects
 and scenes without any changes.
 
-Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTask``,
-``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
+Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``OpenDoorTask``,
+``CloseDoorTask``, and ``PressButtonTask``.
 
 Individual tasks can be combined into order-independent or sequential composite tasks. Each task
 returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` criteria,
