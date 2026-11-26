@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluate the GR00T policy from the sequential static manipulation workflow on the ranch dressing
+# bottle it was trained on, in one environment for 2000 steps.
+# To evaluate 10 parallel environments, add this override to the experiment_runner.py command:
+#   runs.gr1_put_ranch_bottle_in_fridge_and_close_door.environment_builder.num_envs=10
+runs:
+  gr1_put_ranch_bottle_in_fridge_and_close_door:
+    environment:
+      type: put_item_in_fridge_and_close_door
+      enable_cameras: true
+      embodiment: gr1_joint
+      object: ranch_dressing_hope_robolab
+    policy:
+      type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+      policy_config_yaml_path: isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 5555
+    rollout_limit:
+      num_steps: 2000
