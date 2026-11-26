@@ -166,10 +166,10 @@ the maintained DROID external camera. Rows are grouped by task category.
 
        Pi0.5, 2x speed.
    * - Press button
-     - `kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian.yaml>`_
+     - `kitchen_bench_press_stand_mixer_g_shaped_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_stand_mixer_g_shaped_farmhouse2.yaml>`_
      - 37%
-     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_food_processor_l_shaped_scandinavian_pi05.gif
-          :alt: Pi0.5 policy: Press the power button at the upper left of the food processor's front control panel.
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_press_stand_mixer_g_shaped_farmhouse2_pi05.gif
+          :alt: Pi0.5 policy: Press the head-lock button on the left side of the stand mixer.
           :width: 100%
 
        Pi0.5, 2x speed.

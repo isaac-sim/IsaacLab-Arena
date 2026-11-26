@@ -9,6 +9,8 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 
 def _test_kitchen_button_appliances(simulation_app):
+    import re
+
     from pxr import UsdPhysics
 
     from isaaclab_arena.affordances.pressable import Pressable
@@ -26,7 +28,9 @@ def _test_kitchen_button_appliances(simulation_app):
         assert isinstance(appliance, Pressable)
         assert appliance.object_cfg.spawn.fix_root_link
         # The button returns through its authored USD drive, so no actuator may override its gains.
-        assert not appliance.object_cfg.actuators
+        for actuator in appliance.object_cfg.actuators.values():
+            for joint_expr in actuator.joint_names_expr:
+                assert not re.fullmatch(joint_expr, appliance.pressable_joint_name)
 
         stage = appliance.open_spawned_usd_stage()
         joints = [p for p in stage.Traverse() if p.GetName() == appliance.pressable_joint_name]

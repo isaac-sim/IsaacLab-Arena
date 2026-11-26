@@ -23,6 +23,10 @@ objects:
   registry_name: cracker_box
 - id: distractor_2
   registry_name: mug
+- id: distractor_3
+  registry_name: banana_ycb_robolab
+- id: distractor_4
+  registry_name: sugar_box
 object_references:
 - id: floor
   parent_id: kitchen
@@ -44,6 +48,7 @@ relations:
   subject: appliance
   params:
     yaw_rad: 2.14233
+    max_random_yaw_rad: 0.35
 - kind: 'on'
   subject: droid
   reference: floor
@@ -51,6 +56,7 @@ relations:
   subject: droid
   params:
     yaw_rad: 3.24
+    max_random_yaw_rad: 0.15
 - kind: position_limits_box
   subject: appliance
   params:
@@ -58,8 +64,8 @@ relations:
     - 0.29
     - 0.45
     y_limits:
-    - -1.3
-    - -1.2
+    - -1.7
+    - -0.8
 - kind: align_with
   subject: droid
   reference: appliance
@@ -73,7 +79,7 @@ relations:
   params:
     axis: y
     offset_m: 0.1
-    tolerance_m: 0.07
+    tolerance_m: 0.25
 - kind: 'on'
   subject: distractor_1
   reference: counter
@@ -81,16 +87,15 @@ relations:
   subject: distractor_1
   reference: appliance
   params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    axis: y
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_1
   reference: appliance
   params:
-    axis: y
-    offset_m: -0.4
-    tolerance_m: 0.05
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
 - kind: 'on'
   subject: distractor_2
   reference: counter
@@ -98,16 +103,47 @@ relations:
   subject: distractor_2
   reference: appliance
   params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.05
+    axis: y
+    tolerance_m: 0.6
 - kind: align_with
   subject: distractor_2
   reference: appliance
   params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: 'on'
+  subject: distractor_3
+  reference: counter
+- kind: align_with
+  subject: distractor_3
+  reference: appliance
+  params:
     axis: y
-    offset_m: -0.72
-    tolerance_m: 0.05
+    tolerance_m: 0.6
+- kind: align_with
+  subject: distractor_3
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
+- kind: 'on'
+  subject: distractor_4
+  reference: counter
+- kind: align_with
+  subject: distractor_4
+  reference: appliance
+  params:
+    axis: y
+    tolerance_m: 0.6
+- kind: align_with
+  subject: distractor_4
+  reference: appliance
+  params:
+    axis: x
+    offset_m: 0
+    tolerance_m: 0.1
 task:
   composition: atomic
   description: Press the leftmost power button above the pressure gauge on the espresso

@@ -21,8 +21,13 @@ def derive_seed(*key_parts: object) -> int:
 
 def get_random_rotation(generator: torch.Generator | None = None) -> float:
     """Sample a uniform yaw in [-pi, pi) radians (rotation about Z)."""
+    return get_bounded_random_rotation(math.pi, generator)
+
+
+def get_bounded_random_rotation(max_yaw_rad: float, generator: torch.Generator | None = None) -> float:
+    """Sample a uniform yaw in [-max_yaw_rad, max_yaw_rad) radians (rotation about Z)."""
     u = torch.rand(1, generator=generator).item()
-    return (2.0 * u - 1.0) * math.pi
+    return (2.0 * u - 1.0) * max_yaw_rad
 
 
 def get_rngs(num: int, base_seed: int | None) -> list[random.Random]:

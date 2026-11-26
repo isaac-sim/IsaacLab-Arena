@@ -396,6 +396,39 @@ def test_marker_yaw_applied_without_random_yaw_init():
     assert abs(wrap_angle_to_pi(applied - marker_yaw)) < 1e-5, f"Marker yaw {marker_yaw} must be applied; got {applied}"
 
 
+def test_marker_max_random_yaw_stays_within_bounds_and_varies():
+    """A marker's max_random_yaw_rad samples a seeded yaw within its band around yaw_rad."""
+    marker_yaw = math.pi / 2
+    max_random_yaw_rad = 0.2
+    solver_params = RelationSolverParams(max_iters=5, verbose=False)
+    desk, box1, box2 = _create_test_objects()
+    box1.add_relation(RotateAroundSolution(yaw_rad=marker_yaw, max_random_yaw_rad=max_random_yaw_rad))
+    generator = PlacementCandidateGenerator(ObjectPlacerParams(placement_seed=1, solver_params=solver_params))
+
+    rng = torch.Generator()
+    offsets = []
+    for seed in range(16):
+        rng.manual_seed(seed)
+        orientations = generator.generate_orientations([desk, box1, box2], {desk}, rng)
+        offsets.append(wrap_angle_to_pi(orientations[box1] - marker_yaw))
+        assert box2 not in orientations, "objects without a marker keep their unrotated heading"
+    assert all(abs(offset) <= max_random_yaw_rad for offset in offsets)
+    assert max(offsets) - min(offsets) > max_random_yaw_rad, "sampled yaws should spread across the band"
+
+    rng.manual_seed(0)
+    repeated = generator.generate_orientations([desk, box1, box2], {desk}, rng)
+    assert abs(wrap_angle_to_pi(repeated[box1] - marker_yaw) - offsets[0]) < 1e-9, "same seed must repeat the yaw"
+
+
+def test_anchor_rejects_marker_max_random_yaw():
+    """An anchor cannot carry a random yaw band, because the placer never repositions anchors."""
+    desk, box1, box2 = _create_test_objects()
+    desk.add_relation(RotateAroundSolution(max_random_yaw_rad=0.1))
+    generator = PlacementCandidateGenerator(ObjectPlacerParams(placement_seed=1))
+    with pytest.raises(AssertionError, match="Anchor.*RotateAroundSolution"):
+        generator.generate_orientations([desk, box1, box2], {desk})
+
+
 def _positions_by_name(result: PlacementResult) -> dict[str, tuple[float, float, float]]:
     return {obj.name: pos for obj, pos in result.positions.items()}
 
