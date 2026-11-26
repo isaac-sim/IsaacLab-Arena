@@ -22,8 +22,10 @@ DEFAULT_ANGULAR_VELOCITY_THRESHOLD = 5e-2
 
 
 class ObjectInitialRestPoseRecorder:
-    """Recorder object that works in conjunction with the ``objects_settled`` predicate to record the
-    initial resting poses of scene objects and expose to downstream predicates.
+    """Per-environment record of each object's first resting position in the current episode.
+
+    ``record_object_initial_rest_pose`` fills it, for example from ``object_is_above_height`` with
+    ``use_settled_state``.
     """
 
     def __init__(self, num_envs: int, device):
@@ -137,32 +139,29 @@ def compute_objects_settled_mask(
     return torch.stack(per_object_settled, dim=0).all(dim=0)
 
 
-def objects_settled(
+def record_object_initial_rest_pose(
     env: IsaacLabArenaManagerBasedRLEnv,
-    object_names: list[str],
+    object_name: str,
     lin_vel_threshold: float = DEFAULT_LINEAR_VELOCITY_THRESHOLD,
     ang_vel_threshold: float = DEFAULT_ANGULAR_VELOCITY_THRESHOLD,
-) -> torch.Tensor:
-    """Check whether every named object is at rest and record its first resting position.
+) -> None:
+    """Record an object's world position in environments where it is at rest and has no rest pose yet.
 
-    Rigid objects use root linear and angular speed. Deformable objects use the 90th percentile of
-    nodal linear speeds and have no angular-speed condition. Recorded rest poses are readable via
+    A recorded rest pose is kept until the environment is reset. It is readable via
     ``get_object_initial_rest_state``.
     """
 
-    settled = objects_below_velocity_thresholds(
+    recorder = get_rest_pose_recorder(env)
+    _, has_rest_pose = recorder.get(object_name)
+    if bool(has_rest_pose.all()):
+        return
+    at_rest = objects_below_velocity_thresholds(
         env,
-        object_names=object_names,
+        object_names=[object_name],
         lin_vel_threshold=lin_vel_threshold,
         ang_vel_threshold=ang_vel_threshold,
     )
-
-    recorder = get_rest_pose_recorder(env)
-    for object_name in object_names:
-        object_position_w = env.arena_world.get_position_w(object_name)
-        recorder.record(object_name, object_position_w, settled)
-
-    return settled
+    recorder.record(object_name, env.arena_world.get_position_w(object_name), at_rest)
 
 
 def objects_below_velocity_thresholds(

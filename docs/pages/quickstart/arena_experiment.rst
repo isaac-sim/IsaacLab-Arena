@@ -115,7 +115,7 @@ some fields omitted.
      "success": false,
      "episode_length": 23,
      "progress": {
-       "overall_score": 0.3333333432674408,
+       "overall_score": 0.0,
        "criteria_by_name": {
          "pick_and_place": {
            "is_complete": false,
@@ -124,7 +124,7 @@ some fields omitted.
            }
          }
        },
-       "events": [{"step": 1, "predicate_name": "objects_settled"}],
+       "events": [],
        "consecutive_step_summary": [
          {"status": "waiting", "consecutive_steps": 0, "required_steps": 1}
        ]
@@ -133,15 +133,15 @@ some fields omitted.
 
 * ``success: false`` records the task outcome. The episode reached the time limit with the
   pick-and-place task still incomplete.
-* ``progress.events`` shows that the cube settled at control step 1. That completed the first of
-  three equally weighted stages so the episode reached 33% progress.
+* ``progress.events`` is empty and ``overall_score`` is ``0.0``: the cube was never lifted, so the episode
+  completed neither of the two equally weighted stages.
 * ``active_predicates`` shows that lifting the cube was the next stage. The placement check in
   ``consecutive_step_summary`` was still ``waiting`` because it only starts after the lift is complete.
 
 For the same episode in the HTML report, open ``index.html`` in the Experiment output directory.
 Select **baseline** under **Runs**, then open the episode. **Task completion summary** shows the
-placement check as **Not reached**. The ``pick_and_place`` criteria below it show the completed
-settling check.
+placement check as **Not reached**. The ``pick_and_place`` criteria below it show the lift check
+as the next stage.
 
 .. image:: ../../images/first_arena_experiment_episode_summary.png
    :width: 100%

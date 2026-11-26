@@ -677,7 +677,8 @@ class ProgressTracker:
         """
         # TODO(qianl, 2026-11-07): Read cached step results and mark inactive occurrences as not evaluated.
         # Bypassing temporal counters does not prevent predicate side effects: evaluating an inactive
-        # subtask's objects_settled can record its resting pose before that subtask starts.
+        # subtask's object_is_above_height(use_settled_state=True) can record its resting pose before that
+        # subtask starts.
         results: dict[str, dict[str, list[torch.Tensor]]] = {}
         cached_results: dict[int, torch.Tensor] = {}
         for runner in self.runners:

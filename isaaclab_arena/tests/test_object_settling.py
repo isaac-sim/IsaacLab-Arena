@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check instantaneous rest, explicit pose recording, and tracked settling duration."""
+"""Check instantaneous rest, rest-pose recording, the lift check's reference height, and tracked settling duration."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -18,7 +18,7 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     from isaaclab_arena.tasks.predicates.object_settling import (
         ObjectInitialRestPoseRecorder,
         objects_below_velocity_thresholds,
-        objects_settled,
+        record_object_initial_rest_pose,
     )
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -74,11 +74,11 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     assert not recorded.any()
     assert torch.isnan(positions).all()
 
-    # Existing PickAndPlace callers explicitly use objects_settled to capture the first rest pose.
-    assert objects_settled(env, object_names=["sphere"]).tolist() == [True, True]
+    # Explicit recording captures the first rest pose and keeps it.
+    record_object_initial_rest_pose(env, "sphere")
     original_positions = world.positions.clone()
     world.positions[:, 2] += 1.0
-    objects_settled(env, object_names=["sphere"])
+    record_object_initial_rest_pose(env, "sphere")
     positions, recorded = recorder.get("sphere")
     torch.testing.assert_close(positions, original_positions)
     assert recorded.all()
@@ -93,6 +93,79 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
 
 def test_temporal_rest_check_does_not_record_poses():
     assert run_function_with_persistent_simulation_app(_test_temporal_rest_check_does_not_record_poses)
+
+
+def _test_lift_check_records_rest_pose_and_idle_object_scores_zero(_simulation_app) -> bool:
+    import torch
+    from functools import partial
+    from types import SimpleNamespace
+
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+    from isaaclab_arena.tasks.predicates.spatial import object_is_above_height
+
+    class _World:
+        def __init__(self):
+            self.linear_velocity = torch.zeros((2, 3))
+            self.angular_velocity = torch.zeros((2, 3))
+            self.positions = torch.tensor([[0.0, 0.0, 0.5], [1.0, 0.0, 0.5]])
+
+        def get_root_linear_velocity_w(self, _name):
+            return self.linear_velocity
+
+        def get_root_angular_velocity_w(self, _name):
+            return self.angular_velocity
+
+        def get_position_w(self, _name):
+            return self.positions
+
+    world = _World()
+    recorder = ObjectInitialRestPoseRecorder(2, "cpu")
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        arena_world=world,
+        scene=SimpleNamespace(deformable_objects={}),
+        object_initial_rest_pose_recorder=recorder,
+    )
+    lifted = partial(object_is_above_height, object_name="cube", use_settled_state=True)
+
+    def never_placed(env):
+        return torch.zeros(env.num_envs, dtype=torch.bool)
+
+    tracker = ProgressTracker(
+        [CompletionCriteria(name="pick_and_place", predicate_sequence=[lifted, never_placed])],
+        num_envs=2,
+        device="cpu",
+    )
+
+    # Env 1 starts moving, so only env 0 records a rest pose on the first step.
+    world.linear_velocity[1, 2] = -1.0
+    tracker.step(env)
+    _, has_rest_pose = recorder.get("cube")
+    assert has_rest_pose.tolist() == [True, False]
+
+    # An object that is never lifted scores nothing, even after it has come to rest.
+    world.linear_velocity.zero_()
+    world.positions[1, 2] = 0.4
+    for _ in range(3):
+        tracker.step(env)
+    positions, has_rest_pose = recorder.get("cube")
+    assert has_rest_pose.all()
+    torch.testing.assert_close(positions[:, 2], torch.tensor([0.5, 0.4]))
+    assert [state.overall_score for state in tracker.get_state()] == [0.0, 0.0]
+
+    # Lifting above each env's own rest height completes the lift step.
+    world.positions[:, 2] = torch.tensor([0.52, 0.42])
+    tracker.step(env)
+    assert [state.overall_score for state in tracker.get_state()] == [0.5, 0.5]
+    torch.testing.assert_close(recorder.get("cube")[0][:, 2], torch.tensor([0.5, 0.4]))
+    return True
+
+
+def test_lift_check_records_rest_pose_and_idle_object_scores_zero():
+    assert run_function_with_persistent_simulation_app(_test_lift_check_records_rest_pose_and_idle_object_scores_zero)
 
 
 def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bool:

@@ -2,7 +2,7 @@ Predicates and Subtask Progress Tracking
 ========================================
 
 Arena defines task success through ``CompletionCriteria`` objects. These criteria sets organize
-Boolean predicates into required milestones, such as settling, lifting, and placing an object.
+Boolean predicates into required milestones, such as lifting and then placing an object.
 Their scores also describe partial progress when an episode ends before the task is complete.
 
 Every task returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``. This configuration
@@ -14,8 +14,7 @@ success when all required criteria sets are complete.
 Predicates
 ----------
 
-A predicate represents a boolean condition in a task, such as an object settling,
-being lifted, or reaching its destination. In Arena, a predicate is a callable that receives
+A predicate represents a boolean condition in a task, such as an object being lifted, or reaching its destination. In Arena, a predicate is a callable that receives
 the manager-based environment (and optionally additional configuration arguments) and returns one Boolean per parallel environment.
 
 Included predicates
@@ -24,17 +23,17 @@ Included predicates
 Arena comes with an existing collection of predicates under ``isaaclab_arena.tasks.predicates``, including:
 
 * ``objects_below_velocity_thresholds`` — all selected objects are below linear and angular velocity thresholds.
-* ``objects_settled`` — the same rest check, also recording each object's first resting pose.
-* ``object_is_above_height`` — an object is above a fixed height or its recorded resting height.
+* ``object_is_above_height`` — an object is above a fixed height or its first resting height in the episode.
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
 * ``object_on_destination`` — destination-footprint, upward-support, and velocity checks for a placement goal.
 
 .. note::
 
-    ``objects_settled`` records each object's first resting pose. Later predicates can use that
-    environment-specific pose as a reference, which is more robust than assuming every object starts at
-    the same world height. Arena clears the recorded poses for the environments being reset.
+    With ``use_settled_state=True``, ``object_is_above_height`` records the object's first resting pose and
+    measures the lift from it. That environment-specific reference is more robust than assuming every object
+    starts at the same world height. The check stays False until the object has come to rest, and Arena clears
+    the recorded poses for the environments being reset.
 
 
 Defining a custom predicate
@@ -67,7 +66,7 @@ Defining completion criteria
 Add ``CompletionCriteria`` entries to ``TaskTerminationCfg.success``. Provide exactly one of
 ``predicate_sequence`` for a list of predicates or ``predicate_sequences`` for a dictionary of named lists.
 
-``PickAndPlaceTask`` requires the object to settle, be lifted, and be placed, in that order:
+``PickAndPlaceTask`` requires the object to be lifted and then placed:
 
 .. code-block:: python
 
@@ -77,7 +76,6 @@ Add ``CompletionCriteria`` entries to ``TaskTerminationCfg.success``. Provide ex
    from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-   from isaaclab_arena.tasks.predicates.object_settling import objects_settled
    from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -88,10 +86,6 @@ Add ``CompletionCriteria`` entries to ``TaskTerminationCfg.success``. Provide ex
                CompletionCriteria(
                    name="pick_and_place",
                    predicate_sequence=[
-                       partial(
-                           objects_settled,
-                           object_names=[self.pick_up_object.name],
-                       ),
                        partial(
                            object_is_above_height,
                            object_name=self.pick_up_object.name,
@@ -430,11 +424,11 @@ For example, one entry of the JSONL record may look like this (placement predica
 
    {
      "progress": {
-       "overall_score": 0.67,
+       "overall_score": 0.5,
        "all_complete": false,
        "criteria_by_name": {
          "pick_and_place": {
-           "score": 0.67,
+           "score": 0.5,
            "is_complete": false,
            "completed_sequences": 0,
            "total_sequences": 1,
@@ -445,27 +439,19 @@ For example, one entry of the JSONL record may look like this (placement predica
        },
        "events": [
          {
-           "step": 4,
-           "criteria_name": "pick_and_place",
-           "sequence_name": "default_sequence",
-           "predicate_index": 0,
-           "predicate_name": "objects_settled",
-           "score_delta": 0.33
-         },
-         {
            "step": 18,
            "criteria_name": "pick_and_place",
            "sequence_name": "default_sequence",
-           "predicate_index": 1,
+           "predicate_index": 0,
            "predicate_name": "object_is_above_height(object_name='can', use_settled_state=True)",
-           "score_delta": 0.33
+           "score_delta": 0.5
          }
        ]
      }
    }
 
-The object has settled and been lifted: two of three predicates are complete, giving a score of ``0.67``.
-Placement is still required. The two events record when settling and lifting completed.
+The object has been lifted: one of two predicates is complete, giving a score of ``0.5``.
+Placement is still required. The event records when lifting completed.
 
 The recording schema uses the same criteria and sequence names as the runtime API. Older
 recordings that use ``objectives``, ``objective``, or ``group`` fields require conversion or
