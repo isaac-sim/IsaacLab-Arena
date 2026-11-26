@@ -1,6 +1,6 @@
 ---
 name: inspect-sim-visually
-description: Gets images of the Isaac Sim viewer from an Isaac Lab-Arena simulation without desktop screenshots. Use when debugging an environment and you need to see the scene, for example placement after reset, an object falling through or flying off the table, a robot pose, or a view from another angle; also when --headless, a camera move, --record_viewport_video or env.render() gives no image. Do not use for recording evaluation videos (run-experiment).
+description: Gets images of an Isaac Lab-Arena simulation without desktop screenshots, from the Kit viewer at any angle and from the policy's cameras. Use when you need to visually inspect a scene or a running simulation, or when --record_viewport_video or env.render() gives no image. Do not use for recording evaluation videos (run-experiment).
 ---
 
 # Inspect the Simulation Visually
