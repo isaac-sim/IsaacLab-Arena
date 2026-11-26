@@ -93,17 +93,12 @@ Camera renderer
 ---------------
 
 The embodiment cameras render with Isaac RTX by default, with either backend.
-``--camera_renderer newton_warp`` / ``ArenaEnvBuilderCfg.camera_renderer`` selects Newton's Warp ray tracer instead,
+``ArenaEnvBuilderCfg.camera_renderer`` selects Newton's Warp ray tracer instead,
 which renders Newton's model of the scene on the GPU. Isaac Lab pairs Newton Warp with PhysX as well, but Arena
 requires the Newton backend for it: with PhysX, cameras mounted on robot links stay at their start pose and the
 DROID gripper is not drawn.
 
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py --enable_cameras --presets newton \
-       --camera_renderer newton_warp ...
-
-An Experiment Definition sets it under ``environment_builder`` by enum name, as it does ``presets``:
+In an Experiment Run, set it under ``environment_builder`` by enum name, as with ``presets``:
 
 .. code-block:: yaml
 
