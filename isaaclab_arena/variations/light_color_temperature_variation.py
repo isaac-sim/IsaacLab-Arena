@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -24,8 +24,9 @@ if TYPE_CHECKING:
 class LightColorTemperatureVariationCfg(VariationBaseCfg):
     """Configuration for LightColorTemperatureVariation."""
 
-    sampler_cfg: ContinuousSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[1000.0], high=[10000.0]))
-    """Distribution over color temperature in Kelvin, from warm (low) to cool (high); uniform by default."""
+    sampler_cfg: SamplerBaseCfg = field(default_factory=lambda: UniformSamplerCfg(low=[1000.0], high=[10000.0]))
+    """Distribution over color temperature in Kelvin, from warm (low) to cool (high): a uniform range by default,
+    or a ChoiceSamplerCfg set of values."""
 
 
 class LightColorTemperatureVariation(BuildTimeVariationBase):
@@ -50,5 +51,5 @@ class LightColorTemperatureVariation(BuildTimeVariationBase):
 
     def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightColorTemperatureVariation: sampler not set."
-        color_temperature = float(self.sampler.sample(num_samples=1)[0, 0])
+        color_temperature = float(sample_float_rows(self.sampler, 1, (1,))[0, 0])
         self._light.set_color_temperature(color_temperature)

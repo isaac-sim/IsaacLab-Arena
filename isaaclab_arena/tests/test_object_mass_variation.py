@@ -262,7 +262,9 @@ def _test_hydra_override_applies_object_mass_variation(simulation_app):
     return True
 
 
-def _test_hydra_override_applies_discrete_object_masses_per_env(simulation_app):
+def _test_hydra_override_applies_choice_object_masses_per_env(simulation_app):
+    import torch
+
     import warp as wp
 
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -274,7 +276,7 @@ def _test_hydra_override_applies_discrete_object_masses_per_env(simulation_app):
         arena_env_builder_cfg_from_argparse(args_cli),
         hydra_overrides=[
             f"{TEST_ASSET_NAME}.mass.enabled=true",
-            f"{TEST_ASSET_NAME}.mass.sampler_cfg.distribution=discrete",
+            f"{TEST_ASSET_NAME}.mass.sampler_cfg.distribution=choice",
             f"{TEST_ASSET_NAME}.mass.sampler_cfg.values=[[{TEST_MASS}],[{TEST_HYDRA_MASS}]]",
             f"{TEST_ASSET_NAME}.mass.sampler_cfg.random_choice=false",
         ],
@@ -290,7 +292,7 @@ def _test_hydra_override_applies_discrete_object_masses_per_env(simulation_app):
             assert masses.tolist() == pytest.approx(expected_masses, abs=1e-6)
             for env_id, expected_mass in enumerate(expected_masses):
                 recorded_mass = record.sample_for_episode(env_id, env.unwrapped.get_episode_index(env_id))
-                assert recorded_mass.tolist() == pytest.approx([expected_mass], abs=1e-6)
+                assert torch.as_tensor(recorded_mass).tolist() == pytest.approx([expected_mass], abs=1e-6)
     finally:
         env.close()
     return True
@@ -395,9 +397,9 @@ def test_hydra_override_applies_object_mass_variation():
     )
 
 
-def test_hydra_override_applies_discrete_object_masses_per_env():
+def test_hydra_override_applies_choice_object_masses_per_env():
     assert run_function_with_persistent_simulation_app(
-        _test_hydra_override_applies_discrete_object_masses_per_env,
+        _test_hydra_override_applies_choice_object_masses_per_env,
         headless=HEADLESS,
     )
 

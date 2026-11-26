@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.variations.continuous_sampler import ContinuousSamplerCfg
+from isaaclab_arena.variations.sampler_base import SamplerBaseCfg, sample_float_rows
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -24,10 +24,11 @@ if TYPE_CHECKING:
 class LightColorVariationCfg(VariationBaseCfg):
     """Configuration for LightColorVariation."""
 
-    sampler_cfg: ContinuousSamplerCfg = field(
+    sampler_cfg: SamplerBaseCfg = field(
         default_factory=lambda: UniformSamplerCfg(low=[0.0, 0.0, 0.0], high=[1.0, 1.0, 1.0])
     )
-    """Distribution over the (red, green, blue) channels, each in [0, 1]; uniform by default."""
+    """Distribution over the (red, green, blue) channels, each in [0, 1]: a uniform range by default, or a
+    ChoiceSamplerCfg set of colors."""
 
 
 class LightColorVariation(BuildTimeVariationBase):
@@ -52,5 +53,5 @@ class LightColorVariation(BuildTimeVariationBase):
 
     def _realize_at_build_time(self) -> None:
         assert self.sampler is not None, "LightColorVariation: sampler not set."
-        color = tuple(self.sampler.sample(num_samples=1)[0].tolist())
+        color = tuple(sample_float_rows(self.sampler, 1, (3,))[0].tolist())
         self._light.set_color(color)

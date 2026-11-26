@@ -189,12 +189,12 @@ def _get_sampler_cfgs_selected_by_overrides(
 def _get_sampler_cfg_types_by_distribution(variation: VariationBase) -> dict[str, type[SamplerBaseCfg]]:
     """Return the sampler cfg types that ``variation``'s ``sampler_cfg`` field accepts, keyed by distribution name."""
     # Deferred so that importing this module does not import the samplers.
-    from isaaclab_arena.variations.discrete_sampler import DiscreteSamplerCfg  # noqa: PLC0415
+    from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg  # noqa: PLC0415
     from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg  # noqa: PLC0415
 
     accepted_sampler_cfg_type = get_type_hints(type(variation.cfg))["sampler_cfg"]
     sampler_cfg_types: dict[str, type[SamplerBaseCfg]] = {}
-    for sampler_cfg_type in (UniformSamplerCfg, DiscreteSamplerCfg):
+    for sampler_cfg_type in (UniformSamplerCfg, ChoiceSamplerCfg):
         if issubclass(sampler_cfg_type, accepted_sampler_cfg_type):
             sampler_cfg_types[sampler_cfg_type().distribution] = sampler_cfg_type
     return sampler_cfg_types
@@ -270,7 +270,7 @@ def _raise_unknown_override_error(
     if any(".sampler_cfg." in override for override in hydra_overrides):
         sampler_hint = (
             "A sampler_cfg field must belong to the variation's sampler. Set '<host>.<variation>."
-            f"{_SAMPLER_DISTRIBUTION_PATH}' (for example to 'discrete') to change the sampler.\n"
+            f"{_SAMPLER_DISTRIBUTION_PATH}' (for example to 'choice') to change the sampler.\n"
         )
     raise ValueError(
         f"Unknown Hydra variation override ({override_hint}). "

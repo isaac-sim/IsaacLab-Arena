@@ -149,7 +149,7 @@ See :doc:`Teleoperation Data Collection <../../example_workflows/sequential_stat
 for recording setup and the full command using the callback.
 
 
-.. _discrete-variation-values:
+.. _fixed-set-variation-values:
 
 Drawing from a fixed set of values
 ----------------------------------
@@ -157,7 +157,8 @@ Drawing from a fixed set of values
 Numeric variations, such as object mass, light intensity, color and direction, and camera
 extrinsics and intrinsics, draw from a uniform range by default. They can draw from a fixed set of
 values instead, such as two apple masses of 0.17 kg and 0.24 kg. This suits evaluations that
-compare a few known settings rather than a spread.
+compare a few known settings rather than a spread. The same choice sampler picks an HDR image or an
+asset from a list of names.
 
 A fixed set is used in one of two ways:
 

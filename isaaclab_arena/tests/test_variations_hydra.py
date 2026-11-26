@@ -145,9 +145,9 @@ def _mass_variations():
     return {"apple": [ObjectMassVariation(asset_name="apple")]}
 
 
-DISCRETE_MASS_CLI_OVERRIDES = [
+CHOICE_MASS_CLI_OVERRIDES = [
     "apple.mass.enabled=true",
-    "apple.mass.sampler_cfg.distribution=discrete",
+    "apple.mass.sampler_cfg.distribution=choice",
     "apple.mass.sampler_cfg.values=[[0.17],[0.24]]",
     "apple.mass.sampler_cfg.random_choice=false",
 ]
@@ -156,28 +156,28 @@ DISCRETE_MASS_CLI_OVERRIDES = [
 @pytest.mark.parametrize(
     "hydra_overrides",
     [
-        DISCRETE_MASS_CLI_OVERRIDES,
+        CHOICE_MASS_CLI_OVERRIDES,
         # Experiment-config variations, nested and as flat dotted keys.
         variations_hydra.overrides_from_dict({
             "apple": {
                 "mass": {
                     "enabled": True,
-                    "sampler_cfg": {"distribution": "discrete", "values": [[0.17], [0.24]], "random_choice": False},
+                    "sampler_cfg": {"distribution": "choice", "values": [[0.17], [0.24]], "random_choice": False},
                 }
             }
         }),
         variations_hydra.overrides_from_dict({
             "apple.mass.enabled": True,
-            "apple.mass.sampler_cfg.distribution": "discrete",
+            "apple.mass.sampler_cfg.distribution": "choice",
             "apple.mass.sampler_cfg.values": [[0.17], [0.24]],
             "apple.mass.sampler_cfg.random_choice": False,
         }),
     ],
 )
-def test_distribution_override_selects_the_discrete_sampler(hydra_overrides: list[str]):
+def test_distribution_override_selects_the_choice_sampler(hydra_overrides: list[str]):
     import torch
 
-    from isaaclab_arena.variations.discrete_sampler import DiscreteSampler, DiscreteSamplerCfg
+    from isaaclab_arena.variations.choice_sampler import ChoiceSampler, ChoiceSamplerCfg
 
     variations = _mass_variations()
 
@@ -185,11 +185,9 @@ def test_distribution_override_selects_the_discrete_sampler(hydra_overrides: lis
 
     variation = variations["apple"][0]
     assert variation.enabled
-    assert variation.cfg.sampler_cfg == DiscreteSamplerCfg(values=[[0.17], [0.24]], random_choice=False)
-    assert isinstance(variation.sampler, DiscreteSampler)
-    torch.testing.assert_close(
-        variation.sampler.sample(3, env_ids=torch.arange(3)), torch.tensor([[0.17], [0.24], [0.17]])
-    )
+    assert variation.cfg.sampler_cfg == ChoiceSamplerCfg(values=[[0.17], [0.24]], random_choice=False)
+    assert isinstance(variation.sampler, ChoiceSampler)
+    assert variation.sampler.sample(3, env_ids=torch.arange(3)) == [[0.17], [0.24], [0.17]]
 
 
 def test_distribution_override_of_the_current_distribution_keeps_its_values():
@@ -218,17 +216,17 @@ def test_uniform_sampler_overrides_still_apply_to_a_widened_sampler_cfg():
 
 
 def test_unknown_distribution_override_lists_the_available_distributions():
-    with pytest.raises(AssertionError, match=r"Available distributions: \['discrete', 'uniform'\]"):
+    with pytest.raises(AssertionError, match=r"Available distributions: \['choice', 'uniform'\]"):
         variations_hydra.apply_overrides(_mass_variations(), ["apple.mass.sampler_cfg.distribution=normal"])
 
 
 def test_distribution_override_respects_the_sampler_cfg_type_a_variation_accepts():
-    # TestBuildTimeVariation types its sampler_cfg as UniformSamplerCfg, so it cannot take a discrete sampler.
+    # TestBuildTimeVariation types its sampler_cfg as UniformSamplerCfg, so it cannot take a choice sampler.
     variations = {TEST_ASSET_NAME: [TestBuildTimeVariation(_MockHost())]}
 
     with pytest.raises(AssertionError, match=r"Available distributions: \['uniform'\]"):
         variations_hydra.apply_overrides(
-            variations, [f"{TEST_ASSET_NAME}.test_build_time.sampler_cfg.distribution=discrete"]
+            variations, [f"{TEST_ASSET_NAME}.test_build_time.sampler_cfg.distribution=choice"]
         )
 
 
@@ -237,12 +235,12 @@ def test_sampler_field_of_another_distribution_points_to_the_distribution_overri
         variations_hydra.apply_overrides(_mass_variations(), ["apple.mass.sampler_cfg.values=[[0.17]]"])
 
 
-def test_variations_catalogue_lists_the_selected_discrete_sampler_fields():
+def test_variations_catalogue_lists_the_selected_choice_sampler_fields():
     from isaaclab_arena.variations.variations_printing import get_variations_catalogue_as_string
 
-    catalogue = get_variations_catalogue_as_string(_mass_variations(), hydra_overrides=DISCRETE_MASS_CLI_OVERRIDES)
+    catalogue = get_variations_catalogue_as_string(_mass_variations(), hydra_overrides=CHOICE_MASS_CLI_OVERRIDES)
 
-    assert "apple.mass.sampler_cfg.distribution = 'discrete'" in catalogue
+    assert "apple.mass.sampler_cfg.distribution = 'choice'" in catalogue
     assert "apple.mass.sampler_cfg.values = [[0.17],[0.24]]" in catalogue
     assert "apple.mass.sampler_cfg.random_choice = False" in catalogue
     assert "sampler_cfg.low" not in catalogue

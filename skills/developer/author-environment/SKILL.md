@@ -75,10 +75,10 @@ Read only the references relevant to the requested behavior:
   and inspect asset constructors, including [object base classes](../../../isaaclab_arena/assets/object_base.py),
   for existing attachments before adding one. Verify names, units, and sampling timing against the
   relevant implementation in `isaaclab_arena/variations/`.
-  To draw a numeric variation from a fixed set, set `<object>.<variation>.sampler_cfg.distribution=discrete`
+  To draw a numeric variation from a fixed set, set `<object>.<variation>.sampler_cfg.distribution=choice`
   and `sampler_cfg.values=[[0.17],[0.24]]`, with one list per value. `sampler_cfg.random_choice=false`
   gives parallel env `i` the value `values[i % n]` on every reset; otherwise `sampler_cfg.probabilities`
-  can weight the random draws. Always set `distribution` together with the discrete fields; without it,
+  can weight the random draws. Always set `distribution` together with the choice fields; without it,
   `values` is rejected as an unknown field.
 - **Companion Experiments:** follow the [Experiment concepts](../../../docs/pages/concepts/concept_arena_experiments.rst)
   and [variation example](../../../isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml).

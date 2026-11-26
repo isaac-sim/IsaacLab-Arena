@@ -5,14 +5,13 @@
 
 from __future__ import annotations
 
+import math
+import torch
 from abc import ABC
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from isaaclab.utils.configclass import configclass
-
-if TYPE_CHECKING:
-    import torch
 
 
 @configclass
@@ -77,3 +76,35 @@ class SamplerBase(ABC):
         """
         for listener in self._listeners:
             listener(sample, env_ids)
+
+
+def sample_float_rows(
+    sampler: SamplerBase,
+    num_samples: int,
+    shape_per_sample: tuple[int, ...],
+    env_ids: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Draw ``num_samples`` numeric samples from ``sampler`` as a float32 tensor.
+
+    ``sampler`` returns a tensor, as a UniformSampler does, or a list of number lists, as a ChoiceSampler with numeric
+    values does.
+
+    Args:
+        sampler: Sampler whose ``sample(num_samples=..., env_ids=...)`` returns numeric samples.
+        num_samples: Number of samples to draw.
+        shape_per_sample: Shape each sample must have, for example ``(1,)`` for one number.
+        env_ids: The env ids the samples correspond to, or ``None`` when the draw applies to all envs.
+
+    Returns:
+        A float32 tensor of shape ``(num_samples, *shape_per_sample)``.
+    """
+    samples = sampler.sample(num_samples=num_samples, env_ids=env_ids)
+    if num_samples == 0:
+        return torch.empty((0, *shape_per_sample), dtype=torch.float32)
+    sample_rows = torch.as_tensor(samples, dtype=torch.float32)
+    assert tuple(sample_rows.shape) == (num_samples, *shape_per_sample), (
+        f"{type(sampler).__name__} drew samples of shape {tuple(sample_rows.shape[1:])}; this variation needs samples"
+        f" of shape {tuple(shape_per_sample)}. Each value of a choice sampler is a list of"
+        f" {math.prod(shape_per_sample)} numbers, for example [[0.17], [0.24]] for one number per sample."
+    )
+    return sample_rows

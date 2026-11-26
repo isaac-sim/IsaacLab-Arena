@@ -53,7 +53,7 @@ class UniformSampler(ContinuousSampler):
     def shape_per_sample(self) -> torch.Size:
         return self.low.shape
 
-    def _sample(self, num_samples: int, env_ids: torch.Tensor | None) -> torch.Tensor:  # noqa: ARG002
+    def _sample(self, num_samples: int) -> torch.Tensor:
         shape = (num_samples, *self.shape_per_sample)
         u = torch.rand(shape, generator=self._generator)
         return self.low + (self.high - self.low) * u
