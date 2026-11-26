@@ -22,11 +22,7 @@ DEFAULT_ANGULAR_VELOCITY_THRESHOLD = 5e-2
 
 
 class ObjectInitialRestPoseRecorder:
-    """Per-environment record of each object's first resting position in the current episode.
-
-    ``record_object_initial_rest_pose`` fills it, for example from ``object_is_above_height`` with
-    ``use_settled_state``.
-    """
+    """Per-environment record of each object's first resting position in the current episode."""
 
     def __init__(self, num_envs: int, device):
         self._num_envs = num_envs
