@@ -355,9 +355,8 @@ def object_is_above_height(
 
     object_z = env.arena_world.get_position_w(object_name)[:, 2]
     if use_settled_state:
-        # TODO(amillane, 2026-11-26): Recording starts when this check is first evaluated. In a sequential
-        # composite whose lift is in a later subtask, that is once the subtask starts, after the robot may
-        # have moved the object. Record rest poses every step in the environment if such a task is added.
+        # NOTE(alexmillane, 2026.11.26): The initial rest pose is only recorded once this function is called.
+        # In a composite task, this may occur well after the first sub-task.
         record_object_initial_rest_pose(env, object_name)
         settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))

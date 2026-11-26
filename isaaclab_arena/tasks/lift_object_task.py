@@ -23,7 +23,7 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class LiftObjectTask(TaskBase):
-    """Require an object to rise above its first resting height in the episode.
+    """Require an object to rise above its resting height in the episode.
 
     Success depends only on the object's height, so it does not check how the object was lifted.
     """
@@ -75,7 +75,6 @@ class LiftObjectTask(TaskBase):
                 CompletionCriteria(
                     name="lift_object",
                     predicate_sequence=[
-                        # Records the object's first resting position as its lift reference.
                         partial(
                             object_is_above_height,
                             object_name=self.lift_object.name,

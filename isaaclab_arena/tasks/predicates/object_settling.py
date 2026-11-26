@@ -161,7 +161,9 @@ def record_object_initial_rest_pose(
         lin_vel_threshold=lin_vel_threshold,
         ang_vel_threshold=ang_vel_threshold,
     )
-    recorder.record(object_name, env.arena_world.get_position_w(object_name), at_rest)
+    # W is the simulation world frame; O is the object frame.
+    t_W_O = env.arena_world.get_position_w(object_name)
+    recorder.record(object_name, t_W_O, at_rest)
 
 
 def objects_below_velocity_thresholds(
