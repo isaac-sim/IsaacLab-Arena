@@ -15,7 +15,10 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
-from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
+from isaaclab_arena.tasks.predicates.object_settling import (
+    get_object_initial_rest_state,
+    record_object_initial_rest_pose,
+)
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -338,13 +341,12 @@ def object_is_above_height(
     use_settled_state: bool = False,
     distance: float = 1e-2,
 ) -> torch.Tensor:
-    """Checks if an object is above a certain height.
+    """Return whether an object is at least ``distance`` m above a reference height.
 
-    The reference height is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
-    object's recorded resting height (see ``objects_settled``). For envs where no settled state
-    has been recorded, the result is always False.
-
-    Returns True when ``object_name`` is at least ``distance`` m above a height reference.
+    The reference is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the object's
+    first resting height in the episode. With ``use_settled_state``, each call records that height in
+    environments where the object is at rest and has none recorded yet, and the result stays False
+    until one is recorded.
     """
 
     assert (
@@ -353,6 +355,9 @@ def object_is_above_height(
 
     object_z = env.arena_world.get_position_w(object_name)[:, 2]
     if use_settled_state:
+        # NOTE(alexmillane, 2026.11.26): The initial rest pose is only recorded once this function is called.
+        # In a composite task, this may occur well after the first sub-task.
+        record_object_initial_rest_pose(env, object_name)
         settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
     else:

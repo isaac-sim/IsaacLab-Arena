@@ -15,7 +15,6 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -24,7 +23,7 @@ from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 @register_task
 class LiftObjectTask(TaskBase):
-    """Require an object to rest, then rise above its recorded resting height.
+    """Require an object to rise above its resting height in the episode.
 
     Success depends only on the object's height, so it does not check how the object was lifted.
     """
@@ -76,7 +75,6 @@ class LiftObjectTask(TaskBase):
                 CompletionCriteria(
                     name="lift_object",
                     predicate_sequence=[
-                        partial(objects_settled, object_names=[self.lift_object.name]),
                         partial(
                             object_is_above_height,
                             object_name=self.lift_object.name,

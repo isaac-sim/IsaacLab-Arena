@@ -574,7 +574,6 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.tasks.predicates.object_settling import objects_settled
     from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -596,9 +595,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     assert isinstance(termination_cfg, TaskTerminationCfg)
     assert termination_cfg.timeout_s == 12.0
     assert len(termination_cfg.success) == 1
-    settled, lifted, placement_requirement = termination_cfg.success[0].predicate_sequence
-    assert settled.func is objects_settled
-    assert settled.keywords == {"object_names": ["object"]}
+    lifted, placement_requirement = termination_cfg.success[0].predicate_sequence
     assert lifted.func is object_is_above_height
     assert lifted.keywords == {"object_name": "object", "use_settled_state": True}
     assert isinstance(placement_requirement, TrueForConsecutiveStepsCfg)
@@ -616,8 +613,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     assert env_cfg.terminations.success.func is task_success_from_progress
     criteria_sets = env_cfg.task_progress.success_criteria
     assert len(criteria_sets) == 1
-    settled, lifted, placement_requirement = criteria_sets[0].predicate_sequence
-    assert settled.func is objects_settled
+    lifted, placement_requirement = criteria_sets[0].predicate_sequence
     assert lifted.func is object_is_above_height
     assert placement_requirement.predicate.func is object_on_destination
     assert placement_requirement.required_steps == 1

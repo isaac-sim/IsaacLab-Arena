@@ -18,7 +18,7 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     from isaaclab_arena.tasks.predicates.object_settling import (
         ObjectInitialRestPoseRecorder,
         objects_below_velocity_thresholds,
-        objects_settled,
+        record_object_initial_rest_pose,
     )
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -74,11 +74,11 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     assert not recorded.any()
     assert torch.isnan(positions).all()
 
-    # Existing PickAndPlace callers explicitly use objects_settled to capture the first rest pose.
-    assert objects_settled(env, object_names=["sphere"]).tolist() == [True, True]
+    # Explicit recording captures the first rest pose and keeps it.
+    record_object_initial_rest_pose(env, "sphere")
     original_positions = world.positions.clone()
     world.positions[:, 2] += 1.0
-    objects_settled(env, object_names=["sphere"])
+    record_object_initial_rest_pose(env, "sphere")
     positions, recorded = recorder.get("sphere")
     torch.testing.assert_close(positions, original_positions)
     assert recorded.all()

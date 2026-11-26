@@ -58,6 +58,8 @@ def _test_lift_rest_height_order_and_partial_reset(_simulation_app):
     world.positions[1, 2] = 1.4
     tracker.step(env)
     assert tracker.get_subtask_completion().tolist() == [[False, False], [False, False]]
+    # A resting object that has not been lifted makes no progress.
+    assert [state.overall_score for state in tracker.get_state()] == [0.0, 0.0]
     world.positions[:, 2] = torch.tensor([1.2, 1.5])
     tracker.step(env)
     assert tracker.get_subtask_completion().tolist() == [[True, False], [True, False]]

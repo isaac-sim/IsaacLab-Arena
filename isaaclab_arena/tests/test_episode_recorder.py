@@ -229,7 +229,7 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
             ), f"env {env_id} episode {record['episode_in_env']}: expected success={expected_success}"
             assert record["progress"]["all_complete"] is expected_success
             if expected_success:
-                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1, 2]
+                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1]
                 # Each reset drops the box from 0.2 m, so it moves more than 2 cm after the first step. A term
                 # whose post_step() never ran would record 0.
                 assert record[OBJECT_DISPLACEMENT_KEY] > 0.02

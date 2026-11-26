@@ -98,7 +98,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
-        """The recorder of initial object rest poses. Used when object_settled predicate is enabled by task progress tracking."""
+        """The recorder of each object's first resting position in the current episode."""
         return self._object_initial_rest_pose_recorder
 
     @property

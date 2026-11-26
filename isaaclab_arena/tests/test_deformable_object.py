@@ -322,6 +322,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     cli_args = [
@@ -379,7 +380,16 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
                     return
             raise AssertionError(f"{phase} did not complete predicate {required_count} within {max_steps} steps.")
 
-        step_until_predicates_complete(required_count=1, max_steps=30, phase="Recording the initial rest pose")
+        # The lift check records the cube's first resting position, which is its lift reference.
+        for _ in range(30):
+            _, _, terminated, truncated, _ = env.step(actions)
+            assert (
+                not terminated.any() and not truncated.any()
+            ), "Recording the initial rest pose should not end the task."
+            if get_object_initial_rest_state(env.unwrapped, "pick_object")[1].all():
+                break
+        else:
+            raise AssertionError("The deformable cube did not come to rest within 30 steps.")
 
         lifted_state = deformable.data.nodal_state_w.torch.clone()
         lifted_state[..., 2] += 0.1
@@ -389,7 +399,7 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         lifted_targets[..., :3] = lifted_state[..., :3]
         lifted_targets[..., 3] = 1.0
         deformable.write_nodal_kinematic_target_to_sim_index(lifted_targets)
-        step_until_predicates_complete(required_count=2, max_steps=5, phase="Lifting")
+        step_until_predicates_complete(required_count=1, max_steps=5, phase="Lifting")
 
         destination_bounds = env.unwrapped.arena_world.get_aabb_w("plate")
         placed_state = deformable.data.nodal_state_w.torch.clone()
