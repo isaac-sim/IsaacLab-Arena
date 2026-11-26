@@ -390,7 +390,7 @@ def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_pa
     assert stats["env_step"].count == 1
     assert stats["env_step/sim_step"].count == 1
     assert stats["env_step/record_camera_frames"].count == 1
-    assert stats["env_step"].total_ms >= stats["env_step/sim_step"].total_ms
+    assert stats["env_step"].total >= stats["env_step/sim_step"].total
 
 
 def test_wrap_env_for_video_adds_no_timer_when_recording_is_disabled(tmp_path):
