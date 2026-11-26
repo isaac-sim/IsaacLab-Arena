@@ -95,6 +95,7 @@ def test_variation_overrides_add_tuned_control_parameters():
     )
 
     assert run_cfg.variations["light.hdr_image.enabled"] is True
+    assert run_cfg.variations["droid_rel_joint_pos.camera_extrinsics_wrist_camera.enabled"] is True
     assert run_cfg.variations["light"]["hdr_image"]["hdr_names"] == [
         "home_office_robolab",
         "billiard_hall_robolab",
