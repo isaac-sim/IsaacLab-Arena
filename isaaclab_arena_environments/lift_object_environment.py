@@ -38,7 +38,7 @@ class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
+        from isaaclab_arena.tasks.reinforcement_learning.lift_object_task import LiftObjectTaskRL
         from isaaclab_arena.utils.pose import Pose
 
         background = self.asset_registry.get_asset_by_name("table")()

@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.utils.math import combine_frame_transforms
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
@@ -102,78 +101,6 @@ def combine_success_results(
     if not (1 <= k <= num_predicates):
         raise ValueError(f"'k' must be in [1, {num_predicates}] for {num_predicates} predicates, got {k}.")
     return results.sum(dim=0) >= k
-
-
-# NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
-# seem to generate a "small" velocity.
-def lift_object_il_success(
-    env: IsaacLabArenaManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-    goal_position: tuple[float, float, float] | None = None,
-    position_tolerance: float = 0.05,
-) -> torch.Tensor:
-    """Dynamic success termination for lift object task.
-
-    Args:
-        env: The RL environment instance.
-        object_cfg: The configuration of the object to track.
-        goal_position: Fixed world-frame goal position [x, y, z].
-        position_tolerance: Distance tolerance for success (m).
-
-    Returns:
-        A boolean tensor of shape (num_envs,) indicating success.
-    """
-
-    assert goal_position is not None, "lift_object_il_success requires goal_position."
-
-    object_position_w = env.arena_world.get_position_w(object_cfg.name)
-    goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
-
-    # Check if object is within tolerance of goal
-    distance = torch.norm(object_position_w - goal_position_w, dim=1)
-    return distance < position_tolerance
-
-
-def lift_object_rl_success(
-    env: IsaacLabArenaManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    rl_training: bool = False,
-    command_name: str = "object_pose",
-    position_tolerance: float = 0.05,
-) -> torch.Tensor:
-    """Dynamic success termination for lift object task.
-
-    Supports multiple modes:
-    - RL training: Always returns False (no early termination)
-    - RL evaluation: Uses goal from command manager
-
-    Args:
-        env: The RL environment instance.
-        object_cfg: The configuration of the object to track.
-        robot_cfg: The robot configuration (needed to transform the goal to world frame).
-        rl_training: If True, always returns False (disables success termination for RL training).
-        command_name: The name of the command that is used to control the object.
-        position_tolerance: Distance tolerance for success (m).
-
-    Returns:
-        A boolean tensor of shape (num_envs,) indicating success.
-    """
-    if rl_training:
-        return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-
-    arena_world = env.arena_world
-    T_W_B = arena_world.get_pose_w(robot_cfg.name)
-    object_position_w = arena_world.get_position_w(object_cfg.name)
-
-    command = env.command_manager.get_command(command_name)
-    desired_position_b = command[:, :3]
-
-    # Transform goal from robot-base frame to world frame
-    desired_position_w, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], desired_position_b)
-
-    distance = torch.linalg.norm(desired_position_w - object_position_w, dim=1)
-    return distance < position_tolerance
 
 
 def goal_pose_task_termination(

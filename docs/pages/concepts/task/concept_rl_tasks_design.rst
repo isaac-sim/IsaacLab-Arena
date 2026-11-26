@@ -1,30 +1,26 @@
 RL Tasks
 ========
 
-RL tasks extend their imitation learning counterparts with the components Isaac Lab's
-reinforcement-learning training scripts require: a command manager that samples
-a new goal each episode, reward terms, and goal-conditioned observations.
+RL tasks add the components Isaac Lab's reinforcement-learning training scripts
+require: a command manager that samples a new goal each episode, reward terms,
+and goal-conditioned observations.
 
-The pattern is straightforward — an RL task subclasses the corresponding IL task,
-and implements the RL-specific parts:
+An RL task is a ``TaskBase`` subclass that defines the usual task parts (scene config,
+termination conditions) and also overrides the RL hooks that ``TaskBase``
+leaves empty:
 
 .. code-block:: python
 
-   class LiftObjectTaskRL(LiftObjectTask):
+   class LiftObjectTaskRL(TaskBase):
 
-       def __init__(self):
-          super().__init__()
+       def get_observation_cfg(self):
+           pass
 
        def get_rewards_cfg(self):
-          pass
+           pass
 
        def get_commands_cfg(self):
-          pass
-
-This means the RL task inherits everything from the IL task (scene config,
-termination conditions) and adds the RL-specific parts on top.
-Note the the RL task is also likely to *modify* the IL task's configuration.
-For example, adding privileged information to the observations.
+           pass
 
 Usage
 -----
