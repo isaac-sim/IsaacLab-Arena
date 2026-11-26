@@ -11,8 +11,8 @@ user: it captures their whole screen, and it needs a visible window.
 | Need | Mode |
 |---|---|
 | Look around a running scene: other angles, pause, object positions, repeated looks | [Running sim](#running-sim) (default) |
-| Images at fixed points of a script you are writing anyway | [Stills from a script](#stills-from-a-script) |
-| Many images or a video as one picture | [Contact sheet](#contact-sheet) |
+| Images at fixed points of a script you are writing anyway | [Images from your own script](#images-from-your-own-script) |
+| Many images or a video as one picture | [Several images in one picture](#several-images-in-one-picture) |
 
 ## Running sim
 
@@ -128,7 +128,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    docker exec <container> bash -c 'pkill -TERM -s <sid>; sleep 5; pkill -KILL -s <sid>; pgrep -s <sid> || echo stopped'
    ```
 
-## Stills from a script
+## Images from your own script
 
 For a script that builds the env itself (see `main()` in `isaaclab_arena/scripts/environment_runner.py` for the launch
 pattern), launch with `HEADLESS=1`, `DISPLAY` unset, and
@@ -153,7 +153,7 @@ Image.fromarray(frame).save("/tmp/<run>/side.png")
 With `HEADLESS=1 --viz kit`, camera observations (`obs["camera_obs"]`) only update on steps after a
 `render_rgb_array()` call. Do not use this mode for runs whose policy reads cameras.
 
-## Contact sheet
+## Several images in one picture
 
 Tile images into one picture of at most about 1568 px width. For PNGs, first bring every image to the same size and
 pixel format and label it with its file name (names without `:`); ffmpeg's tile filter silently drops panels when

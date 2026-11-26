@@ -45,7 +45,7 @@ Known failure modes:
 - Calls `app.update()`, `sim.render()` or `render_rgb_array()` inside a request.
 - Uses `/isaac-sim/skills/isaac-sim-remote/scripts/viewport_screenshot.py`.
 
-## Scenario 3: Stills From A Script With Several Envs
+## Scenario 3: Images From Your Own Script With Several Envs
 
 Setup: the agent is writing its own debug script that builds the environment with 4 envs.
 
