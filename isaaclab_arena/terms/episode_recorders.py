@@ -34,13 +34,8 @@ class ObjectPeakSpeed(EpisodeRecorderTerm):
         return float(self._peak_speed[env_id])
 
 
-class ObjectDisplacement(EpisodeRecorderTerm):
-    """Records the largest distance [m] an object got from where it was after the episode's first step.
-
-    The start position is taken after the episode's first control step, so motion during that step, such as a
-    short drop onto the support after spawning, does not count; settling that lasts longer does. An object that
-    is moved and put back still counts with its largest distance. Deformable objects use their mean node position.
-    """
+class ObjectMaximumDisplacement(EpisodeRecorderTerm):
+    """Records the largest distance [m] an object got from its position after the episode's first step."""
 
     def __init__(self, cfg: EpisodeRecorderTermCfg, env):
         super().__init__(cfg, env)
@@ -51,6 +46,7 @@ class ObjectDisplacement(EpisodeRecorderTerm):
 
     def post_step(self):
         position_w = self._env.arena_world.get_position_w(self._object_name)
+        # Starting after the first step leaves out a short drop onto the support after spawning.
         # Update in place, for the same reason as in ObjectPeakSpeed.post_step().
         needs_start_position = ~self._has_start_position
         self._start_position_w[needs_start_position] = position_w[needs_start_position]
@@ -67,8 +63,8 @@ class ObjectDisplacement(EpisodeRecorderTerm):
         return float(self._largest_displacement[env_id])
 
 
-class RevoluteJointMovement(EpisodeRecorderTerm):
-    """Records how far a revolute joint moved from its reset openness during the episode.
+class RevoluteJointMaximumMovement(EpisodeRecorderTerm):
+    """Records the largest change of a revolute joint's openness from its reset openness during the episode.
 
     Openness is the joint position as a fraction of its range, from 0 (closed) to 1 (open), so the movement is
     a fraction of the range too. A joint that is moved and moved back still counts with its largest movement.

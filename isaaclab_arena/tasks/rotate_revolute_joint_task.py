@@ -17,7 +17,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
-from isaaclab_arena.terms.episode_recorders import RevoluteJointMovement
+from isaaclab_arena.terms.episode_recorders import RevoluteJointMaximumMovement
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -63,10 +63,10 @@ class RotateRevoluteJointTask(TaskBase):
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
 
     def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
-        """Record how far the revolute joint moved from its reset openness in each episode."""
+        """Record the largest change of the revolute joint's openness from its reset openness in each episode."""
         return {
-            "revolute_joint_movement": EpisodeRecorderTermCfg(
-                func=RevoluteJointMovement,
+            "revolute_joint_maximum_movement": EpisodeRecorderTermCfg(
+                func=RevoluteJointMaximumMovement,
                 params={"openable_object": self.openable_object, "reset_openness": self.reset_openness},
             )
         }

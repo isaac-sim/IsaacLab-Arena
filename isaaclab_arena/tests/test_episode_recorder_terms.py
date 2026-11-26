@@ -26,12 +26,12 @@ class _ObjectPositions:
 
 def _make_displacement_term(num_envs: int = 2):
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-    from isaaclab_arena.terms.episode_recorders import ObjectDisplacement
+    from isaaclab_arena.terms.episode_recorders import ObjectMaximumDisplacement
 
     object_positions = _ObjectPositions(num_envs)
     env = SimpleNamespace(num_envs=num_envs, device="cpu", arena_world=object_positions)
-    term_cfg = EpisodeRecorderTermCfg(func=ObjectDisplacement, params={"object_name": "box"})
-    return ObjectDisplacement(term_cfg, env), env, object_positions
+    term_cfg = EpisodeRecorderTermCfg(func=ObjectMaximumDisplacement, params={"object_name": "box"})
+    return ObjectMaximumDisplacement(term_cfg, env), env, object_positions
 
 
 def _test_displacement_is_the_largest_distance_from_the_first_step(simulation_app):
@@ -86,15 +86,15 @@ class _Openable:
 
 def _test_revolute_joint_movement_is_the_largest_change_from_the_reset_openness(simulation_app):
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
-    from isaaclab_arena.terms.episode_recorders import RevoluteJointMovement
+    from isaaclab_arena.terms.episode_recorders import RevoluteJointMaximumMovement
 
     openable_object = _Openable()
     # The term config copies its params, so the term reads the openness through the env.
     env = SimpleNamespace(num_envs=2, device="cpu", openness=torch.zeros(2))
     term_cfg = EpisodeRecorderTermCfg(
-        func=RevoluteJointMovement, params={"openable_object": openable_object, "reset_openness": 0.2}
+        func=RevoluteJointMaximumMovement, params={"openable_object": openable_object, "reset_openness": 0.2}
     )
-    term = RevoluteJointMovement(term_cfg, env)
+    term = RevoluteJointMaximumMovement(term_cfg, env)
     term.reset()
     # The door resets to 0.2, but env 0 already reads 0.25 after the first step; movement still counts from 0.2.
     # Env 0 then opens the door to 0.6 and closes it back to 0.2; env 1 closes it fully.
