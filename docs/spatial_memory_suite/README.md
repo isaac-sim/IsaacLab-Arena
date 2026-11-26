@@ -12,7 +12,13 @@ The simulator uses Arena library USDs for the worktable, shipping cartons, a KLT
 
 ![Shelf placement, dishwasher loading, tote extraction and trolley docking in Isaac Sim](WORKCELL_PREVIEW.jpg)
 
-Arena's [GR00T N1.6 G1 example](../pages/example_workflows/locomanipulation/step_5_evaluation.rst) provides a closed-loop baseline for shelf-to-bin box transport. Transfer to these workcells and conditioning that policy on the accumulated map require separate evaluation.
+Arena's [GR00T N1.6 G1 example](../pages/example_workflows/locomanipulation/step_5_evaluation.rst) provides a closed-loop baseline for shelf-to-bin box transport. The [workcell experiment](../../isaaclab_arena_environments/experiment_configs/g1_spatial_motion_gr00t_experiment.yaml) evaluates that checkpoint once in each layout of each task. Start the G1 policy server as in the example, then run the following command from the repository root. The [scoring guide](G1_SCORING.md) describes each task's physical success conditions and termination thresholds.
+
+```bash
+isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py --viz none --enable_cameras \
+  --experiment_config isaaclab_arena_environments/experiment_configs/g1_spatial_motion_gr00t_experiment.yaml \
+  --record_camera_video --output_base_dir /tmp/g1_spatial_motion
+```
 
 With cameras enabled, both observation conditions receive head-camera RGB and depth. Add `--mapped` to receive `observations["mapped"]["online_map"]`, a bounded point cloud accumulated from the same depth measurements in the current robot frame. An experiment can install a reconstruction through `set_online_map_provider`. The built-in provider voxelizes depth on the fly. Each reset clears only the corresponding episodes.
 

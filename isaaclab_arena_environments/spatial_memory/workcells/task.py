@@ -13,6 +13,7 @@ from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -118,6 +119,16 @@ def guard_contact(env):
     return env.scene["guard_sensor"].data.net_forces_w.torch.norm(dim=-1).amax(dim=1) > CONTACT_FORCE_THRESHOLD_N
 
 
+def record_workcell_result(env, env_id, scene, layout):
+    """Record every terminal condition that fired on this workcell's final control step."""
+    manager = env.termination_manager
+    return {
+        "scene": scene,
+        "layout": layout,
+        "termination_terms": [name for name in manager.active_terms if manager.get_term(name)[env_id].item()],
+    }
+
+
 class MotionTask(NoTask):
     """Run one short guide motion with a measured workpiece outcome."""
 
@@ -165,6 +176,13 @@ class MotionTask(NoTask):
             )
             fields.append(("move_fixture", EventTermCfg, event))
         return make_configclass("MotionEvents", fields)() if fields else None
+
+    def get_episode_recorder_terms(self):
+        return {
+            "workcell": EpisodeRecorderTermCfg(
+                func=record_workcell_result, params={"scene": self.scene, "layout": ("A", "B")[self.layout]}
+            )
+        }
 
     def get_observation_cfg(self):
         return MapObservations() if self.mapped else None
