@@ -162,7 +162,7 @@ LAYOUTS = {
         "Turn this long load through the corner.",
         "ReturnBumper",
         (0.27, 0.14, 0.18),
-        ((-0.8, -0.285, 0.88), (-0.49, -0.285, 0.88)),
+        ((-0.8, -0.285, 0.88), (-0.39, -0.06, 0.88)),
     ),
     "aisle_retreat": WorkcellLayout(
         "Back one chassis length out of the aisle.",
