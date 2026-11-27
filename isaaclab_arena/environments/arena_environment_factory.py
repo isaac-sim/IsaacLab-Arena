@@ -33,7 +33,7 @@ class ArenaEnvironmentFactory(ABC, Generic[ArenaEnvironmentCfgT]):
     """Registry name of the environment factory."""
 
     tags: tuple[str, ...] = ()
-    """Task-type labels for grouping and filtering environments, e.g. ``pick_and_place``."""
+    """Labels associated with this environment."""
 
     def __init__(self):
         from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry, HDRImageRegistry
