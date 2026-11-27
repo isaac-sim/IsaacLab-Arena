@@ -7,7 +7,9 @@ to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
 environment: the original 42 environments on October 28, 2026, the eight
 additional appliance environments on October 29–30, 2026, and the nine
-``kitchen_bench_spatial_*`` placement environments on November 22, 2026.
+``kitchen_bench_spatial_*`` placement environments on November 22, 2026. The
+eight ``kitchen_bench_press_*`` button environments were evaluated on 10 episodes
+per environment on November 27, 2026.
 
 .. list-table:: Task categories
    :header-rows: 1
@@ -23,7 +25,7 @@ additional appliance environments on October 29–30, 2026, and the nine
 
    * - Press button
      - 10
-     - 38.3%
+     - 33.0%
 
    * - Turn knob
      - 11
@@ -135,15 +137,15 @@ the maintained DROID external camera. Rows are grouped by task category.
           :width: 100%
    * - Press button
      - `kitchen_bench_press_blender_one_wall_coastal.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_blender_one_wall_coastal.yaml>`_
-     - 38%
+     - 10%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_blender_one_wall_coastal_pi05.gif
           :alt: Pi0.5 policy: Press the power button to the right of the blender's speed dial.
           :width: 100%
 
-       Pi0.5, 2x speed.
+       Pi0.5, 4x speed.
    * - Press button
      - `kitchen_bench_press_toaster_oven_galley_industrial.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster_oven_galley_industrial.yaml>`_
-     - 43%
+     - 60%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_toaster_oven_galley_industrial_pi05.gif
           :alt: Pi0.5 policy: Press the button below the timer knob on the right of the toaster oven's front panel.
           :width: 100%
@@ -151,7 +153,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_espresso_machine_u_shaped_modern1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_espresso_machine_u_shaped_modern1.yaml>`_
-     - 34%
+     - 10%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_espresso_machine_u_shaped_modern1_pi05.gif
           :alt: Pi0.5 policy: Press the leftmost power button above the pressure gauge on the espresso machine.
           :width: 100%
@@ -159,7 +161,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_microwave_g_shaped_large_scandinavian.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_microwave_g_shaped_large_scandinavian.yaml>`_
-     - 91%
+     - 80%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_microwave_g_shaped_large_scandinavian_pi05.gif
           :alt: Pi0.5 policy: Press the large rectangular door-release button at the bottom right of the microwave.
           :width: 100%
@@ -167,7 +169,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_stand_mixer_g_shaped_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_stand_mixer_g_shaped_farmhouse2.yaml>`_
-     - 37%
+     - 10%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_stand_mixer_g_shaped_farmhouse2_pi05.gif
           :alt: Pi0.5 policy: Press the head-lock button on the left side of the stand mixer.
           :width: 100%
@@ -175,7 +177,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_toaster053_g_shaped_rustic.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_toaster053_g_shaped_rustic.yaml>`_
-     - 52%
+     - 60%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_toaster053_g_shaped_rustic_pi05.gif
           :alt: Pi0.5 policy: Press the small cancel button beside the browning dial on the toaster.
           :width: 100%
@@ -183,7 +185,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1.yaml>`_
-     - 13%
+     - 20%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1_pi05.gif
           :alt: Pi0.5 policy: Press the lid-release button on top of the kettle handle.
           :width: 100%
@@ -191,7 +193,7 @@ the maintained DROID external camera. Rows are grouped by task category.
        Pi0.5, 2x speed.
    * - Press button
      - `kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2.yaml>`_
-     - 55%
+     - 60%
      - .. image:: ../../images/kitchen_bench/kitchen_bench_press_coffee_machine108_u_shaped_with_island_farmhouse2_pi05.gif
           :alt: Pi0.5 policy: Press the right round button above the coffee dispenser.
           :width: 100%
