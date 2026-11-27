@@ -10,14 +10,19 @@ from __future__ import annotations
 import os
 import time
 import traceback
+import yaml
 from copy import deepcopy
 from dataclasses import fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
+    ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
@@ -66,6 +71,7 @@ def execute_experiment(
     for run_cfg in experiment_cfg.runs.values():
         print(f"Running run '{run_cfg.name}'", flush=True)
         run_output_dir = output_dir / run_cfg.name
+        write_run_environment_definition(run_cfg, run_output_dir)
         # Clear timers.
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
@@ -98,6 +104,29 @@ def execute_experiment(
         _write_run_outputs(run_output_dir, result)
         results.append(result)
     return results
+
+
+def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path) -> Path | None:
+    """Write a Run's graph-YAML environment, with its ``external_yaml`` includes merged, to its output directory.
+
+    The copy is taken before per-Run overrides, which the Experiment definition records. Python environments
+    have no YAML definition, so nothing is written for them.
+
+    Args:
+        run_cfg: Run whose environment definition is written.
+        run_output_dir: Output directory of the Run.
+
+    Returns:
+        Path of the written file, or None for a Python environment.
+    """
+    if not isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
+        return None
+    environment_definition = load_env_graph_spec_dict(run_cfg.environment.env_spec_path)
+    run_output_dir.mkdir(parents=True, exist_ok=True)
+    environment_definition_path = run_output_dir / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
+    with environment_definition_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(environment_definition, f, sort_keys=False)
+    return environment_definition_path
 
 
 def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:

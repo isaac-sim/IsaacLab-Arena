@@ -29,6 +29,7 @@ ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
 ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME = "arena_run_placement_diagnostics.json"
+ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME = "arena_run_environment_definition.yaml"
 
 
 class ArenaEpisodeResultData(TypedDict):

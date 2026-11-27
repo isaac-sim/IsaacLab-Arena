@@ -5,17 +5,21 @@
 
 import json
 import time
+import yaml
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
@@ -558,6 +562,39 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(monkeypatch, tmp_path):
+    """A graph-YAML Run keeps its merged definition even when it fails; a Python Run writes none."""
+    graph_yaml_path = Path(__file__).parent / "test_data" / "robolab_task_overlay.yaml"
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        if run_cfg.name == "graph":
+            raise RuntimeError("rollout failed")
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
+
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    run_execution.execute_experiment(
+        _experiment(
+            _run(name="graph", environment=LegacyGraphEnvironmentCfg(env_spec_path=str(graph_yaml_path))),
+            _run(name="python"),
+        ),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    written_definition = yaml.safe_load(
+        (tmp_path / "graph" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).read_text(encoding="utf-8")
+    )
+    assert written_definition == load_env_graph_spec_dict(graph_yaml_path)
+    assert "external_yaml" not in written_definition
+    assert not (tmp_path / "python" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).exists()
 
 
 def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_each_run(monkeypatch, tmp_path):
