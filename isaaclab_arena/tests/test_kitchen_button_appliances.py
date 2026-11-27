@@ -8,6 +8,20 @@
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
+def _get_button_stiffness(appliance, joint_prim) -> float:
+    """Return the stiffness of the button's linear drive, taking a drive set at spawn over the USD's own."""
+    import re
+
+    from pxr import UsdPhysics
+
+    spawn_drives = appliance.object_cfg.spawn.joint_drive_props or {}
+    for joint_path_pattern, drives in spawn_drives.items():
+        if re.fullmatch(joint_path_pattern, joint_prim.GetPath().pathString):
+            return drives[0].stiffness
+    drive = UsdPhysics.DriveAPI.Get(joint_prim, "linear")
+    return drive.GetStiffnessAttr().Get() if drive else 0.0
+
+
 def _test_kitchen_button_appliances(simulation_app):
     import re
 
@@ -15,19 +29,17 @@ def _test_kitchen_button_appliances(simulation_app):
 
     from isaaclab_arena.affordances.pressable import Pressable
     from isaaclab_arena.assets import object_library
-    from isaaclab_arena.assets.object_library import KitchenButtonAppliance
 
     appliance_classes = [
         cls
         for cls in vars(object_library).values()
-        if isinstance(cls, type) and issubclass(cls, KitchenButtonAppliance) and cls is not KitchenButtonAppliance
+        if isinstance(cls, type) and issubclass(cls, Pressable) and "kitchen" in getattr(cls, "tags", [])
     ]
     assert len(appliance_classes) == 8
     for appliance_class in appliance_classes:
         appliance = appliance_class()
-        assert isinstance(appliance, Pressable)
         assert appliance.object_cfg.spawn.fix_root_link
-        # The button returns through its authored USD drive, so no actuator may override its gains.
+        # The button returns through its own drive, so no actuator may override its gains.
         for actuator in appliance.object_cfg.actuators.values():
             for joint_expr in actuator.joint_names_expr:
                 assert not re.fullmatch(joint_expr, appliance.pressable_joint_name)
@@ -39,8 +51,7 @@ def _test_kitchen_button_appliances(simulation_app):
         assert joint, f"{appliance_class.__name__} button joint must be prismatic"
         assert joint.GetJointEnabledAttr().Get()
         assert joint.GetLowerLimitAttr().Get() < joint.GetUpperLimitAttr().Get()
-        # The Palatial espresso machine authors its button spring under the angular drive instance.
-        assert joints[0].HasAPI(UsdPhysics.DriveAPI, "linear") or joints[0].HasAPI(UsdPhysics.DriveAPI, "angular")
+        assert _get_button_stiffness(appliance, joints[0]) > 0.0, f"{appliance_class.__name__} button has no spring"
         assert [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.ArticulationRootAPI)]
     return True
 

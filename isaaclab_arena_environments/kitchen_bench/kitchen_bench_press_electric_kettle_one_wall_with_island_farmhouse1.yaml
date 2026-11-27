@@ -18,7 +18,7 @@ background:
     collision_mode: mesh
 objects:
 - id: appliance
-  registry_name: forgecad_electric_kettle
+  registry_name: lightwheel_electric_kettle004
 - id: distractor_1
   registry_name: wooden_bowl_hot3d_robolab
 - id: distractor_2

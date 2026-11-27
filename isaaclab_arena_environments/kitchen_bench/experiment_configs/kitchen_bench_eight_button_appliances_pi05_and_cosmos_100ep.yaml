@@ -3,9 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Rebuild after each pair of episodes, matching the locally validated execution setup.
 shared:
-  num_rebuilds: 50
   environment:
     enable_cameras: true
   environment_builder:
