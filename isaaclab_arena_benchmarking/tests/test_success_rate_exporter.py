@@ -65,7 +65,7 @@ def _write_experiment(experiment_output_directory: Path, runs: dict[str, dict]) 
         if episodes:
             _write_jsonl(experiment_output_directory / run_name / "episode_results.jsonl", episodes)
         result_runs[run_name] = {
-            "environment": {"name": f"{run_name}_env", "definition": "unused"},
+            "environment": {"name": f"{run_name}_env", "definition": "unused", "tags": []},
             "policy_variant": "pi05",
             "status": "completed",
             "start_timestamp_ns": START_TIMESTAMP_NS,

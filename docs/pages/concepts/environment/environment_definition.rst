@@ -282,6 +282,15 @@ with no code change. Below, ``--object`` replaces that node's ``registry_name``:
 Graph specs may also declare ``default_physics_backend`` and ``env_cfg_override``;
 see :doc:`env_cfg_override` and :doc:`physics_backend_selection`.
 
+**Tags.** ``tags`` is an optional list of labels, such as ``pick_and_place``. Experiment
+results record them under each Run's ``environment``, so results can be grouped by them.
+
+.. code-block:: yaml
+
+   tags:
+   - pick_and_place
+   - multi_level
+
 Same key, different behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

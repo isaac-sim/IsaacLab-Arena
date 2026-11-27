@@ -266,7 +266,7 @@ class ArenaExperimentResult:
             "environment": {
                 "name": environment["name"],
                 "definition": environment["definition"],
-                "tags": list(environment.get("tags", [])),
+                "tags": list(environment["tags"]),
             },
             "policy_variant": run_metadata["policy_variant"],
             "status": status,

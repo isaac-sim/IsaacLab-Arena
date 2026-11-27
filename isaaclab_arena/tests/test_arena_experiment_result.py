@@ -36,11 +36,12 @@ def _metadata(
     status: str = "completed",
     tags: list[str] | None = None,
 ) -> dict:
-    environment = {"name": environment_name, "definition": f"environments/{environment_name}.yaml"}
-    if tags is not None:
-        environment["tags"] = tags
     return {
-        "environment": environment,
+        "environment": {
+            "name": environment_name,
+            "definition": f"environments/{environment_name}.yaml",
+            "tags": tags or [],
+        },
         "policy_variant": policy_variant,
         "status": status,
         "start_timestamp_ns": START_TIMESTAMP_NS,
@@ -273,6 +274,13 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
         },
         "policy_variant": "Pi0.5-Exact",
     }
+
+
+def test_records_empty_tags_for_a_graph_environment_without_tags(monkeypatch):
+    monkeypatch.setattr(arena_env_graph_yaml_loader, "load_env_graph_spec_dict", lambda path: {"env_name": "untagged"})
+    run_cfg = _RunCfg(environment=_GraphEnvironmentCfg("untagged.yaml"), policy=_PolicyCfg(policy_variant="pi05"))
+
+    assert build_arena_run_result_metadata(run_cfg)["environment"]["tags"] == []
 
 
 def test_builds_registered_environment_and_policy_metadata(monkeypatch):

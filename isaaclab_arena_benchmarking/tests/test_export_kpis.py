@@ -58,7 +58,7 @@ def _write_experiment(output_dir: Path, run_statuses: dict[str, str]) -> Path:
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "episode_results.jsonl").write_text(json.dumps(episodes[0]) + "\n", encoding="utf-8")
         result_runs[run_name] = {
-            "environment": {"name": f"{run_name}_env", "definition": "unused"},
+            "environment": {"name": f"{run_name}_env", "definition": "unused", "tags": []},
             "policy_variant": "pi05",
             "status": status,
             "start_timestamp_ns": START_TIMESTAMP_NS,

@@ -187,7 +187,7 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
         arena_experiment_result,
         "build_arena_run_result_metadata",
         lambda run_cfg: {
-            "environment": {"name": "env", "definition": "env"},
+            "environment": {"name": "env", "definition": "env", "tags": []},
             "policy_variant": "zero_action",
         },
     )
