@@ -96,9 +96,6 @@ environments through
 ``--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback``.
 Isaac Lab scripts take the environment name with ``--task`` instead of as a positional argument.
 
-Use a ``name`` that no other environment uses. If another class already owns the name, the runner
-stops with an error that names that class.
-
 .. note::
 
     The environment above is actually located in ``isaaclab_arena_examples/external_environments/basic.py``.
