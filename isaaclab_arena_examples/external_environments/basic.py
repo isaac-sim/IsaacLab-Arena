@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Simple example externally-defined environment.
+"""Simple example of an environment defined outside Arena.
 
 This demonstrates how to define an environment outside Isaac Lab Arena. Like the
 built-in environments, it is a config dataclass plus a factory with ``build(cfg)``.
@@ -40,7 +40,7 @@ class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTable
     name: str = "franka_table"
 
     def build(self, cfg: ExternalFrankaTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its config."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On

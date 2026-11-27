@@ -34,7 +34,7 @@ def ensure_environments_registered():
 
 # Legacy argparse compatibility
 #
-# Typed factories expose only build(cfg). Until the argparse frontend is retired, this
+# Environment factories expose only build(cfg). Until the argparse frontend is retired, this
 # section generates their environment-subcommand flags from the config that
 # @register_environment recorded in EnvironmentRegistry, and reconstructs that config
 # from the resulting Namespace.
@@ -46,7 +46,7 @@ _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_en
 def _registered_environment_cfg_type(
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> type[ArenaEnvironmentCfg]:
-    """Return the config type that ``@register_environment`` recorded for a typed factory."""
+    """Return the config type that ``@register_environment`` recorded for an environment factory."""
     environment_cfg_types = EnvironmentRegistry().get_environment_cfg_types()
     assert environment_factory_type.name in environment_cfg_types, (
         f"{environment_factory_type.__name__} has no config in EnvironmentRegistry. Register it with"
@@ -59,7 +59,7 @@ def add_environment_cli_args(
     parser: argparse.ArgumentParser,
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> None:
-    """Add legacy CLI flags generated from an environment factory's registered config."""
+    """Add command-line flags generated from an environment factory's registered config."""
     environment_cfg_type = _registered_environment_cfg_type(environment_factory_type)
     add_dataclass_cli_args(
         parser,
@@ -85,7 +85,7 @@ def build_environment_from_cli(
     environment_factory_type: type[ArenaEnvironmentFactory],
     args_cli: argparse.Namespace,
 ) -> IsaacLabArenaEnvironment:
-    """Build an environment from the config reconstructed from legacy CLI values."""
+    """Build an environment from the config reconstructed from command-line values."""
     environment_factory = environment_factory_type()
     return environment_factory.build(_environment_cfg_from_cli(environment_factory_type, args_cli))
 

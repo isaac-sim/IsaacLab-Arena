@@ -1,20 +1,18 @@
 Defining Environments in Your Repository
 ========================================
 
-This section describes how to write a new environment, within your own repository
-(i.e. not in the Isaac Lab - Arena source tree).
+You can define an environment in your own package and run it with Arena's runners, without
+changing Arena. Like a built-in environment, it has two classes:
 
-An environment in your repository uses the same contract as the built-in environments:
-
-* A configuration dataclass that subclasses ``ArenaEnvironmentCfg``. Its fields are the values a
-  user can set. Each environment needs its own configuration class.
+* A config dataclass that subclasses ``ArenaEnvironmentCfg``. Its fields are the values a user can
+  set. Each environment needs its own config class.
 * A factory class that subclasses ``ArenaEnvironmentFactory[YourCfg]``, sets a unique ``name``,
-  and implements ``build(cfg)``.
+  and builds the environment in ``build(cfg)``.
 
 Arena registers the factory when it loads it by its class path, so it doesn't need the
 ``@register_environment`` decorator that the built-in environments use.
 
-Below is an example of a custom environment that places a single object on a table.
+This example places one object on a table:
 
 .. code-block:: python
 
@@ -44,7 +42,7 @@ Below is an example of a custom environment that places a single object on a tab
        name: str = "franka_table"
 
        def build(self, cfg: ExternalFrankaTableEnvironmentCfg) -> IsaacLabArenaEnvironment:
-           """Build the environment from its typed configuration."""
+           """Build the environment from its config."""
            from isaaclab_arena.assets.object_reference import ObjectReference
            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
            from isaaclab_arena.relations.relations import IsAnchor, On
@@ -78,9 +76,8 @@ Below is an example of a custom environment that places a single object on a tab
            )
            return isaaclab_arena_environment
 
-External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:
+To run it, pass the factory class to ``--external_environment_class_path``, followed by the
+environment name and its flags. For example, with a zero-action policy:
 
 .. code-block:: bash
 
@@ -95,7 +92,7 @@ The ``--external_environment_class_path`` flag takes the module path and the cla
 factory, separated by a colon. The module must be importable, for example because your package is
 installed or on ``PYTHONPATH``. The runner imports the class and registers it under its ``name``.
 The environment name is the first positional argument, and the flags after it set the fields of the
-environment's configuration.
+environment's config.
 
 The flag works the same way with the Environment Runner
 (``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
@@ -132,10 +129,10 @@ stops with an error that names that class.
        :alt: External environment example
        :align: center
 
-Configuration Fields and Flags
-------------------------------
+Config Fields and Flags
+-----------------------
 
-Each field of the configuration becomes a flag with the field's name, such as ``--object``.
+Each field of the config becomes a flag with the field's name, such as ``--object``.
 Flags work for fields of these types:
 
 * ``bool``, ``int``, ``float``, and ``str``. A ``bool`` field that defaults to ``False`` becomes a
@@ -164,8 +161,8 @@ been removed. To migrate an environment defined in your repository:
 #. Replace the ``ExampleEnvironmentBase`` base class with ``ArenaEnvironmentFactory[YourCfg]``.
 #. Rename ``get_env(self, args_cli)`` to ``build(self, cfg)``, and read values from ``cfg`` instead
    of ``args_cli``. If ``get_env()`` read ``args_cli.num_envs`` or ``args_cli.mimic``, add a field
-   with that name to the configuration.
-#. Delete ``add_cli_args()``. The flags are now generated from the configuration fields.
+   with that name to the config.
+#. Delete ``add_cli_args()``. The flags are now generated from the config fields.
 
 Commands that use ``--external_environment_class_path`` then keep working without changes.
 

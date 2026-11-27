@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Advanced example: externally-defined environment with a custom task and embodiment.
+"""Advanced example: an environment defined outside Arena with its own task and embodiment.
 
 Builds on the basic example by defining a custom task, a custom embodiment
 variant (with modified controller gains), and two custom episode recorder terms
@@ -131,7 +131,7 @@ class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFra
     name: str = "franka_table_with_task"
 
     def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
-        """Build the environment from its typed configuration."""
+        """Build the environment from its config."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On

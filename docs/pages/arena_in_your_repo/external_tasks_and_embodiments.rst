@@ -112,7 +112,7 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
        name: str = "franka_table_with_task"
 
        def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
-           """Build the environment from its typed configuration."""
+           """Build the environment from its config."""
            from isaaclab_arena.assets.object_reference import ObjectReference
            from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
            from isaaclab_arena.relations.relations import IsAnchor, On
@@ -153,9 +153,8 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
                },
            )
 
-External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:
+To run it, pass the factory class to ``--external_environment_class_path``, followed by the
+environment name and its flags. For example, with a zero-action policy:
 
 .. code-block:: bash
 
