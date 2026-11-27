@@ -565,7 +565,7 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
 
 def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(monkeypatch, tmp_path):
-    """A graph-YAML Run keeps its spec with overrides applied, even when it fails; a Python Run writes none."""
+    """A completed graph-YAML Run keeps its spec with overrides applied; a Python Run writes none."""
     import argparse
 
     from isaaclab_arena_environments.cli import add_cli_override_args
@@ -581,8 +581,6 @@ def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(
     monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", get_parser)
 
     def build_and_run(run_cfg, output_dir, video_cfg):
-        if run_cfg.name == "graph":
-            raise RuntimeError("rollout failed")
         return ArenaRunResult(
             run_name=run_cfg.name,
             status=RunStatus.COMPLETED,
@@ -598,7 +596,6 @@ def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(
     run_execution.execute_experiment(
         _experiment(_run(name="graph", environment=graph_environment_cfg), _run(name="python")),
         output_dir=tmp_path,
-        continue_on_error=True,
     )
 
     written_definition = yaml.safe_load(

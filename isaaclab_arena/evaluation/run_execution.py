@@ -27,7 +27,7 @@ from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
-    load_graph_spec_from_legacy_graph,
+    load_graph_spec_from_graph,
 )
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.evaluation.rollout import rollout_policy
@@ -75,7 +75,6 @@ def execute_experiment(
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
         try:
-            write_run_environment_definition(run_cfg, run_output_dir)
             result = build_and_run(
                 run_cfg,
                 output_dir=run_output_dir,
@@ -101,7 +100,7 @@ def execute_experiment(
             continue
 
         print_timer_stats()
-        _write_run_outputs(run_output_dir, result)
+        _write_run_outputs(run_cfg, run_output_dir, result)
         results.append(result)
     return results
 
@@ -121,7 +120,7 @@ def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path)
     """
     if not isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
         return None
-    environment_definition = load_graph_spec_from_legacy_graph(run_cfg.environment).to_dict()
+    environment_definition = load_graph_spec_from_graph(run_cfg.environment).to_dict()
     run_output_dir.mkdir(parents=True, exist_ok=True)
     environment_definition_path = run_output_dir / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
     with environment_definition_path.open("w", encoding="utf-8") as f:
@@ -129,8 +128,9 @@ def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path)
     return environment_definition_path
 
 
-def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
-    """Write a completed Run's timings to its output directory."""
+def _write_run_outputs(run_cfg: ArenaRunCfg, run_output_dir: Path, result: ArenaRunResult) -> None:
+    """Write a completed Run's environment definition and timings to its output directory."""
+    write_run_environment_definition(run_cfg, run_output_dir)
     write_run_timings(run_output_dir)
 
 

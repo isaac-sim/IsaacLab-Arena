@@ -76,7 +76,7 @@ def build_arena_builder_from_legacy_graph(
     )
 
 
-def load_graph_spec_from_legacy_graph(cfg: LegacyGraphEnvironmentCfg) -> ArenaEnvGraphSpec:
+def load_graph_spec_from_graph(cfg: LegacyGraphEnvironmentCfg) -> ArenaEnvGraphSpec:
     """Load a Run's graph spec with its per-run overrides applied, as the environment is built from it."""
     args_cli = _parse_graph_environment_cli_args(cfg)
     return load_graph_spec_with_cli_overrides(args_cli.env_spec, args_cli)
