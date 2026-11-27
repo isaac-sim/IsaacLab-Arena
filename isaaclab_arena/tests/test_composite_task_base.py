@@ -421,10 +421,13 @@ def _test_composite_suffixes_subtask_episode_recorder_terms(simulation_app):
 
     class _RecordingTask(_ControlledTask):
         def get_episode_recorder_terms(self):
-            return {"object_displacement": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}
+            return {"object_maximum_displacement": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}
 
     task = CompositeTaskBase([_RecordingTask(_ControlledPredicate(0)), _RecordingTask(_ControlledPredicate(1))])
-    assert list(task.get_episode_recorder_terms()) == ["object_displacement_subtask_0", "object_displacement_subtask_1"]
+    assert list(task.get_episode_recorder_terms()) == [
+        "object_maximum_displacement_subtask_0",
+        "object_maximum_displacement_subtask_1",
+    ]
     return True
 
 

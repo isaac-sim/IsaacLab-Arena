@@ -29,7 +29,7 @@ from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
-from isaaclab_arena.terms.episode_recorders import ObjectDisplacement
+from isaaclab_arena.terms.episode_recorders import ObjectMaximumDisplacement
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
 
@@ -192,10 +192,10 @@ class PickAndPlaceTask(TaskBase):
         )
 
     def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
-        """Record how far the picked object moved in each episode, in metres."""
+        """Record the largest distance, in metres, that the picked object got from its start in each episode."""
         return {
-            "object_displacement": EpisodeRecorderTermCfg(
-                func=ObjectDisplacement, params={"object_name": self.pick_up_object.name}
+            "object_maximum_displacement": EpisodeRecorderTermCfg(
+                func=ObjectMaximumDisplacement, params={"object_name": self.pick_up_object.name}
             )
         }
 
