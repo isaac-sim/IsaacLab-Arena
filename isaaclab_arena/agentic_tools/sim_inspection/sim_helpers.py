@@ -5,10 +5,12 @@
 
 """Helpers for looking at a running Arena simulation through Isaac Sim's Python server.
 
-Send this file once per simulation process; the functions stay defined in the server's default context. Sending it
-again keeps the found environment and an armed pause_when()::
+Send this file once per simulation process with run_in_sim.py; the functions stay defined in the server's default
+context. Sending it again keeps the found environment and an armed pause_when(). Send it rather than importing it in
+the simulation: an import of Arena code while the app starts breaks the environment build::
 
-    python3 -I run_in_sim.py --port PORT --file sim_helpers.py
+    python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port PORT \
+        --file isaaclab_arena/agentic_tools/sim_inspection/sim_helpers.py
 
 Requests run inside Kit's update loop, so these helpers only schedule work and never call ``app.update()``.
 """

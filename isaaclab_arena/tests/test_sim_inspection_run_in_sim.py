@@ -17,7 +17,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from run_in_sim import main
+from isaaclab_arena.agentic_tools.sim_inspection.run_in_sim import main
 
 
 class _FakePythonServerHandler(socketserver.BaseRequestHandler):

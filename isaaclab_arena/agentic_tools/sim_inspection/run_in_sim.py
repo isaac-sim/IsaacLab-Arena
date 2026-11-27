@@ -5,10 +5,12 @@
 
 """Run Python code in a running Isaac Sim through the isaacsim.code_editor.python_server extension.
 
-Examples::
+Runs on the host with the standard library only. Examples, from the repository root::
 
-    python3 -I run_in_sim.py --port 18210 --file sim_helpers.py
-    python3 -I run_in_sim.py --port 18210 --code 'capture_viewer("/tmp/view.png")' --wait_for_file /tmp/view.png
+    python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port 18210 \
+        --file isaaclab_arena/agentic_tools/sim_inspection/sim_helpers.py
+    python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port 18210 \
+        --code 'capture_viewer("/tmp/view.png")' --wait_for_file /tmp/view.png
 
 Exit codes: 0 success, 1 the code raised in the sim, 2 no server or no reply, 3 --wait_for_file timed out.
 """

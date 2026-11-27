@@ -66,7 +66,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    From the repository root, load the helpers as soon as the server answers:
 
    ```bash
-   C=skills/developer/inspect-sim-visually/scripts
+   C=isaaclab_arena/agentic_tools/sim_inspection
    until python3 -I $C/run_in_sim.py --port <port> --file $C/sim_helpers.py --timeout 10 > /dev/null 2>&1; do
      grep -q "Command failed" /tmp/<run>/run.log && { tr '\r' '\n' < /tmp/<run>/run.log | tail -30; break; }
      sleep 2
@@ -90,9 +90,9 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 3. **Look.** Send one call per request and `Read` each PNG:
 
    ```bash
-   python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
+   python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port <port> \
      --code 'set_camera(eye=[0.5, -0.7, 0.2], target=[0.45, 0.0, 0.05], env_index=0)'
-   python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
+   python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port <port> \
      --code 'capture_viewer("/tmp/<run>/side.png")' --wait_for_file /tmp/<run>/side.png
    ```
 
@@ -121,7 +121,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
 
    ```bash
    for attempt in $(seq 600); do
-     [ "$(python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> --code 'is_paused()')" = true ] && break
+     [ "$(python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port <port> --code 'is_paused()')" = true ] && break
      grep -q "Command failed" /tmp/<run>/run.log && break
      sleep 0.5
    done
@@ -130,7 +130,7 @@ code, and `sim_helpers.py` adds one-line helpers. One launch serves any number o
    To see a scene right after a reset later on, start a new episode instead of waiting for the current one to end:
 
    ```bash
-   python3 -I skills/developer/inspect-sim-visually/scripts/run_in_sim.py --port <port> \
+   python3 -I isaaclab_arena/agentic_tools/sim_inspection/run_in_sim.py --port <port> \
      --code 'pause_at_next_episode(); end_episode(); resume_physics()'
    ```
 
