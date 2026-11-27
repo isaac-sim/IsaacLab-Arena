@@ -51,7 +51,8 @@ def _registered_environment_cfg_type(
     environment_cfg_types = EnvironmentRegistry().get_environment_cfg_types()
     assert environment_factory_type.name in environment_cfg_types, (
         f"{environment_factory_type.__name__} has no config in EnvironmentRegistry. Only factories registered with"
-        " @register_environment get generated CLI flags."
+        " @register_environment get generated CLI flags. Typed factories loaded with"
+        " --external_environment_class_path are not supported yet."
     )
     return environment_cfg_types[environment_factory_type.name]
 
