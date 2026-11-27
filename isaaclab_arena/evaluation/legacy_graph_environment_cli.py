@@ -65,7 +65,7 @@ def build_arena_builder_from_legacy_graph(
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    args_cli = _parse_graph_environment_cli_args(cfg)
+    args_cli = parse_graph_environment_cli_args(cfg)
     arena_env = arena_env_from_graph_spec(args_cli.env_spec, args_cli)
     return ArenaEnvBuilder(
         arena_env,
@@ -78,11 +78,11 @@ def build_arena_builder_from_legacy_graph(
 
 def load_graph_spec_from_graph(cfg: LegacyGraphEnvironmentCfg) -> ArenaEnvGraphSpec:
     """Load a Run's graph spec with its per-run overrides applied, as the environment is built from it."""
-    args_cli = _parse_graph_environment_cli_args(cfg)
+    args_cli = parse_graph_environment_cli_args(cfg)
     return load_graph_spec_with_cli_overrides(args_cli.env_spec, args_cli)
 
 
-def _parse_graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> argparse.Namespace:
+def parse_graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> argparse.Namespace:
     """Parse the command-line arguments that build this graph-spec environment."""
     assert cfg.env_spec_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
     parser = get_isaaclab_arena_environments_cli_parser()
