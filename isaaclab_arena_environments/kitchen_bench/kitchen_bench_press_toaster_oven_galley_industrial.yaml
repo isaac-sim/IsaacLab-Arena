@@ -83,67 +83,51 @@ relations:
 - kind: 'on'
   subject: distractor_1
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_1
-  reference: appliance
   params:
-    axis: y
-    tolerance_m: 0.45
-- kind: align_with
-  subject: distractor_1
-  reference: appliance
-  params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.1
+    x_limits:
+    - 0.15
+    - 0.55
+    y_limits:
+    - -3.05
+    - -2.3
 - kind: 'on'
   subject: distractor_2
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_2
-  reference: appliance
   params:
-    axis: y
-    tolerance_m: 0.45
-- kind: align_with
-  subject: distractor_2
-  reference: appliance
-  params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.1
+    x_limits:
+    - 0.15
+    - 0.55
+    y_limits:
+    - -3.05
+    - -2.3
 - kind: 'on'
   subject: distractor_3
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_3
-  reference: appliance
   params:
-    axis: y
-    tolerance_m: 0.45
-- kind: align_with
-  subject: distractor_3
-  reference: appliance
-  params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.1
+    x_limits:
+    - 0.36
+    - 0.58
+    y_limits:
+    - -4.68
+    - -4.24
 - kind: 'on'
   subject: distractor_4
   reference: counter
-- kind: align_with
+- kind: position_limits_box
   subject: distractor_4
-  reference: appliance
   params:
-    axis: y
-    tolerance_m: 0.45
-- kind: align_with
-  subject: distractor_4
-  reference: appliance
-  params:
-    axis: x
-    offset_m: 0
-    tolerance_m: 0.1
+    x_limits:
+    - 0.36
+    - 0.58
+    y_limits:
+    - -4.68
+    - -4.24
 task:
   composition: atomic
   description: Press the button below the timer knob on the right of the toaster oven's
