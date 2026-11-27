@@ -34,24 +34,27 @@ def ensure_environments_registered():
 
 # Legacy argparse compatibility
 #
-# First-party factories now expose only build(cfg). Until the argparse frontend is
-# retired, this section generates their environment-subcommand flags and reconstructs
-# the same typed config from the resulting Namespace. External factories that still
-# inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section and the factories'
-# _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
+# Typed factories expose only build(cfg). Until the argparse frontend is retired, this
+# section generates their environment-subcommand flags from the config that
+# @register_environment recorded in EnvironmentRegistry, and reconstructs that config
+# from the resulting Namespace. External factories that still inherit
+# ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section when runners
+# receive typed configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
 
 
-def _get_legacy_argparse_cfg_type(
+def _registered_environment_cfg_type(
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> type[ArenaEnvironmentCfg]:
-    """Return the config dataclass used by a first-party factory's legacy CLI adapter."""
-    environment_cfg_type = getattr(environment_factory_type, "_legacy_argparse_cfg_type", None)
-    assert (
-        environment_cfg_type is not None
-    ), f"{environment_factory_type.__name__} must define _legacy_argparse_cfg_type while argparse is supported"
-    return environment_cfg_type
+    """Return the config type that ``@register_environment`` recorded for a typed factory."""
+    environment_cfg_types = EnvironmentRegistry().get_environment_cfg_types()
+    assert environment_factory_type.name in environment_cfg_types, (
+        f"{environment_factory_type.__name__} has no config in EnvironmentRegistry. Only factories registered with"
+        " @register_environment get generated CLI flags. Typed factories loaded with"
+        " --external_environment_class_path are not supported yet."
+    )
+    return environment_cfg_types[environment_factory_type.name]
 
 
 def add_environment_cli_args(
@@ -63,7 +66,7 @@ def add_environment_cli_args(
         environment_factory_type.add_cli_args(parser)
         return
 
-    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    environment_cfg_type = _registered_environment_cfg_type(environment_factory_type)
     add_dataclass_cli_args(
         parser,
         environment_cfg_type,
@@ -80,7 +83,7 @@ def _environment_cfg_from_cli(
     args_cli: argparse.Namespace,
 ) -> ArenaEnvironmentCfg:
     """Create a typed environment config from matching legacy Namespace values."""
-    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    environment_cfg_type = _registered_environment_cfg_type(environment_factory_type)
     return dataclass_from_cli(environment_cfg_type, args_cli)
 
 

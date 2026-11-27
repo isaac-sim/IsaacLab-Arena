@@ -30,7 +30,6 @@ class LiftObjectEnvironmentCfg(ArenaEnvironmentCfg):
 class LiftObjectEnvironment(ArenaEnvironmentFactory[LiftObjectEnvironmentCfg]):
 
     name: str = "lift_object"
-    _legacy_argparse_cfg_type = LiftObjectEnvironmentCfg
 
     def build(self, cfg: LiftObjectEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
