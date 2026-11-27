@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation import run_execution
+from isaaclab_arena.evaluation import legacy_graph_environment_cli, run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
@@ -565,8 +565,20 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
 
 def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(monkeypatch, tmp_path):
-    """A graph-YAML Run keeps its merged definition even when it fails; a Python Run writes none."""
-    graph_yaml_path = Path(__file__).parent / "test_data" / "robolab_task_overlay.yaml"
+    """A graph-YAML Run keeps its spec with overrides applied, even when it fails; a Python Run writes none."""
+    import argparse
+
+    from isaaclab_arena_environments.cli import add_cli_override_args
+
+    graph_yaml_path = Path(__file__).parent / "test_data" / "pick_and_place_maple_table_env_graph.yaml"
+
+    def get_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--env_spec")
+        add_cli_override_args(parser, ArenaEnvGraphSpec.read_cli_override_specs(graph_yaml_path))
+        return parser
+
+    monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", get_parser)
 
     def build_and_run(run_cfg, output_dir, video_cfg):
         if run_cfg.name == "graph":
@@ -580,11 +592,11 @@ def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(
 
     monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
 
+    graph_environment_cfg = LegacyGraphEnvironmentCfg(
+        env_spec_path=str(graph_yaml_path), per_run_overrides={"object": "dex_cube"}
+    )
     run_execution.execute_experiment(
-        _experiment(
-            _run(name="graph", environment=LegacyGraphEnvironmentCfg(env_spec_path=str(graph_yaml_path))),
-            _run(name="python"),
-        ),
+        _experiment(_run(name="graph", environment=graph_environment_cfg), _run(name="python")),
         output_dir=tmp_path,
         continue_on_error=True,
     )
@@ -592,8 +604,9 @@ def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(
     written_definition = yaml.safe_load(
         (tmp_path / "graph" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).read_text(encoding="utf-8")
     )
-    assert written_definition == load_env_graph_spec_dict(graph_yaml_path)
-    assert "external_yaml" not in written_definition
+    written_spec = ArenaEnvGraphSpec.from_dict(written_definition)
+    overridden_object = next(obj for obj in written_spec.objects if obj.id == "rubiks_cube_hot3d_robolab")
+    assert overridden_object.registry_name == "dex_cube"
     assert not (tmp_path / "python" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).exists()
 
 

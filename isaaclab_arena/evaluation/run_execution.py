@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
-from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
@@ -28,6 +27,7 @@ from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
+    load_graph_spec_from_legacy_graph,
 )
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.evaluation.rollout import rollout_policy
@@ -71,11 +71,11 @@ def execute_experiment(
     for run_cfg in experiment_cfg.runs.values():
         print(f"Running run '{run_cfg.name}'", flush=True)
         run_output_dir = output_dir / run_cfg.name
-        write_run_environment_definition(run_cfg, run_output_dir)
         # Clear timers.
         reset_timer_stats()
         start_timestamp_ns = time.time_ns()
         try:
+            write_run_environment_definition(run_cfg, run_output_dir)
             result = build_and_run(
                 run_cfg,
                 output_dir=run_output_dir,
@@ -107,10 +107,10 @@ def execute_experiment(
 
 
 def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path) -> Path | None:
-    """Write a Run's graph-YAML environment, with its ``external_yaml`` includes merged, to its output directory.
+    """Write the graph spec a Run builds its environment from to the Run's output directory.
 
-    The copy is taken before per-Run overrides, which the Experiment definition records. Python environments
-    have no YAML definition, so nothing is written for them.
+    The spec has its ``external_yaml`` includes merged, its per-Run overrides applied and its defaults filled in.
+    Python environments have no graph spec, so nothing is written for them.
 
     Args:
         run_cfg: Run whose environment definition is written.
@@ -121,7 +121,7 @@ def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path)
     """
     if not isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
         return None
-    environment_definition = load_env_graph_spec_dict(run_cfg.environment.env_spec_path)
+    environment_definition = load_graph_spec_from_legacy_graph(run_cfg.environment).to_dict()
     run_output_dir.mkdir(parents=True, exist_ok=True)
     environment_definition_path = run_output_dir / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
     with environment_definition_path.open("w", encoding="utf-8") as f:

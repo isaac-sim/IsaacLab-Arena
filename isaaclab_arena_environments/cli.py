@@ -208,12 +208,18 @@ def get_arena_builder_from_cli(
     return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 
 
-def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
-    """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
+def load_graph_spec_with_cli_overrides(env_spec: str, args_cli: argparse.Namespace) -> ArenaEnvGraphSpec:
+    """Load a graph spec YAML and apply any CLI node overrides."""
     # Graph specs may reference components registered by extension packages, so register first.
     ensure_environments_registered()
     spec = ArenaEnvGraphSpec.from_yaml(env_spec)
     spec.apply_cli_override_args(args_cli)
+    return spec
+
+
+def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
+    spec = load_graph_spec_with_cli_overrides(env_spec, args_cli)
     # cameras are enabled in embodiment, need to pass along to the env
     return spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
 
