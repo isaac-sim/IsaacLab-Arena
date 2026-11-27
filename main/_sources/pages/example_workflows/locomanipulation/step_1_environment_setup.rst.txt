@@ -14,65 +14,12 @@ Environment Description
 .. dropdown:: The Galileo G1 Locomanip Pick and Place Environment
    :animate: fade-in
 
-   .. code-block:: python
+   .. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+      :language: python
+      :start-at: @dataclass
+      :end-at: return isaaclab_arena_environment
 
-       class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
-
-           name: str = "galileo_g1_locomanip_pick_and_place"
-
-           def get_env(self, args_cli: argparse.Namespace):
-               from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-               from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
-               from isaaclab_arena.utils.pose import Pose, PoseRange
-
-               background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-               pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-               blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-               embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-
-               teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-
-               XY_RANGE_M = 0.025
-               pick_up_object.set_initial_pose(
-                   PoseRange(
-                       position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
-                       position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-                       rpy_min=(0.0, 0.0, 0.0),
-                       rpy_max=(0.0, 0.0, 0.0),
-                   )
-               )
-               blue_sorting_bin.set_initial_pose(
-                   Pose(
-                       position_xyz=(-0.2450, -1.6272, -0.2641),
-                       rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
-                   )
-               )
-               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-
-               def _build_g1_pick_and_place_mimic_cfg(arm_mode):
-                   return G1PickAndPlaceMimicEnvCfg(
-                       pick_up_object_name=pick_up_object.name,
-                       destination_location_name=blue_sorting_bin.name,
-                       arm_mode=arm_mode,
-                   )
-
-               scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
-               task = PickAndPlaceTask(
-                   pick_up_object,
-                   blue_sorting_bin,
-                   background,
-                   mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
-               )
-
-               isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                   name=self.name,
-                   embodiment=embodiment,
-                   scene=scene,
-                   task=task,
-                   teleop_device=teleop_device,
-               )
-               return isaaclab_arena_environment
+See the `complete source <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py>`_.
 
 
 Step-by-Step Breakdown
@@ -80,74 +27,58 @@ Step-by-Step Breakdown
 
 **1. Interact with the Asset and Device Registry**
 
-.. code-block:: python
-
-    background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-    pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-    blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-    embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-
-    teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
+   :end-before: XY_RANGE_M = 0.025
+   :dedent: 8
 
 Here, we're selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
-an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
-The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
+an object to pick up, a destination (a blue sorting bin by default) as our goal location, and the G1 embodiment.
+The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ArenaEnvironmentFactory`` class.
 See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 
 **2. Position the Objects**
 
-.. code-block:: python
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: XY_RANGE_M = 0.025
+   :end-at: embodiment.set_initial_pose(
+   :dedent: 8
 
-   XY_RANGE_M = 0.025
-   pick_up_object.set_initial_pose(
-       PoseRange(
-           position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
-           position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-           rpy_min=(0.0, 0.0, 0.0),
-           rpy_max=(0.0, 0.0, 0.0),
-       )
-   )
-   blue_sorting_bin.set_initial_pose(
-       Pose(
-           position_xyz=(-0.2450, -1.6272, -0.2641),
-           rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
-       )
-   )
-
-Before we create the scene, we need to place our objects in the right locations. These initial poses are
+Before we create the scene, we need to place our objects and the robot in the right locations. These initial poses are
 currently set manually to create an achievable task.
 
 
 **3. Compose the Scene**
 
-.. code-block:: python
-
-    scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: scene = Scene(
+   :end-at: scene = Scene(
+   :dedent: 8
 
 Now we bring everything together into a IsaacLab-Arena scene.
 See :doc:`../../concepts/scene/index` for scene composition details.
 
 **4. Create the Pick and Place Task**
 
-.. code-block:: python
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: def _build_g1_pick_and_place_mimic_cfg(arm_mode):
+   :end-before: scene = Scene(
+   :dedent: 8
 
-    def _build_g1_pick_and_place_mimic_cfg(arm_mode):
-        return G1PickAndPlaceMimicEnvCfg(
-            pick_up_object_name=pick_up_object.name,
-            destination_location_name=blue_sorting_bin.name,
-            arm_mode=arm_mode,
-        )
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: task=PickAndPlaceTask(
+   :end-at: ),
+   :dedent: 12
 
-    task = PickAndPlaceTask(
-        pick_up_object,
-        blue_sorting_bin,
-        background,
-        mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
-    )
-
+The task is passed to the ``IsaacLabArenaEnvironment`` in step 5.
 ``PickAndPlaceTask`` encapsulates the task's goal of the environment: pick up the specified object
-and place it in the blue sorting bin. The locomanip-specific Mimic config (3-subtask arm sequences
+and place it in the destination. The locomanip-specific Mimic config (3-subtask arm sequences
 plus a 4-phase nav body) is injected via ``mimic_env_cfg_factory`` rather than via a task subclass,
 because the cfg shape diverges from the parent ``PickPlaceMimicEnvCfg`` defaults.
 
@@ -157,18 +88,16 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 **5. Create the IsaacLab Arena Environment**
 
-.. code-block:: python
-
-    isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name=self.name,
-        embodiment=embodiment,
-        scene=scene,
-        task=task,
-        teleop_device=teleop_device,
-    )
+.. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+   :language: python
+   :start-at: isaaclab_arena_environment = IsaacLabArenaEnvironment(
+   :end-before: return isaaclab_arena_environment
+   :dedent: 8
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects your embodiment (the robot), the scene (the world) and the task (the objective).
+It also passes the task description and ``env_cfg_callback``, which sets the 50 Hz control rate that the
+whole-body controller needs.
 See :doc:`../../concepts/environment/index` for environment composition details.
 
 

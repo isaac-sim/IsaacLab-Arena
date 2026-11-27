@@ -610,33 +610,54 @@ Docker Container</label><div class="sd-tab-content docutils">
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">The Galileo G1 Locomanip Pick and Place Environment</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">GalileoG1LocomanipPickAndPlaceEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GalileoG1LocomanipPickAndPlaceEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the Galileo G1 locomotion-and-manipulation environment.&quot;&quot;&quot;</span>
+
+    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;brown_box&quot;</span>
+    <span class="n">destination</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;blue_sorting_bin&quot;</span>
+    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;g1_wbc_pink&quot;</span>
+    <span class="n">teleop_device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">task_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">mimic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">auto</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Legacy auto-annotation flag; ``None`` records that the caller did not define it.&quot;&quot;&quot;</span>
+
+
+<span class="nd">@register_environment</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GalileoG1LocomanipPickAndPlaceEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">GalileoG1LocomanipPickAndPlaceEnvironmentCfg</span><span class="p">]):</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;galileo_g1_locomanip_pick_and_place&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">GalileoG1LocomanipPickAndPlaceEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its typed configuration.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_control_rate_50hz</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">G1PickAndPlaceMimicEnvCfg</span><span class="p">,</span> <span class="n">PickAndPlaceTask</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
 
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
-        <span class="n">blue_sorting_bin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;blue_sorting_bin&quot;</span><span class="p">)()</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">destination</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination</span><span class="p">)()</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 
-        <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">teleop_device</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">XY_RANGE_M</span> <span class="o">=</span> <span class="mf">0.025</span>
         <span class="n">pick_up_object</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
             <span class="n">PoseRange</span><span class="p">(</span>
                 <span class="n">position_xyz_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
                 <span class="n">position_xyz_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
-                <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-                <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
+                <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
             <span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+
+        <span class="n">destination</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
             <span class="n">Pose</span><span class="p">(</span>
                 <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.2450</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.6272</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2641</span><span class="p">),</span>
                 <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
@@ -644,47 +665,88 @@ Docker Container</label><div class="sd-tab-content docutils">
         <span class="p">)</span>
         <span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)))</span>
 
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span> <span class="o">==</span> <span class="s2">&quot;g1_wbc_pink&quot;</span> <span class="ow">and</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mimic</span> <span class="ow">and</span> <span class="n">cfg</span><span class="o">.</span><span class="n">auto</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Set navigation p-controller for locomanip use case</span>
+            <span class="n">action_cfg</span> <span class="o">=</span> <span class="n">embodiment</span><span class="o">.</span><span class="n">get_action_cfg</span><span class="p">()</span>
+            <span class="n">action_cfg</span><span class="o">.</span><span class="n">g1_action</span><span class="o">.</span><span class="n">use_p_control</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="c1"># Set nav subgoals (x,y,heading) and turning_in_place flag for G1 WBC Pink navigation p-controller</span>
+            <span class="n">action_cfg</span><span class="o">.</span><span class="n">g1_action</span><span class="o">.</span><span class="n">navigation_subgoals</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">([</span><span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="kc">False</span><span class="p">),</span>
+                <span class="p">([</span><span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.78</span><span class="p">],</span> <span class="kc">True</span><span class="p">),</span>
+                <span class="p">([</span><span class="o">-</span><span class="mf">0.0955</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.1070</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.78</span><span class="p">],</span> <span class="kc">False</span><span class="p">),</span>
+                <span class="p">([</span><span class="o">-</span><span class="mf">0.0955</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.1070</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.78</span><span class="p">],</span> <span class="kc">False</span><span class="p">),</span>
+            <span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">task_description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">task_description</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">task_description</span>
+        <span class="k">elif</span> <span class="n">_is_legacy_pair</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">destination</span><span class="p">):</span>
+            <span class="n">task_description</span> <span class="o">=</span> <span class="n">_LEGACY_BROWN_BOX_TO_BLUE_BIN_DESCRIPTION</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">object_label</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+            <span class="n">destination_label</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">destination</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span>
+            <span class="n">task_description</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Pick up the </span><span class="si">{</span><span class="n">object_label</span><span class="si">}</span><span class="s2"> from the shelf, and place it on the </span><span class="si">{</span><span class="n">destination_label</span><span class="si">}</span><span class="s2"> on the table&quot;</span>
+                <span class="s2">&quot; located at the right of the shelf.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">env_cfg_callback</span><span class="p">(</span><span class="n">env_cfg</span><span class="p">):</span>
+            <span class="n">env_cfg</span> <span class="o">=</span> <span class="n">_apply_legacy_datagen_name_override</span><span class="p">(</span>
+                <span class="n">env_cfg</span><span class="p">,</span>
+                <span class="n">pick_up_object_name</span><span class="o">=</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">destination_name</span><span class="o">=</span><span class="n">destination</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="c1"># 50 Hz control, required by the whole-body controller (WBC).</span>
+            <span class="k">return</span> <span class="n">set_control_rate_50hz</span><span class="p">(</span><span class="n">env_cfg</span><span class="p">)</span>
+
         <span class="k">def</span><span class="w"> </span><span class="nf">_build_g1_pick_and_place_mimic_cfg</span><span class="p">(</span><span class="n">arm_mode</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">G1PickAndPlaceMimicEnvCfg</span><span class="p">(</span>
                 <span class="n">pick_up_object_name</span><span class="o">=</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                <span class="n">destination_location_name</span><span class="o">=</span><span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">destination_location_name</span><span class="o">=</span><span class="n">destination</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                 <span class="n">arm_mode</span><span class="o">=</span><span class="n">arm_mode</span><span class="p">,</span>
             <span class="p">)</span>
 
-        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">])</span>
-        <span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
-            <span class="n">pick_up_object</span><span class="p">,</span>
-            <span class="n">blue_sorting_bin</span><span class="p">,</span>
-            <span class="n">background</span><span class="p">,</span>
-            <span class="n">mimic_env_cfg_factory</span><span class="o">=</span><span class="n">_build_g1_pick_and_place_mimic_cfg</span><span class="p">,</span>
-        <span class="p">)</span>
-
+        <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
         <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
             <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-            <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+            <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span>
+                <span class="n">pick_up_object</span><span class="p">,</span>
+                <span class="n">destination</span><span class="p">,</span>
+                <span class="n">background</span><span class="p">,</span>
+                <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+                <span class="n">task_description</span><span class="o">=</span><span class="n">task_description</span><span class="p">,</span>
+                <span class="n">force_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+                <span class="n">velocity_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+                <span class="n">mimic_env_cfg_factory</span><span class="o">=</span><span class="n">_build_g1_pick_and_place_mimic_cfg</span><span class="p">,</span>
+            <span class="p">),</span>
             <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+            <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">env_cfg_callback</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
 </pre></div>
 </div>
 </div>
-</details></section>
+</details><p>See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py">complete source</a>.</p>
+</section>
 <section id="step-by-step-breakdown">
 <h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
 <p><strong>1. Interact with the Asset and Device Registry</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;galileo_locomanip&quot;</span><span class="p">)()</span>
-<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
-<span class="n">blue_sorting_bin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;blue_sorting_bin&quot;</span><span class="p">)()</span>
-<span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
+<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+<span class="n">destination</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">destination</span><span class="p">)()</span>
+<span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 
-<span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+<span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">teleop_device</span> <span class="o">=</span> <span class="kc">None</span>
+
 </pre></div>
 </div>
 <p>Here, we’re selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
-an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
-The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceRegistry</span></code> have been initialized in the <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code> class.
+an object to pick up, a destination (a blue sorting bin by default) as our goal location, and the G1 embodiment.
+The <code class="docutils literal notranslate"><span class="pre">AssetRegistry</span></code> and <code class="docutils literal notranslate"><span class="pre">DeviceRegistry</span></code> have been initialized in the <code class="docutils literal notranslate"><span class="pre">ArenaEnvironmentFactory</span></code> class.
 See <a class="reference internal" href="../../concepts/scene/concept_assets_design.html"><span class="doc">Assets</span></a> for details on asset architecture.</p>
 <p><strong>2. Position the Objects</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">XY_RANGE_M</span> <span class="o">=</span> <span class="mf">0.025</span>
@@ -692,22 +754,24 @@ See <a class="reference internal" href="../../concepts/scene/concept_assets_desi
     <span class="n">PoseRange</span><span class="p">(</span>
         <span class="n">position_xyz_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">-</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
         <span class="n">position_xyz_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5785</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.18</span> <span class="o">+</span> <span class="n">XY_RANGE_M</span><span class="p">,</span> <span class="mf">0.0707</span><span class="p">),</span>
-        <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
-        <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
+        <span class="n">rpy_min</span><span class="o">=</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
+        <span class="n">rpy_max</span><span class="o">=</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
-<span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
+
+<span class="n">destination</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span>
     <span class="n">Pose</span><span class="p">(</span>
         <span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.2450</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.6272</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2641</span><span class="p">),</span>
         <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span>
     <span class="p">)</span>
 <span class="p">)</span>
+<span class="n">embodiment</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.18</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)))</span>
 </pre></div>
 </div>
-<p>Before we create the scene, we need to place our objects in the right locations. These initial poses are
+<p>Before we create the scene, we need to place our objects and the robot in the right locations. These initial poses are
 currently set manually to create an achievable task.</p>
 <p><strong>3. Compose the Scene</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">blue_sorting_bin</span><span class="p">])</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">destination</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>Now we bring everything together into a IsaacLab-Arena scene.
@@ -716,20 +780,27 @@ See <a class="reference internal" href="../../concepts/scene/index.html"><span c
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">_build_g1_pick_and_place_mimic_cfg</span><span class="p">(</span><span class="n">arm_mode</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">G1PickAndPlaceMimicEnvCfg</span><span class="p">(</span>
         <span class="n">pick_up_object_name</span><span class="o">=</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-        <span class="n">destination_location_name</span><span class="o">=</span><span class="n">blue_sorting_bin</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">destination_location_name</span><span class="o">=</span><span class="n">destination</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
         <span class="n">arm_mode</span><span class="o">=</span><span class="n">arm_mode</span><span class="p">,</span>
     <span class="p">)</span>
 
-<span class="n">task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span>
-    <span class="n">pick_up_object</span><span class="p">,</span>
-    <span class="n">blue_sorting_bin</span><span class="p">,</span>
-    <span class="n">background</span><span class="p">,</span>
-    <span class="n">mimic_env_cfg_factory</span><span class="o">=</span><span class="n">_build_g1_pick_and_place_mimic_cfg</span><span class="p">,</span>
-<span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> encapsulates the task’s goal of the environment: pick up the specified object
-and place it in the blue sorting bin. The locomanip-specific Mimic config (3-subtask arm sequences
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span>
+    <span class="n">pick_up_object</span><span class="p">,</span>
+    <span class="n">destination</span><span class="p">,</span>
+    <span class="n">background</span><span class="p">,</span>
+    <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+    <span class="n">task_description</span><span class="o">=</span><span class="n">task_description</span><span class="p">,</span>
+    <span class="n">force_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">velocity_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">mimic_env_cfg_factory</span><span class="o">=</span><span class="n">_build_g1_pick_and_place_mimic_cfg</span><span class="p">,</span>
+<span class="p">),</span>
+</pre></div>
+</div>
+<p>The task is passed to the <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> in step 5.
+<code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> encapsulates the task’s goal of the environment: pick up the specified object
+and place it in the destination. The locomanip-specific Mimic config (3-subtask arm sequences
 plus a 4-phase nav body) is injected via <code class="docutils literal notranslate"><span class="pre">mimic_env_cfg_factory</span></code> rather than via a task subclass,
 because the cfg shape diverges from the parent <code class="docutils literal notranslate"><span class="pre">PickPlaceMimicEnvCfg</span></code> defaults.</p>
 <p>The task knows about the key objects involved (what to pick, where to place it, and the environment context) and will
@@ -740,13 +811,25 @@ See <a class="reference internal" href="../../concepts/task/index.html"><span cl
     <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">PickAndPlaceTask</span><span class="p">(</span>
+        <span class="n">pick_up_object</span><span class="p">,</span>
+        <span class="n">destination</span><span class="p">,</span>
+        <span class="n">background</span><span class="p">,</span>
+        <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+        <span class="n">task_description</span><span class="o">=</span><span class="n">task_description</span><span class="p">,</span>
+        <span class="n">force_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+        <span class="n">velocity_threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">mimic_env_cfg_factory</span><span class="o">=</span><span class="n">_build_g1_pick_and_place_mimic_cfg</span><span class="p">,</span>
+    <span class="p">),</span>
     <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+    <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">env_cfg_callback</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 </div>
 <p>Finally, we assemble all the pieces into a complete, runnable environment. The <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> is the
 top-level container that connects your embodiment (the robot), the scene (the world) and the task (the objective).
+It also passes the task description and <code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code>, which sets the 50 Hz control rate that the
+whole-body controller needs.
 See <a class="reference internal" href="../../concepts/environment/index.html"><span class="doc">Environment</span></a> for environment composition details.</p>
 </section>
 <section id="step-1-download-a-test-dataset">

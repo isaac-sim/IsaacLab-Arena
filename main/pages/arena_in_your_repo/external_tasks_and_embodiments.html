@@ -583,7 +583,9 @@
 <p>The <a class="reference internal" href="external_environments.html"><span class="doc">previous page</span></a> showed how to define an
 environment in your repository, external to the Isaac Lab - Arena source tree.
 Typical users will also want to define their own tasks and embodiments.
-This page describes how that is done, in an external repo.</p>
+This page describes how that is done, in an external repo. The code comes from
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/external_environments/advanced.py</span></code>. Copy the file into your package, for
+example as <code class="docutils literal notranslate"><span class="pre">my_package/isaaclab_arena_environments/my_environment_with_task.py</span></code>.</p>
 <section id="defining-a-custom-task">
 <h2>Defining a Custom Task<a class="headerlink" href="#defining-a-custom-task" title="Link to this heading">#</a></h2>
 <p>A custom task is defined by subclassing <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> and implementing the required methods.
@@ -591,9 +593,7 @@ The excerpt below shows a task that succeeds after a fixed number of steps.
 <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> declares its success criteria, failure conditions, and time limit.
 This task can be passed to the <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> to create an environment
 (see <a class="reference internal" href="#putting-it-all-together"><span class="std std-ref">Putting It All Together</span></a> below for an example).</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">SuccessAfterNStepsTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">SuccessAfterNStepsTask</span><span class="p">(</span><span class="n">TaskBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal task: the episode succeeds after a fixed number of steps.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_steps_for_success</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span> <span class="n">episode_length_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">):</span>
@@ -603,22 +603,34 @@ This task can be passed to the <code class="docutils literal notranslate"><span 
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span> <span class="o">=</span> <span class="n">num_steps_for_success</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_scene_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
     <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">TaskTerminationCfg</span><span class="p">(</span>
-            <span class="n">success</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">CompletionCriteria</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;wait&quot;</span><span class="p">,</span> <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">has_reached_step_count</span><span class="p">]),</span>
-            <span class="p">],</span>
             <span class="n">timeout_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span><span class="p">,</span>
+            <span class="n">success</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">CompletionCriteria</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;reach_step_count&quot;</span><span class="p">,</span>
+                    <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">has_reached_step_count</span><span class="p">],</span>
+                <span class="p">)</span>
+            <span class="p">],</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">has_reached_step_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether each episode has reached the requested number of steps.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">env</span><span class="o">.</span><span class="n">episode_length_buf</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_events_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_mimic_env_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arm_mode</span><span class="p">:</span> <span class="n">ArmMode</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_viewer_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ViewerCfg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ViewerCfg</span><span class="p">(</span><span class="n">eye</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">),</span> <span class="n">lookat</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
 </pre></div>
 </div>
-<p>Imports and the required <code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_events_cfg()</span></code>, and <code class="docutils literal notranslate"><span class="pre">get_mimic_env_cfg()</span></code>
-methods are omitted here. See the
-<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py">complete example</a>
-for their definitions.</p>
 </section>
 <section id="defining-a-custom-embodiment">
 <h2>Defining a Custom Embodiment<a class="headerlink" href="#defining-a-custom-embodiment" title="Link to this heading">#</a></h2>
@@ -627,12 +639,14 @@ the required methods.
 In this example, we keep things simple by subclassing an existing embodiment
 (<code class="docutils literal notranslate"><span class="pre">FrankaIKEmbodiment</span></code>) and overriding some joint PD gains to produce a more compliant
 arm:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
-
-
-<span class="nd">@register_asset</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@register_asset</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">SoftFrankaIKEmbodiment</span><span class="p">(</span><span class="n">FrankaIKEmbodiment</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Franka IK embodiment with halved joint PD gains.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Franka IK embodiment with halved joint PD gains for more compliant behaviour.</span>
+
+<span class="sd">    The standard ``franka_ik`` uses stiffness 400 / damping 80 on its shoulder</span>
+<span class="sd">    and forearm actuator groups. This variant halves both, which is useful for</span>
+<span class="sd">    contact-rich or force-sensitive tasks.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">registry_name</span> <span class="o">=</span> <span class="s2">&quot;franka_ik_soft&quot;</span>
 
@@ -660,13 +674,20 @@ episode. Each episode’s line in the episode results holds the values under the
 <span id="id1"></span><h2>Putting It All Together<a class="headerlink" href="#putting-it-all-together" title="Link to this heading">#</a></h2>
 <p>Here we create an example environment, like in <a class="reference internal" href="external_environments.html"><span class="doc">Defining Environments in Your Repository</span></a>. This time it passes
 the custom task, the custom embodiment, and the two episode recorder terms to <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableWithTaskEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the external Franka table environment with a custom task.&quot;&quot;&quot;</span>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableWithTaskEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cracker_box&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Registered name of the object placed on the table.&quot;&quot;&quot;</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableWithTaskEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">ExternalFrankaTableWithTaskEnvironmentCfg</span><span class="p">]):</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;franka_table_with_task&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">ExternalFrankaTableWithTaskEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its config.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span>
@@ -674,8 +695,8 @@ the custom task, the custom embodiment, and the two episode recorder terms to <c
 
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
         <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik_soft&quot;</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik_soft&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 
         <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="s2">&quot;table&quot;</span><span class="p">,</span>
@@ -706,39 +727,29 @@ the custom task, the custom embodiment, and the two episode recorder terms to <c
                 <span class="p">),</span>
             <span class="p">},</span>
         <span class="p">)</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_cli_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--object&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:</p>
+<p>To run it, pass the factory class to <code class="docutils literal notranslate"><span class="pre">--external_environment_class_path</span></code>, followed by the
+environment name and its flags. For example, with a zero-action policy:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--external_environment_class_path<span class="w"> </span>my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableWithTaskEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>my_package.isaaclab_arena_environments.my_environment_with_task.ExternalFrankaTableWithTaskEnvironment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>franka_table_with_task<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
 </pre></div>
 </div>
-<p>So the flag <code class="docutils literal notranslate"><span class="pre">external_environment_class_path</span></code> is used to specify the (fully qualified) path to the
-external environment module and class. The environment name is then specified as the
-first non flag argument to the policy runner, and any additional arguments are passed to the
-environment’s <code class="docutils literal notranslate"><span class="pre">add_cli_args()</span></code> method.</p>
+<p>Importing the module also registers the custom embodiment, because <code class="docutils literal notranslate"><span class="pre">&#64;register_asset</span></code> runs on
+import.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The environment above is actually located in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/external_environments/advanced.py</span></code>.
-So this environment is located in the Isaac Lab - Arena source-tree, but isn’t included
-in the built in environments, so must be called through the external environment syntax.
-This is done to demonstrate how this would be done in an external codebase.</p>
-<p>The environment can be run with:</p>
+<p>The example is not a built-in environment, so it also runs through
+<code class="docutils literal notranslate"><span class="pre">--external_environment_class_path</span></code> from the Arena source tree:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--external_environment_class_path<span class="w"> </span>isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>franka_table_with_task<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
 </pre></div>

@@ -580,23 +580,42 @@
                   
   <section id="defining-environments-in-your-repository">
 <h1>Defining Environments in Your Repository<a class="headerlink" href="#defining-environments-in-your-repository" title="Link to this heading">#</a></h1>
-<p>This section describes how to write a new environment, within your own repository
-(i.e. not in the Isaac Lab - Arena source tree).</p>
-<p>To write your own environment, subclass <code class="docutils literal notranslate"><span class="pre">ExampleEnvironmentBase</span></code>, set a unique <code class="docutils literal notranslate"><span class="pre">name</span></code>,
-and implement <code class="docutils literal notranslate"><span class="pre">get_env()</span></code> and <code class="docutils literal notranslate"><span class="pre">add_cli_args()</span></code>.
-Below is an example of a custom environment that places a single object on a table.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment.py</span>
+<p>You can define an environment in your own package and run it with Arena’s runners, without
+changing Arena. Like a built-in environment, it has two classes:</p>
+<ul class="simple">
+<li><p>A config dataclass that subclasses <code class="docutils literal notranslate"><span class="pre">ArenaEnvironmentCfg</span></code>. Its fields are the values a user can
+set. Each environment needs its own config class.</p></li>
+<li><p>A factory class that subclasses <code class="docutils literal notranslate"><span class="pre">ArenaEnvironmentFactory[YourCfg]</span></code>, sets a unique <code class="docutils literal notranslate"><span class="pre">name</span></code>,
+and builds the environment in <code class="docutils literal notranslate"><span class="pre">build(cfg)</span></code>.</p></li>
+</ul>
+<p>This example, <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/external_environments/basic.py</span></code>, places one object on a
+table. Copy it into your package, for example as
+<code class="docutils literal notranslate"><span class="pre">my_package/isaaclab_arena_environments/my_environment.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena_environments.example_environment_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExampleEnvironmentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.arena_environment_factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArenaEnvironmentCfg</span><span class="p">,</span> <span class="n">ArenaEnvironmentFactory</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
 
 
-<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the external Franka table environment.&quot;&quot;&quot;</span>
+
+    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cracker_box&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Registered name of the object placed on the table.&quot;&quot;&quot;</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ExternalFrankaTableEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">ExternalFrankaTableEnvironmentCfg</span><span class="p">]):</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;franka_table&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">ExternalFrankaTableEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its config.&quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.relations</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAnchor</span><span class="p">,</span> <span class="n">On</span>
@@ -606,8 +625,8 @@ Below is an example of a custom environment that places a single object on a tab
         <span class="c1"># Grab some assets from the registry.</span>
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;maple_table_robolab&quot;</span><span class="p">)()</span>
         <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;franka_ik&quot;</span><span class="p">)(</span><span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">)</span>
 
         <span class="c1"># Position the assets</span>
         <span class="n">table_reference</span> <span class="o">=</span> <span class="n">ObjectReference</span><span class="p">(</span>
@@ -629,39 +648,31 @@ Below is an example of a custom environment that places a single object on a tab
             <span class="n">task</span><span class="o">=</span><span class="n">NoTask</span><span class="p">(),</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
-
-    <span class="nd">@staticmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_cli_args</span><span class="p">(</span><span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--object&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;cracker_box&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>External environments can be used in Isaac Lab - Arena workflows by using a particular
-CLI syntax. For example, a zero-action policy can be run with an
-externally-defined environment like this:</p>
+<p>To run it, pass the factory class to <code class="docutils literal notranslate"><span class="pre">--external_environment_class_path</span></code>, followed by the
+environment name and its flags. For example, with a zero-action policy:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--external_environment_class_path<span class="w"> </span>my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>my_package.isaaclab_arena_environments.my_environment.ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>franka_table<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
 </pre></div>
 </div>
-<p>So the flag <code class="docutils literal notranslate"><span class="pre">external_environment_class_path</span></code> is used to specify the (fully qualified) path to the
-external environment module and class. The environment name is then specified as the
-first non flag argument to the policy runner, and any additional arguments are passed to the
-environment’s <code class="docutils literal notranslate"><span class="pre">add_cli_args()</span></code> method.</p>
+<p>The class path is the module path and the class name, joined by a dot as in a Python import. For a
+class <code class="docutils literal notranslate"><span class="pre">MyEnvironment</span></code> in <code class="docutils literal notranslate"><span class="pre">my_package/my_environment.py</span></code>, it is
+<code class="docutils literal notranslate"><span class="pre">my_package.my_environment.MyEnvironment</span></code>. The module must be importable, for example because your
+package is installed or on <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The environment above is actually located in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_examples/external_environments/basic.py</span></code>.
-So this environment is located in the Isaac Lab - Arena source-tree, but isn’t included
-in the built in environments, so must be called through the external environment syntax.
-This is done to demonstrate how this would be done in an external codebase.</p>
-<p>The environment can be run with:</p>
+<p>The example is not a built-in environment, so it also runs through
+<code class="docutils literal notranslate"><span class="pre">--external_environment_class_path</span></code> from the Arena source tree:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">50</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--external_environment_class_path<span class="w"> </span>isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--external_environment_class_path<span class="w"> </span>isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>franka_table<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--object<span class="w"> </span>tomato_soup_can
 </pre></div>

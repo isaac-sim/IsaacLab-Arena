@@ -610,18 +610,33 @@ Docker Container</label><div class="sd-tab-content docutils">
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">The Lift Object RL Environment</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">LiftObjectEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LiftObjectEnvironmentCfg</span><span class="p">(</span><span class="n">ArenaEnvironmentCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the lift-object environment.&quot;&quot;&quot;</span>
+
+    <span class="nb">object</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;dex_cube&quot;</span>
+    <span class="n">teleop_device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">embodiment</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;franka_joint_pos&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use joint control by default because it is more reliable than IK for RL training.&quot;&quot;&quot;</span>
+    <span class="n">rl_training_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+
+<span class="nd">@register_environment</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">LiftObjectEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">[</span><span class="n">LiftObjectEnvironmentCfg</span><span class="p">]):</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;lift_object&quot;</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">LiftObjectEnvironmentCfg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build the environment from its typed configuration.&quot;&quot;&quot;</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">isaaclab_arena_examples.policy.base_rsl_rl_policy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">base_rsl_rl_policy</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_control_rate_50hz</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.reinforcement_learning.lift_object_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">LiftObjectTaskRL</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span>
 
         <span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">)()</span>
-        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+        <span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
 
         <span class="c1"># Add ground plane and light to the scene</span>
         <span class="n">ground_plane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;ground_plane&quot;</span><span class="p">)()</span>
@@ -629,9 +644,14 @@ Docker Container</label><div class="sd-tab-content docutils">
 
         <span class="n">assets</span> <span class="o">=</span> <span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">ground_plane</span><span class="p">,</span> <span class="n">light</span><span class="p">]</span>
 
-        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
-            <span class="n">concatenate_observation_terms</span><span class="o">=</span><span class="kc">True</span>
+        <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
+            <span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">concatenate_observation_terms</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">teleop_device</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="c1"># Set all positions</span>
         <span class="n">background</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">rotation_xyzw</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.707</span><span class="p">,</span> <span class="mf">0.707</span><span class="p">)))</span>
@@ -639,6 +659,7 @@ Docker Container</label><div class="sd-tab-content docutils">
         <span class="n">ground_plane</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.05</span><span class="p">)))</span>
 
         <span class="c1"># Compose the scene</span>
+        <span class="c1"># If using for an IL task, add the goal position as a marker to the scene</span>
         <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="n">assets</span><span class="p">)</span>
 
         <span class="n">task</span> <span class="o">=</span> <span class="n">LiftObjectTaskRL</span><span class="p">(</span>
@@ -647,7 +668,7 @@ Docker Container</label><div class="sd-tab-content docutils">
             <span class="n">embodiment</span><span class="p">,</span>
             <span class="n">minimum_height_to_lift</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
             <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
-            <span class="n">rl_training_mode</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">rl_training_mode</span><span class="p">,</span>
+            <span class="n">rl_training_mode</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">rl_training_mode</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">isaaclab_arena_environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
@@ -655,25 +676,40 @@ Docker Container</label><div class="sd-tab-content docutils">
             <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
             <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-            <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+            <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">&quot;rsl_rl_cfg_entry_point&quot;</span><span class="p">,</span>
+            <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_rsl_rl_policy</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">:RLPolicyCfg&quot;</span><span class="p">,</span>
+            <span class="c1"># 50 Hz control, the rate the RL policies for this task were trained at.</span>
+            <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">set_control_rate_50hz</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">isaaclab_arena_environment</span>
 </pre></div>
 </div>
 </div>
-</details></section>
+</details><p>See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/lift_object_environment.py">complete source</a>.</p>
+</section>
 <section id="step-by-step-breakdown">
 <h2>Step-by-Step Breakdown<a class="headerlink" href="#step-by-step-breakdown" title="Link to this heading">#</a></h2>
 <p><strong>1. Interact with the Asset Registry</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">background</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;table&quot;</span><span class="p">)()</span>
-<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+<span class="n">pick_up_object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">object</span><span class="p">)()</span>
+
+<span class="c1"># Add ground plane and light to the scene</span>
 <span class="n">ground_plane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;ground_plane&quot;</span><span class="p">)()</span>
 <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)()</span>
 
-<span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">args_cli</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
-    <span class="n">concatenate_observation_terms</span><span class="o">=</span><span class="kc">True</span>
+<span class="n">assets</span> <span class="o">=</span> <span class="p">[</span><span class="n">background</span><span class="p">,</span> <span class="n">pick_up_object</span><span class="p">,</span> <span class="n">ground_plane</span><span class="p">,</span> <span class="n">light</span><span class="p">]</span>
+
+<span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">embodiment</span><span class="p">)(</span>
+    <span class="n">enable_cameras</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">enable_cameras</span><span class="p">,</span> <span class="n">concatenate_observation_terms</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
+
+<span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">teleop_device</span> <span class="o">=</span> <span class="kc">None</span>
+
 </pre></div>
 </div>
 <p>Here, we’re selecting the components needed for our RL task: a table as our support surface,
@@ -702,8 +738,9 @@ See <a class="reference internal" href="../../concepts/scene/index.html"><span c
     <span class="n">embodiment</span><span class="p">,</span>
     <span class="n">minimum_height_to_lift</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span>
     <span class="n">episode_length_s</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
-    <span class="n">rl_training_mode</span><span class="o">=</span><span class="n">args_cli</span><span class="o">.</span><span class="n">rl_training_mode</span><span class="p">,</span>
+    <span class="n">rl_training_mode</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">rl_training_mode</span><span class="p">,</span>
 <span class="p">)</span>
+
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">LiftObjectTaskRL</span></code> encapsulates the RL training objective: lift the object to commanded target positions.
@@ -722,12 +759,18 @@ The task includes:</p>
     <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-    <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>
+    <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">&quot;rsl_rl_cfg_entry_point&quot;</span><span class="p">,</span>
+    <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_rsl_rl_policy</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">:RLPolicyCfg&quot;</span><span class="p">,</span>
+    <span class="c1"># 50 Hz control, the rate the RL policies for this task were trained at.</span>
+    <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">set_control_rate_50hz</span><span class="p">,</span>
 <span class="p">)</span>
+
 </pre></div>
 </div>
 <p>Finally, we assemble all the pieces into a complete, runnable RL environment. The <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>
 connects the embodiment (the robot), the scene (the world), and the task (the objective and rewards).
+It also names the RSL-RL policy config used for training and sets the control rate to 50 Hz.
 See <a class="reference internal" href="../../concepts/environment/index.html"><span class="doc">Environment</span></a> for environment composition details.</p>
 </section>
 <section id="validation-run-random-policy">
