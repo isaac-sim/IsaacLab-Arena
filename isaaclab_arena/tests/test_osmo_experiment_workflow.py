@@ -314,8 +314,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
     assert "from isaaclab_arena.evaluation.arena_experiment_result import" in experiment_output_script_file["contents"]
     assert EXPERIMENT_RUNNER_RESULT_FILE_NAME in experiment_output_script_file["contents"]
-    assert "from isaaclab_arena.evaluation.experiment_timings import" in experiment_output_script_file["contents"]
-    assert "aggregate_experiment_timings(" in experiment_output_script_file["contents"]
+    assert "from isaaclab_arena.evaluation.experiment_outputs import" in experiment_output_script_file["contents"]
+    assert "aggregate_experiment_run_outputs(" in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
     assert _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
@@ -596,7 +596,10 @@ def test_empty_kpi_exporters_override_gives_the_collector_no_exporters():
 def test_unknown_kpi_exporter_fails_submission_with_the_valid_names():
     """Reject an exporter name that is not in the registry, listing the valid names."""
     with pytest.raises(
-        AssertionError, match=r"Unknown KPI exporters \['latency'\].*\['placement_success', 'success_rate', 'timing'\]"
+        AssertionError,
+        match=(
+            r"Unknown KPI exporters \['latency'\].*\['placement_success', 'resource_usage', 'success_rate', 'timing'\]"
+        ),
     ):
         _compose_submission(
             ["experiment_cfg.kpi_exporters=[success_rate,latency]"],

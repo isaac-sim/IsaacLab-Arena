@@ -17,6 +17,7 @@ from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
+    ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg
@@ -531,6 +532,7 @@ def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_pat
         # The registry is cleared between Runs, so a Run's file holds only its own timer.
         assert [record["name"] for record in records] == [run_name]
         assert records[0]["app_name"] == "experiment_runner"
+        assert (tmp_path / run_name / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).is_file()
 
 
 def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_path):
@@ -558,6 +560,8 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+    assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).exists()
+    assert (tmp_path / "passing" / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME).is_file()
 
 
 def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_each_run(monkeypatch, tmp_path):
@@ -611,3 +615,34 @@ def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebu
     for run_name, expected_fills in expected_fills_per_run.items():
         path = tmp_path / run_name / ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
         assert AggregatedPlacementDiagnostics.load(path) == AggregatedPlacementDiagnostics(expected_fills)
+
+
+def test_execute_experiment_records_a_failed_run_when_the_resource_tracker_cannot_start(monkeypatch, tmp_path):
+    """A tracker start error fails only its Run, so the Experiment still reports every Run."""
+    attempted = []
+
+    class FailingTracker:
+        def __enter__(self):
+            raise RuntimeError("NVML unavailable")
+
+        def __exit__(self, *exc_info):
+            return False
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        attempted.append(run_cfg.name)
+        raise AssertionError("build_and_run must not run when the tracker cannot start")
+
+    monkeypatch.setattr(run_execution, "ResourceUsageTrackerDaemon", FailingTracker)
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    results = run_execution.execute_experiment(
+        _experiment(_run(name="first"), _run(name="second")),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    assert attempted == []
+    assert [(result.run_name, result.status) for result in results] == [
+        ("first", RunStatus.FAILED),
+        ("second", RunStatus.FAILED),
+    ]

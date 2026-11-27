@@ -10,6 +10,7 @@ its ``<run-name>/...`` output is included. Completed Run directories are copied 
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
 from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
+``arena_experiment_resource_usage.json`` does the same for each Run's resource usage.
 ``kpis_*.json`` files hold the Experiment's KPIs as records ready for InfluxDB; they are written only when every Run
 completed. The Experiment name and the KPI exporters come from the ``arena_experiment_definition.yaml`` already in
 the Experiment output.
@@ -24,8 +25,12 @@ import yaml
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
-from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
+    ArenaExperimentResult,
+)
+from isaaclab_arena.evaluation.experiment_outputs import aggregate_experiment_run_outputs
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.utils.git_stamp import GitStamp
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
@@ -165,6 +170,10 @@ def collect_run_outputs_into_experiment_output(
         assert (
             source_run_timings_path.is_file()
         ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
+        source_run_resource_usage_path = source_run_output_directory / ARENA_SINGLE_RUN_RESOURCE_USAGE_FILENAME
+        assert (
+            source_run_resource_usage_path.is_file()
+        ), f"Completed Run '{run_name}' is missing its resource usage file: '{source_run_resource_usage_path}'"
         shutil.copytree(
             source_run_output_directory,
             destination_run_output_directory,
@@ -207,11 +216,10 @@ def build_experiment_output(
     ArenaExperimentResult.from_run_outputs(
         experiment_output_directory, run_metadata_by_name, git_stamp, experiment_name=experiment_name
     ).write()
-    experiment_timings_path = aggregate_experiment_timings(
+    aggregate_experiment_run_outputs(
         experiment_output_directory,
         [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
     )
-    print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     report_path = build_report(experiment_output_directory, run_executions=run_execution_reports)
     # Last step, so the Experiment output is complete when a raising exporter fails the collector and with it the
     # OSMO workflow.

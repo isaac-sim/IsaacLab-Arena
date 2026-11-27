@@ -166,13 +166,12 @@ def main():
         if variation_table.rows:
             print(variation_table)
 
-        from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+        from isaaclab_arena.evaluation.experiment_outputs import aggregate_experiment_run_outputs
 
-        completed_run_names = [
-            run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED
-        ]
-        timings_path = aggregate_experiment_timings(experiment_output_directory, completed_run_names)
-        print(f"Wrote Arena Experiment timings to: {timings_path}")
+        aggregate_experiment_run_outputs(
+            experiment_output_directory,
+            [run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED],
+        )
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
