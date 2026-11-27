@@ -35,7 +35,7 @@ class ArenaEnvGraphSpec(BaseModel):
     env_name: str = Field(min_length=1, description="Short snake_case label summarizing the scene and tasks.")
     tags: list[str] = Field(
         default_factory=list,
-        description="Snake_case task-type labels for grouping and filtering environments, e.g. ``pick_and_place``.",
+        description="Task-type labels for grouping and filtering environments, e.g. ``pick_and_place``.",
     )
     embodiment: AssetSpec | None = Field(
         default=None, description="The robot that performs the tasks; omit for no robot."

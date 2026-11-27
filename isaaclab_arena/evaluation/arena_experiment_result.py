@@ -58,10 +58,7 @@ class ArenaRunEnvironmentData(TypedDict):
 
     name: str
     definition: str
-    """Graph YAML path, or the registered environment name for a Python environment."""
-
-    tags: NotRequired[list[str]]
-    """Task-type labels of the environment; missing from results written before tags were recorded."""
+    tags: list[str]
 
 
 class ArenaExperimentRunData(TypedDict):
