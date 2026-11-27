@@ -6,8 +6,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from isaaclab_arena.policy.policy_base import PolicyCfg
+
+
+class CosmosPolicyVariant(str, Enum):
+    """Released Cosmos3 DROID policy checkpoints the client can be served by."""
+
+    EDGE = "cosmos3_edge"
+    NANO = "cosmos3_nano"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+# Default number of actions replayed per server call for each policy variant.
+COSMOS_OPEN_LOOP_HORIZON_BY_POLICY_VARIANT = {
+    # Edge accepts 16- and 32-step chunks; 16 empirically behaves better (alexmillane, 2026-07-31).
+    CosmosPolicyVariant.EDGE: 16,
+    # Nano serves 32-step chunks, and the RoboLab reference client replays all 32.
+    CosmosPolicyVariant.NANO: 32,
+}
+assert set(COSMOS_OPEN_LOOP_HORIZON_BY_POLICY_VARIANT) == set(CosmosPolicyVariant)
 
 
 @dataclass
@@ -22,6 +43,9 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     cosmos_embodiment_adapter: str = "droid"
     """Adapter used to translate Arena observations into the Cosmos server wire format."""
 
+    policy_variant: CosmosPolicyVariant = CosmosPolicyVariant.EDGE
+    """Cosmos3 DROID checkpoint served to this client. Configs may give the value as a string, e.g. ``cosmos3_nano``."""
+
     policy_device: str = "cuda"
     """Torch device for the returned action tensor."""
 
@@ -31,10 +55,9 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     remote_port: int = 8000
     """Port the Cosmos policy server listens on."""
 
-    open_loop_horizon: int = 16
+    open_loop_horizon: int | None = None
     """Number of action steps to replay per server inference call before refetching.
-    Note(alexmillane, 2026-07-31): that COSMOS accepts both 32 and 16 step chunks.
-    I empirically observed better behavior with 16 steps, so I've set it at that."""
+    None selects the policy variant's default (see ``COSMOS_OPEN_LOOP_HORIZON_BY_POLICY_VARIANT``)."""
 
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
@@ -43,4 +66,11 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     """Seconds to wait for a keepalive pong before dropping, or None to wait indefinitely."""
 
     def __post_init__(self) -> None:
+        valid_variants = [variant.value for variant in CosmosPolicyVariant]
+        assert (
+            self.policy_variant in valid_variants
+        ), f"Cosmos policy_variant must be one of {valid_variants}, got {self.policy_variant!r}"
+        self.policy_variant = CosmosPolicyVariant(self.policy_variant)
+        if self.open_loop_horizon is None:
+            self.open_loop_horizon = COSMOS_OPEN_LOOP_HORIZON_BY_POLICY_VARIANT[self.policy_variant]
         assert self.open_loop_horizon > 0, "open_loop_horizon must be positive"

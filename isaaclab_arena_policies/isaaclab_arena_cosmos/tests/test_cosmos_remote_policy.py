@@ -12,7 +12,7 @@ import types
 import pytest
 
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
-from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosRemotePolicyCfg
+from isaaclab_arena_cosmos.policy.cosmos_remote_config import CosmosPolicyVariant, CosmosRemotePolicyCfg
 from isaaclab_arena_cosmos.policy.cosmos_remote_policy import CosmosRemotePolicy
 from isaaclab_arena_cosmos.policy.droid_adapter import CosmosDroidAdapter
 
@@ -81,3 +81,18 @@ def test_policy_reads_singular_action_response_key(monkeypatch):
     assert action.shape == (1, 8)
     assert action.dtype == torch.float32
     assert action[0, -1].item() == pytest.approx(0.123)
+
+
+def test_config_rejects_unknown_policy_variant():
+    """Only the released Cosmos3 DROID checkpoints are valid client variants."""
+    assert CosmosRemotePolicyCfg().policy_variant is CosmosPolicyVariant.EDGE
+    assert CosmosRemotePolicyCfg(policy_variant="cosmos3_nano").policy_variant is CosmosPolicyVariant.NANO
+    with pytest.raises(AssertionError, match="policy_variant"):
+        CosmosRemotePolicyCfg(policy_variant="cosmos3_super")
+
+
+def test_config_open_loop_horizon_defaults_per_variant():
+    """The open-loop horizon defaults to each variant's chunk length unless set explicitly."""
+    assert CosmosRemotePolicyCfg(policy_variant="cosmos3_edge").open_loop_horizon == 16
+    assert CosmosRemotePolicyCfg(policy_variant="cosmos3_nano").open_loop_horizon == 32
+    assert CosmosRemotePolicyCfg(policy_variant="cosmos3_nano", open_loop_horizon=8).open_loop_horizon == 8

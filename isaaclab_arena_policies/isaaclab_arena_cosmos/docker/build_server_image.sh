@@ -19,17 +19,22 @@ IMAGE_TAG="cosmos_server"
 IMAGE_REF="${IMAGE_NAME}:${IMAGE_TAG}"
 NGC_PATH="${NGC_NAMESPACE}/${IMAGE_REF}"
 
-# Policy checkpoint baked into the image at build time (so the server needs no HF token at run
-# time). Kept in sync with CosmosServerTaskCfg.checkpoint in osmo/tasks/cosmos_server_task.py.
+# Policy checkpoints baked into the image at build time, so the server needs no network access or
+# HF token at run time. Kept in sync with COSMOS_CHECKPOINT_BY_POLICY_VARIANT in
+# osmo/tasks/cosmos_server_task.py and with run_cosmos_server.sh.
 CHECKPOINT="nvidia/Cosmos3-Edge-Policy-DROID"
 CHECKPOINT_LOCAL_PATH="/workspace/baked_checkpoint"
+NANO_CHECKPOINT="nvidia/Cosmos3-Nano-Policy-DROID"
+# Pinned so that rebuilding the image does not silently change the served Nano model.
+NANO_CHECKPOINT_REVISION="5e9dd43c3c99d813c512960594bfd7b40678b180"
+NANO_CHECKPOINT_LOCAL_PATH="/workspace/baked_checkpoint_nano"
 
 PUSH_TO_NGC=false
 NO_CACHE=""
 
 print_help() {
     cat <<EOF
-Build (and optionally push) the Cosmos3-Edge-Policy inference-server image.
+Build (and optionally push) the Cosmos3 Edge and Nano DROID policy inference-server image.
 
 Usage:
   $(basename "$0") [-p] [-R]
@@ -54,8 +59,8 @@ done
 
 if [ -z "${HF_TOKEN:-}" ]; then
     echo "HF_TOKEN is not set. Export a token from https://huggingface.co/settings/tokens." >&2
-    echo "It is used once, at build time, to download the ${CHECKPOINT} checkpoint that is" >&2
-    echo "baked into the image; the running server then needs no token." >&2
+    echo "It is used once, at build time, to download the ${CHECKPOINT} and ${NANO_CHECKPOINT}" >&2
+    echo "checkpoints that are baked into the image; the running server then needs no token." >&2
     exit 1
 fi
 
@@ -81,12 +86,15 @@ sed -e 's/--locked/--frozen/' \
 # Copy the source into the image, so the server can run without mounting anything.
 echo "COPY . /workspace" >> "$TMPDIR/Dockerfile"
 
-# Download the policy checkpoint and bake into the image.
+# Download the policy checkpoints and bake them into the image.
 cat >> "$TMPDIR/Dockerfile" <<DOCKERFILE
 WORKDIR /workspace
 RUN --mount=type=secret,id=hf_token \\
     HF_TOKEN="\$(cat /run/secrets/hf_token)" HF_HUB_ENABLE_HF_TRANSFER=1 \\
     uv run --frozen --with hf_transfer python -c "from huggingface_hub import snapshot_download; snapshot_download('${CHECKPOINT}', local_dir='${CHECKPOINT_LOCAL_PATH}')"
+RUN --mount=type=secret,id=hf_token \\
+    HF_TOKEN="\$(cat /run/secrets/hf_token)" HF_HUB_ENABLE_HF_TRANSFER=1 \\
+    uv run --frozen --with hf_transfer python -c "from huggingface_hub import snapshot_download; snapshot_download('${NANO_CHECKPOINT}', revision='${NANO_CHECKPOINT_REVISION}', local_dir='${NANO_CHECKPOINT_LOCAL_PATH}')"
 DOCKERFILE
 
 # Download the guardrail checkpoint, and bake it into the image.
@@ -96,7 +104,7 @@ RUN --mount=type=secret,id=hf_token \\
     uv run --frozen python -c "from cosmos_framework.auxiliary.guardrail.common.core import GUARDRAIL1_CHECKPOINT; GUARDRAIL1_CHECKPOINT.download()"
 DOCKERFILE
 
-echo "Building ${IMAGE_REF} (baking ${CHECKPOINT} + guardrail into the image)"
+echo "Building ${IMAGE_REF} (baking ${CHECKPOINT} + ${NANO_CHECKPOINT} + guardrail into the image)"
 DOCKER_BUILDKIT=1 docker build \
     --network=host \
     --secret id=hf_token,env=HF_TOKEN \
