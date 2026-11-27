@@ -174,12 +174,47 @@ The CLI override root depends on the execution path:
            --dry_run \
            experiment_cfg.shared.rollout_limit.num_steps=100
 
-      If Hydra suggests ``+shared.<path>=<value>``, do not add ``+``. Use
-      ``experiment_cfg.shared.<path>=<value>`` instead.
+Both commands set the same ``shared.rollout_limit.num_steps`` field. A value written inside an
+individual Run still takes priority over the shared override.
 
-Both commands override the same ``shared.rollout_limit.num_steps`` field declared in the
-Experiment Definition. A value written inside an individual Run still takes priority over the
-shared override.
+.. _experiment-without-file:
+
+Run an Experiment without a file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Without ``--experiment_config``, the Experiment Runner takes the overrides as the whole Experiment.
+OSMO submission always needs a file. This command runs one Run named ``quick``:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     runs.quick.environment.type=kitchen_pick_and_place \
+     runs.quick.environment.object=mustard_bottle \
+     runs.quick.policy.type=zero_action \
+     runs.quick.rollout_limit.num_steps=50
+
+The Experiment is named ``<timestamp>_experiment``, for example
+``2026-11-27_14-42-54_experiment``, unless you pass ``name=<name>``. Without a file and without
+overrides, the runner runs the smoke test.
+
+Override rules
+~~~~~~~~~~~~~~
+
+* ``path=value`` sets a value and ``~path`` removes one, for example ``~runs.<name>`` drops a Run.
+  ``+path=value`` and ``++path=value`` mean the same as ``path=value``.
+* These Hydra forms are rejected: sweeps such as ``path=1,2``, ``~path=value``,
+  ``path@package=value``, and ``extend_list(...)``. Write a list as ``path=[1,2]``.
+* With a file, an override can set ``name``, ``kpi_exporters``, and any path below ``shared`` or
+  below a Run the file declares. It cannot add a Run, and a misspelled Run name fails with the list
+  of Runs in the file.
+* An override changes only the key it names, before ``shared`` is merged into each Run. So
+  ``runs.<name>.policy.type=<type>`` keeps the policy fields that Run writes, and the Run no longer
+  inherits ``shared.policy`` when the types differ (see :ref:`experiment-shared-values`). The same
+  holds for ``environment``. Likewise, ``runs.<name>.rollout_limit.num_steps=5`` replaces a limit
+  the Run inherits from ``shared`` but merges into a limit the Run writes.
+* A mapping value replaces the whole mapping. Use it to drop the fields written for an old type or
+  limit, for example ``'runs.x.policy={type:replay,replay_file_path:demo.hdf5}'`` or
+  ``'runs.x.rollout_limit={num_steps:5}'``. Quote it, because the shell expands braces.
 
 For remote policies, configure the policy client inside its Run like any other policy. Start the
 policy server separately for local execution. OSMO can co-schedule a server for supported policy
@@ -190,6 +225,7 @@ example.
 For OSMO setup and submission options, see :doc:`Multi-node Evaluation
 <../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
 
+.. _experiment-shared-values:
 
 Reuse values with ``shared``
 ----------------------------
@@ -197,9 +233,13 @@ Reuse values with ``shared``
 ``shared`` removes repetition. Arena applies these values to every Run, then places each Run's
 own values on top. A Run only needs to declare what is different.
 
-A Run that declares ``rollout_limit`` replaces the shared one as a whole, so a Run can switch from a shared ``num_steps`` to ``num_episodes`` or
-``num_episodes_per_rebuild`` without clearing the shared field. A ``runs.<name>.rollout_limit.*``
-CLI override is applied after this step, so it is still merged with the Run's limit.
+A Run whose ``environment.type`` differs from ``shared.environment.type`` does not inherit
+``shared.environment``, and the same holds for ``policy``. Fields that both types have, such as
+``embodiment`` or ``remote_host``, must then be set in the Run.
+
+A Run that declares ``rollout_limit`` replaces the shared one as a whole, so a Run can switch from
+a shared ``num_steps`` to ``num_episodes`` or ``num_episodes_per_rebuild`` without clearing the
+shared field.
 
 Values are applied in this order, from lowest to highest priority:
 
@@ -221,9 +261,6 @@ Values are applied in this order, from lowest to highest priority:
    * A Run name starts with a letter or underscore. It can then contain letters, numbers,
      underscores, or hyphens.
    * Each ``kpi_exporters`` name must be a registered KPI exporter and appear once.
-   * An override can change a field on a Run declared in the YAML, but it cannot add another Run.
-   * A shared override must point to a field already present below ``shared`` in the Experiment
-     YAML. The Hydra operators ``+``, ``++``, and ``~`` are not supported for shared values.
 
 
 Choosing a runner

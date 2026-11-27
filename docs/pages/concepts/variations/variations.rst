@@ -130,18 +130,18 @@ The same run with tunable variation control parameters spelled out as command-li
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
-     "+runs.variations_demo.variations.light.hdr_image.hdr_names=[home_office_robolab,billiard_hall_robolab,garage_robolab]" \
-     "+runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.01,-0.01,-0.01]" \
-     "+runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
+     "runs.variations_demo.variations.light.hdr_image.hdr_names=[home_office_robolab,billiard_hall_robolab,garage_robolab]" \
+     "runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low=[-0.01,-0.01,-0.01]" \
+     "runs.variations_demo.variations.droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high=[0.01,0.01,0.01]"
 
-Each override starts with ``+`` because it adds an entry that the Run's ``variations`` field does
-not have. The ``hdr_names`` list restricts HDR sampling to the three named maps instead of the full
+The ``hdr_names`` list restricts HDR sampling to the three named maps instead of the full
 registered set. The ``sampler_cfg.low`` / ``sampler_cfg.high`` vectors widen the camera extrinsics
 jitter range to ±10 mm per axis.
 
 A command-line override can't change an entry that the YAML writes as a dotted key, such as
-``light.hdr_image.enabled``. To change such an entry, or to keep tuned values with the Run, edit
-its ``variations`` field.
+``light.hdr_image.enabled``, and fails with an error. If an override should change the entry, write
+it nested in the YAML, for example ``light: {hdr_image: {enabled: true}}``, or assign the Run's whole
+``variations`` mapping. To keep tuned values with the Run, add them to its ``variations`` field.
 
 To see the available variations and control parameters for a specific environment,
 see :ref:`discovering-available-variations`.

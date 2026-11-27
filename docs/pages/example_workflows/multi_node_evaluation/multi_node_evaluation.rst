@@ -238,9 +238,6 @@ For example, to shorten every Run to four episodes, override the value declared 
      --experiment_cfg isaaclab_arena_environments/robolab/experiment_configs/robolab_20_tasks_pi0_and_cosmos.yaml \
      experiment_cfg.shared.rollout_limit.num_episodes=4
 
-Do not add ``+`` to a shared override. If Hydra suggests ``+shared.<path>=<value>``, use the missing
-``experiment_cfg.`` prefix instead.
-
 To shorten only the banana in bowl ``pi0.5`` Run to four episodes:
 
 .. code-block:: bash

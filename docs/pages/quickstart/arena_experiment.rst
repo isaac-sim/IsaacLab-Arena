@@ -155,7 +155,7 @@ meaning of each status in **Task completion summary**.
 Change values from the command line
 -----------------------------------
 
-You can adjust declared values without editing the YAML. This command changes the shared episode
+You can change values without editing the YAML. This command changes the shared episode
 limit inherited by every Run:
 
 .. code-block:: bash
@@ -176,9 +176,11 @@ parallel environments in ``parallel_envs``:
      --experiment_config isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml \
      runs.parallel_envs.environment_builder.num_envs=8
 
-This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. OSMO uses the same
-paths below ``experiment_cfg``; for example, the shared override above becomes
-``experiment_cfg.shared.rollout_limit.num_episodes=4`` at submission time.
+This changes only ``environment_builder.num_envs`` in the ``parallel_envs`` Run. An override can
+set any path below ``shared`` or below a Run the file declares, with dots for nesting. OSMO uses
+the same paths below ``experiment_cfg``; for example, the shared override above becomes
+``experiment_cfg.shared.rollout_limit.num_episodes=4`` at submission time. To run an Experiment
+without a file, see :ref:`experiment-without-file`.
 
 See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for the full
 precedence order and configuration rules.

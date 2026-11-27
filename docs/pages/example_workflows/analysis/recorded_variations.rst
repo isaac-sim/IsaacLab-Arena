@@ -92,7 +92,7 @@ Run the Experiment:
      --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_workflow_experiment.yaml \
      --viz none \
      --experiment_output_directory outputs/recorded_variations_workflow/record \
-     '+runs.recorded_variations.environment_builder.env_cfg_override={episode_length_s:1.0}'
+     'runs.recorded_variations.environment_builder.env_cfg_override={episode_length_s:1.0}'
 
 The final argument shortens each episode from 60 seconds to 1 second for this
 run to speed up sampling. The replay command below uses the same
@@ -129,7 +129,7 @@ Run the replay:
      --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/recorded_variations_replay_experiment.yaml \
      --viz none \
      --experiment_output_directory outputs/recorded_variations_workflow/replay \
-     '+runs.recorded_variations_replay.environment_builder.env_cfg_override={episode_length_s:1.0}'
+     'runs.recorded_variations_replay.environment_builder.env_cfg_override={episode_length_s:1.0}'
 
 Verify the episode count, source-index coverage, and variation payloads:
 

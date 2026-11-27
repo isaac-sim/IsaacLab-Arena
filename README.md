@@ -104,7 +104,9 @@ python isaaclab_arena/evaluation/experiment_runner.py
 
 # 4b. (Optional) Watch the rollout in the GUI visualizer
 python isaaclab_arena/evaluation/experiment_runner.py \
-  --viz kit runs.smoke_test.rollout_limit.num_steps=200
+  --viz kit \
+  --experiment_config isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml \
+  runs.smoke_test.rollout_limit.num_steps=200
 ```
 
 > **Note:** See our
@@ -131,7 +133,9 @@ python isaaclab_arena/evaluation/experiment_runner.py
 
 # 3b. (Optional) Watch the rollout in the GUI visualizer
 python isaaclab_arena/evaluation/experiment_runner.py \
-  --viz kit runs.smoke_test.rollout_limit.num_steps=200
+  --viz kit \
+  --experiment_config isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml \
+  runs.smoke_test.rollout_limit.num_steps=200
 ```
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.
