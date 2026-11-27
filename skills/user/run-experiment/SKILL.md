@@ -59,7 +59,8 @@ zero-action policy and requires no model or policy server.
 
 - Default to `--viz none` for unattended execution. Use `--viz kit` only when requested.
 - Record viewport or camera video only when requested. Camera recording enables camera support and
-  can materially increase GPU memory and output size.
+  can materially increase GPU memory and output size. `--record_viewport_video` records the Kit viewer,
+  so it needs `--viz kit` instead of `--viz none`; unset `DISPLAY` to run it without a window.
 - Preserve the runner's default stop-on-first-error behavior. Add `--continue_on_error` only when
   the user wants the remaining Runs attempted after a failure.
 - Use `--serve_evaluation_report` only when explicitly requested; it binds an HTTP server and keeps

@@ -108,8 +108,16 @@ def main():
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
 
     # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
-    if args_cli.record_camera_video or typed_experiment_requires_cameras(experiment_config_path, experiment_overrides):
+    # The viewport recorder captures the Kit viewer through Replicator, which needs camera support too.
+    if (
+        args_cli.record_camera_video
+        or args_cli.record_viewport_video
+        or typed_experiment_requires_cameras(experiment_config_path, experiment_overrides)
+    ):
         args_cli.enable_cameras = True
+    assert not args_cli.record_viewport_video or (
+        args_cli.visualizer is not None and "kit" in args_cli.visualizer
+    ), "--record_viewport_video records the Kit viewer; pass --viz kit (it opens no window when DISPLAY is unset)"
 
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:

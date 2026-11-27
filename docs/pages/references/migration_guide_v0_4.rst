@@ -601,9 +601,9 @@ Recordings and videos
   directory. It no longer writes ``dataset_<run>.hdf5`` to ``/tmp/isaaclab/logs``, where Runs and
   concurrent jobs could overwrite each other (#1449).
 - **Camera videos:** ``--record_camera_video`` records only RGB cameras. File names are unchanged.
-- **Viewport videos:** the viewport video uses Gymnasium's default name, ``rl-video-step-0.mp4``,
-  instead of ``viewport-rebuild<i>-env0-viewport-episode-0.mp4``. Every rebuild writes to the same
-  file, so with ``num_rebuilds`` greater than 1 only the last rebuild's video is kept.
+- **Viewport videos:** ``--record_viewport_video`` writes no video in v0.4. The recording relied on
+  ``render_mode="rgb_array"``, which Isaac Lab 3.0 no longer renders. v0.5 records the viewport again; see
+  :doc:`migration_guide_v0_5`.
 
 Metric values
 ^^^^^^^^^^^^^

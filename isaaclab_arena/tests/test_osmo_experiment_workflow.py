@@ -268,6 +268,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "--enable_cameras" in experiment_runner_command
     assert "--record_camera_video" in experiment_runner_command
     assert "--record_viewport_video" not in experiment_runner_command
+    assert "--viz none" in experiment_runner_command
     assert "--continue_on_error" not in experiment_runner_command
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
@@ -659,6 +660,8 @@ def test_result_wrapper_preserves_experiment_video_options():
 
     assert "--record_camera_video" not in experiment_runner_command
     assert "--record_viewport_video" in experiment_runner_command
+    # The viewport recorder captures the Kit viewer.
+    assert "--viz kit" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
 

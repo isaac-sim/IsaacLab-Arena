@@ -20,7 +20,12 @@ from isaaclab_arena.evaluation.rollout import rollout_policy
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
-from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
+from isaaclab_arena.video.video_recording import (
+    VideoRecordingCfg,
+    add_viewport_video_recorder,
+    timestamped_run_dir,
+    wrap_env_for_video,
+)
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
@@ -64,9 +69,13 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # --record_camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
-    if "--record_camera_video" in unknown:
+    # Video recording requires camera support at sim startup, before SimulationAppContext. The viewport recorder
+    # captures the Kit viewer through Replicator; it does not need the environment's cameras.
+    if "--record_camera_video" in unknown or "--record_viewport_video" in unknown:
         args_cli.enable_cameras = True
+    assert "--record_viewport_video" not in unknown or (
+        args_cli.visualizer is not None and "kit" in args_cli.visualizer
+    ), "--record_viewport_video records the Kit viewer; pass --viz kit (it opens no window when DISPLAY is unset)"
 
     with SimulationAppContext(args_cli):
 
@@ -104,7 +113,7 @@ def main():
         if args_cli.record_camera_video:
             args_cli.enable_cameras = True
 
-        # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
+        # Build scene.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
 
         output_dir = timestamped_run_dir(args_cli.output_base_dir)
@@ -113,7 +122,10 @@ def main():
             record_camera_video=args_cli.record_camera_video,
             video_base_dir=output_dir,
         )
-        env = arena_builder.make_registered(render_mode=video_cfg.render_mode)
+        env_cfg, env_kwargs = arena_builder.build_env_cfg()
+        if video_cfg.record_viewport_video:
+            add_viewport_video_recorder(env_cfg, video_cfg)
+        env = arena_builder.make_registered(env_cfg, env_kwargs)
 
         # Write per-episode results to disk.
         results_path = os.path.join(output_dir, f"episode_results_rank{local_rank}.jsonl")
@@ -139,8 +151,8 @@ def main():
             else:
                 raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
-        # Optionally wrap with the viewport/camera video recorders (both independent).
-        env = wrap_env_for_video(env, video_cfg, num_steps, num_episodes)
+        # Optionally wrap with the camera video recorder.
+        env = wrap_env_for_video(env, video_cfg)
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")

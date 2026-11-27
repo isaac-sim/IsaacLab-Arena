@@ -30,7 +30,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--record_viewport_video",
         action="store_true",
         default=False,
-        help="Record viewport videos for each Run.",
+        help="Record the Kit viewer to one mp4 per Run rebuild. Requires --viz kit.",
     )
     parser.add_argument(
         "--record_camera_video",
