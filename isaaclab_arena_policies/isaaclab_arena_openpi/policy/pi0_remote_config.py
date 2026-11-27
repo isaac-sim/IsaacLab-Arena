@@ -19,7 +19,8 @@ class Pi0RemotePolicyCfg(PolicyCfg):
     """Connection + runtime config for ``Pi0RemotePolicy``."""
 
     openpi_embodiment_adapter: str = "droid"
-    """Adapter used to translate Arena observations and policy actions."""
+    """Adapter used to translate Arena observations and policy actions: ``droid``, or ``droid_wrist_only`` to fill
+    both image slots from the wrist camera."""
 
     policy_variant: str = DEFAULT_VARIANT
     policy_device: str = "cuda"

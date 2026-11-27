@@ -1,0 +1,261 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: g1_spatial_motion
+    enable_cameras: true
+    mapped: false
+  environment_builder:
+    num_envs: 1
+  policy:
+    type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+    policy_config_yaml_path: isaaclab_arena_policies/isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml
+    remote_host: 127.0.0.1
+    remote_port: 5555
+    policy_device: cuda:0
+  rollout_limit:
+    num_episodes: 1
+runs:
+  reverse_gap_A:
+    environment:
+      scene: reverse_gap
+      layout: A
+  reverse_gap_B:
+    environment:
+      scene: reverse_gap
+      layout: B
+  shelf_bay_A:
+    environment:
+      scene: shelf_bay
+      layout: A
+  shelf_bay_B:
+    environment:
+      scene: shelf_bay
+      layout: B
+  partition_delivery_A:
+    environment:
+      scene: partition_delivery
+      layout: A
+  partition_delivery_B:
+    environment:
+      scene: partition_delivery
+      layout: B
+  cabinet_reach_A:
+    environment:
+      scene: cabinet_reach
+      layout: A
+  cabinet_reach_B:
+    environment:
+      scene: cabinet_reach
+      layout: B
+  tote_extraction_A:
+    environment:
+      scene: tote_extraction
+      layout: A
+  tote_extraction_B:
+    environment:
+      scene: tote_extraction
+      layout: B
+  hanging_pan_A:
+    environment:
+      scene: hanging_pan
+      layout: A
+  hanging_pan_B:
+    environment:
+      scene: hanging_pan
+      layout: B
+  valve_turn_A:
+    environment:
+      scene: valve_turn
+      layout: A
+  valve_turn_B:
+    environment:
+      scene: valve_turn
+      layout: B
+  seam_inspection_A:
+    environment:
+      scene: seam_inspection
+      layout: A
+  seam_inspection_B:
+    environment:
+      scene: seam_inspection
+      layout: B
+  panel_catches_A:
+    environment:
+      scene: panel_catches
+      layout: A
+  panel_catches_B:
+    environment:
+      scene: panel_catches
+      layout: B
+  dishwasher_A:
+    environment:
+      scene: dishwasher
+      layout: A
+  dishwasher_B:
+    environment:
+      scene: dishwasher
+      layout: B
+  billet_insertion_A:
+    environment:
+      scene: billet_insertion
+      layout: A
+  billet_insertion_B:
+    environment:
+      scene: billet_insertion
+      layout: B
+  rail_support_A:
+    environment:
+      scene: rail_support
+      layout: A
+  rail_support_B:
+    environment:
+      scene: rail_support
+      layout: B
+  stack_bracing_A:
+    environment:
+      scene: stack_bracing
+      layout: A
+  stack_bracing_B:
+    environment:
+      scene: stack_bracing
+      layout: B
+  worktop_clamp_A:
+    environment:
+      scene: worktop_clamp
+      layout: A
+  worktop_clamp_B:
+    environment:
+      scene: worktop_clamp
+      layout: B
+  loaded_drawer_A:
+    environment:
+      scene: loaded_drawer
+      layout: A
+  loaded_drawer_B:
+    environment:
+      scene: loaded_drawer
+      layout: B
+  pipe_bracket_A:
+    environment:
+      scene: pipe_bracket
+      layout: A
+  pipe_bracket_B:
+    environment:
+      scene: pipe_bracket
+      layout: B
+  panel_removal_A:
+    environment:
+      scene: panel_removal
+      layout: A
+  panel_removal_B:
+    environment:
+      scene: panel_removal
+      layout: B
+  hatch_transfer_A:
+    environment:
+      scene: hatch_transfer
+      layout: A
+  hatch_transfer_B:
+    environment:
+      scene: hatch_transfer
+      layout: B
+  probe_withdrawal_A:
+    environment:
+      scene: probe_withdrawal
+      layout: A
+  probe_withdrawal_B:
+    environment:
+      scene: probe_withdrawal
+      layout: B
+  display_cover_A:
+    environment:
+      scene: display_cover
+      layout: A
+  display_cover_B:
+    environment:
+      scene: display_cover
+      layout: B
+  scoop_pour_A:
+    environment:
+      scene: scoop_pour
+      layout: A
+  scoop_pour_B:
+    environment:
+      scene: scoop_pour
+      layout: B
+  panel_corner_A:
+    environment:
+      scene: panel_corner
+      layout: A
+  panel_corner_B:
+    environment:
+      scene: panel_corner
+      layout: B
+  aisle_retreat_A:
+    environment:
+      scene: aisle_retreat
+      layout: A
+  aisle_retreat_B:
+    environment:
+      scene: aisle_retreat
+      layout: B
+  platform_step_A:
+    environment:
+      scene: platform_step
+      layout: A
+  platform_step_B:
+    environment:
+      scene: platform_step
+      layout: B
+  beam_clearance_A:
+    environment:
+      scene: beam_clearance
+      layout: A
+  beam_clearance_B:
+    environment:
+      scene: beam_clearance
+      layout: B
+  trolley_dock_A:
+    environment:
+      scene: trolley_dock
+      layout: A
+  trolley_dock_B:
+    environment:
+      scene: trolley_dock
+      layout: B
+  pillar_pass_A:
+    environment:
+      scene: pillar_pass
+      layout: A
+  pillar_pass_B:
+    environment:
+      scene: pillar_pass
+      layout: B
+  closing_door_A:
+    environment:
+      scene: closing_door
+      layout: A
+  closing_door_B:
+    environment:
+      scene: closing_door
+      layout: B
+  moving_carriage_A:
+    environment:
+      scene: moving_carriage
+      layout: A
+  moving_carriage_B:
+    environment:
+      scene: moving_carriage
+      layout: B
+  descending_hood_A:
+    environment:
+      scene: descending_hood
+      layout: A
+  descending_hood_B:
+    environment:
+      scene: descending_hood
+      layout: B

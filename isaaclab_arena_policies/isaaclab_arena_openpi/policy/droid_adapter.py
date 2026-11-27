@@ -73,3 +73,9 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
             "observation/gripper_position": extracted.gripper_position,
             "prompt": language_instruction,
         }
+
+
+class Pi0DroidWristOnlyAdapter(Pi0DroidAdapter):
+    """DROID wire format fed from the wrist camera alone: the wrist image also fills the exterior image input."""
+
+    arena_external_camera_key = "wrist_camera_rgb"
