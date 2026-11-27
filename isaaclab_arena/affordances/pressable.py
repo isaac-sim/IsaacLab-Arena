@@ -15,10 +15,27 @@ from isaaclab_arena.utils.joint_utils import get_normalized_joint_position, set_
 class Pressable(AffordanceBase):
     """Interface for pressable objects."""
 
-    def __init__(self, pressable_joint_name: str, pressedness_threshold: float = 0.5, **kwargs):
+    pressable_joint_name: str
+    """Name of the joint that moves when the object is pressed."""
+
+    pressedness_threshold: float = 0.5
+    """Normalized joint position above which the object counts as pressed."""
+
+    def __init__(self, pressable_joint_name: str | None = None, pressedness_threshold: float | None = None, **kwargs):
+        """Initialize a pressable object.
+
+        Arguments left as None take the class attribute of the same name, so subclasses can declare them there.
+
+        Args:
+            pressable_joint_name: Name of the joint that moves when the object is pressed.
+            pressedness_threshold: Normalized joint position above which the object counts as pressed.
+            **kwargs: Additional arguments passed to AffordanceBase.
+        """
         super().__init__(**kwargs)
-        self.pressable_joint_name = pressable_joint_name
-        self.pressedness_threshold = pressedness_threshold
+        if pressable_joint_name is not None:
+            self.pressable_joint_name = pressable_joint_name
+        if pressedness_threshold is not None:
+            self.pressedness_threshold = pressedness_threshold
 
     def is_pressed(
         self, env: ManagerBasedEnv, asset_cfg: SceneEntityCfg | None = None, pressedness_threshold: float | None = None

@@ -2387,3 +2387,119 @@ class PalatialToaster(LibraryObject, Turnable):
     num_levels = 5
     spawn_cfg_addon = {"variants": SIMREADY_CENTRAL_PHYSICS_VARIANTS, "fix_root_link": True}
     asset_cfg_addon = {"actuators": get_passive_joint_actuators(turnable_joint_name)}
+
+
+@register_asset
+class LightwheelCoffeeMachine108(LibraryObject, Pressable):
+    """A Lightwheel coffee machine pressed at the right round button above its dispenser."""
+
+    # Same USD as coffee_machine, which presses the other button and leaves its base free.
+    registry_name = "lightwheel_coffee_machine108"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="CoffeeMachine108", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "CoffeeMachine108_Button001_joint"
+    spawn_cfg_addon = {"fix_root_link": True}
+
+
+@register_asset
+class LightwheelToaster053(LibraryObject, Pressable):
+    """A Lightwheel toaster with a cancel button beside its browning dial."""
+
+    registry_name = "lightwheel_toaster053"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Toaster053", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "button_cancel_joint"
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_doneness_joint")}
+
+
+@register_asset
+class LightwheelBlender004(LibraryObject, Pressable):
+    """A Lightwheel blender with a power button to the right of its speed dial."""
+
+    registry_name = "lightwheel_blender004"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="Blender004", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "power_button_joint"
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_speed_joint")}
+
+
+@register_asset
+class LightwheelStandMixer012(LibraryObject, Pressable):
+    """A Lightwheel stand mixer with a head-lock button on the left side of its column."""
+
+    registry_name = "lightwheel_stand_mixer012"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="StandMixer012", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "button_head_lock_joint"
+    # The USD leaves the tilting head undriven, so contacts swing it open; this drive holds it closed.
+    spawn_cfg_addon = {
+        "fix_root_link": True,
+        "joint_drive_props": get_joint_drive_props("head_joint", stiffness=200.0, damping=20.0, max_force=50.0),
+    }
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_speed_joint")}
+
+
+@register_asset
+class LightwheelElectricKettle004(LibraryObject, Pressable):
+    """A Lightwheel electric kettle with a lid-release button on top of its handle."""
+
+    registry_name = "lightwheel_electric_kettle004"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="ElectricKettle004", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "button_lid_joint"
+    spawn_cfg_addon = {"fix_root_link": True}
+
+
+@register_asset
+class ForgeCadMicrowave(LibraryObject, Pressable):
+    """A ForgeCAD microwave oven from SimReady Central with a door-release button."""
+
+    registry_name = "forgecad_microwave"
+    tags = ["object", "pressable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/"
+        "0573053fa2c9174ca2a4678a462ec4dfd3035d59/microwave_oven/simready_usd/microwave_oven.usda"
+    )
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "release"
+    spawn_cfg_addon = {"fix_root_link": True}
+
+
+@register_asset
+class PalatialEspressoMachine(LibraryObject, Pressable):
+    """A Palatial espresso machine from SimReady Central with a power button above its pressure gauge."""
+
+    registry_name = "palatial_espresso_machine"
+    tags = ["object", "pressable", "sim-ready", "kitchen"]
+    usd_source = SimReadyCentralUsdSource(
+        "https://huggingface.co/datasets/PalatialSim/palatial-nv-asset-library/resolve/"
+        "69a87329036cec0440403351c12230970c4e67d8/D00693/simready_usd/D00693.usd"
+    )
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "panel_button_onoff_press"
+    # The USD authors the button's return spring on the angular drive instance, which a prismatic joint ignores.
+    spawn_cfg_addon = {
+        "fix_root_link": True,
+        "joint_drive_props": get_joint_drive_props(pressable_joint_name, stiffness=200.0, damping=2.0, max_force=10.0),
+    }
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("steam_knob_spindle")}
+
+
+@register_asset
+class LightwheelToasterOven010(LibraryObject, Pressable):
+    """A Lightwheel toaster oven with a push button below its timer knob."""
+
+    registry_name = "lightwheel_toaster_oven010"
+    tags = ["object", "pressable", "kitchen"]
+    usd_source = LightwheelObjectUsdSource(registry_type="fixtures", file_name="ToasterOven010", file_type="USD")
+    object_type = ObjectType.ARTICULATION
+    pressable_joint_name = "Button001_joint"
+    spawn_cfg_addon = {"fix_root_link": True}
+    asset_cfg_addon = {"actuators": get_passive_joint_actuators("knob_(temp|time)_joint")}

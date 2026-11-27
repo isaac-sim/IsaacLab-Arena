@@ -1,0 +1,143 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_press_electric_kettle_one_wall_with_island_farmhouse1
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.65
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_one_wall_with_island_farmhouse1
+  params:
+    collision_mode: mesh
+objects:
+- id: appliance
+  registry_name: lightwheel_electric_kettle004
+- id: distractor_1
+  registry_name: wooden_bowl_hot3d_robolab
+- id: distractor_2
+  registry_name: apple_01_objaverse_robolab
+- id: distractor_3
+  registry_name: mug
+- id: distractor_4
+  registry_name: lemon_01_fruits_veggies_robolab
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+- id: counter
+  parent_id: kitchen
+  prim_path: island_island_group
+  object_type: base
+- id: sink
+  parent_id: kitchen
+  prim_path: sink_island_group
+  object_type: base
+  params:
+    collision_mode: bbox
+relations:
+- kind: is_anchor
+  subject: floor
+- kind: is_anchor
+  subject: counter
+- kind: is_anchor
+  subject: sink
+- kind: 'on'
+  subject: appliance
+  reference: counter
+- kind: rotate_around_solution
+  subject: appliance
+  params:
+    yaw_rad: 2.04324
+- kind: 'on'
+  subject: droid
+  reference: floor
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: -1.45
+- kind: position_limits_box
+  subject: appliance
+  params:
+    x_limits:
+    - 1.6
+    - 2.3
+    y_limits:
+    - -2.35
+    - -2.19
+- kind: align_with
+  subject: droid
+  reference: appliance
+  params:
+    axis: x
+    offset_m: -0.12
+    tolerance_m: 0.25
+- kind: align_with
+  subject: droid
+  reference: appliance
+  params:
+    axis: y
+    offset_m: 1.15
+    tolerance_m: 0.08
+- kind: 'on'
+  subject: distractor_1
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_1
+  params:
+    x_limits:
+    - 1.45
+    - 2.42
+    y_limits:
+    - -2.9
+    - -2.05
+- kind: 'on'
+  subject: distractor_2
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_2
+  params:
+    x_limits:
+    - 1.45
+    - 2.42
+    y_limits:
+    - -2.9
+    - -2.05
+- kind: 'on'
+  subject: distractor_3
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_3
+  params:
+    x_limits:
+    - 1.45
+    - 2.42
+    y_limits:
+    - -2.9
+    - -2.05
+- kind: 'on'
+  subject: distractor_4
+  reference: counter
+- kind: position_limits_box
+  subject: distractor_4
+  params:
+    x_limits:
+    - 1.45
+    - 2.42
+    y_limits:
+    - -2.9
+    - -2.05
+task:
+  composition: atomic
+  description: Press the lid-release button on top of the kettle handle.
+  subtasks:
+  - kind: PressButtonTask
+    params:
+      pressable_object: appliance

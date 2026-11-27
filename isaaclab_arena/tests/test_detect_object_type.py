@@ -101,6 +101,7 @@ def _test_detect_object_type_for_all_objects(simulation_app):
             "gear_base",
             "sphere",
             "palatial_toaster",
+            "palatial_espresso_machine",
         )
         if has_usd_asset and not is_procedural and object_asset.registry_name not in skipped_names:
             print(f"Automatically classifying: {object_asset.registry_name}")
