@@ -50,7 +50,7 @@ This example places one object on a table:
            background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
            light = self.asset_registry.get_asset_by_name("light")()
            pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
-           embodiment = self.asset_registry.get_asset_by_name("franka_ik")()
+           embodiment = self.asset_registry.get_asset_by_name("franka_ik")(enable_cameras=cfg.enable_cameras)
 
            # Position the assets
            table_reference = ObjectReference(

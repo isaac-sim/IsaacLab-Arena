@@ -197,7 +197,7 @@ def _write_external_factory_module(
     environment_name: str,
     decorate: bool = True,
 ) -> str:
-    """Write a module with one external environment factory and return its ``module:Class`` path."""
+    """Write a module with one external environment factory and return its ``module.Class`` path."""
     source = _EXTERNAL_FACTORY_MODULE_TEMPLATE.format(
         decorator="@register_environment" if decorate else "",
         environment_name=environment_name,

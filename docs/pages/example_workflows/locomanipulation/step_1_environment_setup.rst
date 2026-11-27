@@ -96,6 +96,8 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
 top-level container that connects your embodiment (the robot), the scene (the world) and the task (the objective).
+It also passes the task description and ``env_cfg_callback``, which sets the 50 Hz control rate that the
+whole-body controller needs.
 See :doc:`../../concepts/environment/index` for environment composition details.
 
 

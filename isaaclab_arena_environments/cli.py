@@ -98,7 +98,7 @@ def import_external_environment_factory(environment_class_path: str) -> type[Are
     Repeated calls return the same class.
 
     Args:
-        environment_class_path: Module path and class name of the factory, joined by ``:``.
+        environment_class_path: Module path and class name of the factory, joined by a dot.
 
     Returns:
         The environment factory registered under its ``name``.

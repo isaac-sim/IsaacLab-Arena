@@ -140,7 +140,7 @@ class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFra
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         light = self.asset_registry.get_asset_by_name("light")()
         pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
-        embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
+        embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")(enable_cameras=cfg.enable_cameras)
 
         table_reference = ObjectReference(
             name="table",
