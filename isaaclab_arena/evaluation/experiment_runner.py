@@ -6,14 +6,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.evaluation.arena_experiment_config_loader import (
-    load_arena_experiment_from_config_file,
-    validate_experiment_config_path,
-)
-from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
-from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
+from isaaclab_arena.evaluation.arena_experiment_config_loader import build_arena_experiment
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args, select_experiment_config_path
+from isaaclab_arena.hydra.experiment_values import read_experiment_values
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
@@ -36,12 +33,21 @@ def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
         print(arena_builder.get_variations_catalogue_as_string(), flush=True)
 
 
+def _experiment_requires_cameras(experiment_values: dict[str, Any]) -> bool:
+    """Return whether any Run of the Experiment's values enables ``environment.enable_cameras``."""
+    return any(
+        run_values["environment"].get("enable_cameras", False) for run_values in experiment_values["runs"].values()
+    )
+
+
 def _assert_camera_support_enabled(experiment_cfg: ArenaExperimentCfg, enable_cameras: bool) -> None:
     """Check that AppLauncher enabled camera support requested by typed Runs."""
     camera_run_names = [run_cfg.name for run_cfg in experiment_cfg.runs.values() if run_cfg.environment.enable_cameras]
+    # Camera support is decided from the values before startup, so an environment config whose enable_cameras
+    # defaults to True is only seen here.
     assert not camera_run_names or enable_cameras, (
-        f"Runs {camera_run_names} enable environment cameras but AppLauncher started without camera support. "
-        "The camera requirements read from the Experiment before startup disagree with the composed Experiment."
+        f"Runs {camera_run_names} enable environment cameras by default, but AppLauncher started without camera "
+        "support. Set environment.enable_cameras: true in these Runs, or pass --enable_cameras."
     )
 
 
@@ -105,20 +111,18 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
 
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
-    experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
+    experiment_config_path = select_experiment_config_path(args_cli.experiment_config, experiment_overrides)
 
-    # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
-    if args_cli.record_camera_video or typed_experiment_requires_cameras(experiment_config_path, experiment_overrides):
+    # Read the Experiment before SimulationApp starts: AppLauncher must know whether a Run needs cameras, and invalid
+    # values fail before startup. The typed configs are built from the same values once the app runs.
+    experiment_values = read_experiment_values(experiment_config_path, experiment_overrides)
+    if args_cli.record_camera_video or _experiment_requires_cameras(experiment_values):
         args_cli.enable_cameras = True
 
     # Print the variations catalogue for each run's environment and exit.
     if args_cli.list_variations:
         with SimulationAppContext(args_cli):
-            experiment_cfg = load_arena_experiment_from_config_file(
-                experiment_config_path,
-                device=args_cli.device,
-                overrides=experiment_overrides,
-            )
+            experiment_cfg = build_arena_experiment(experiment_values, device=args_cli.device)
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
             list_variations(experiment_cfg)
         return
@@ -138,11 +142,7 @@ def main():
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
-        experiment_cfg = load_arena_experiment_from_config_file(
-            experiment_config_path,
-            device=args_cli.device,
-            overrides=experiment_overrides,
-        )
+        experiment_cfg = build_arena_experiment(experiment_values, device=args_cli.device)
         for run_name in experiment_cfg.runs:
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)

@@ -122,13 +122,13 @@ class ArenaRunCfg:
         if self.rollout_limit.num_episodes_per_rebuild is not None:
             num_listed_rebuilds = len(self.rollout_limit.num_episodes_per_rebuild)
             assert self.num_rebuilds == num_listed_rebuilds, (
-                f"Run '{self.name}': num_rebuilds ({self.num_rebuilds}) must equal the {num_listed_rebuilds} "
+                f"num_rebuilds ({self.num_rebuilds}) must equal the {num_listed_rebuilds} "
                 "entries of num_episodes_per_rebuild"
             )
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout_limit.num_episodes is not None:
             assert self.rollout_limit.num_episodes >= self.num_rebuilds, (
-                f"Run '{self.name}': num_episodes ({self.rollout_limit.num_episodes}) must be >= num_rebuilds "
+                f"num_episodes ({self.rollout_limit.num_episodes}) must be >= num_rebuilds "
                 f"({self.num_rebuilds}) so each rebuild runs at least one episode"
             )
 

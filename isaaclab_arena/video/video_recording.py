@@ -9,6 +9,9 @@ import dataclasses
 import datetime
 import os
 
+RUN_DIR_TIMESTAMP_FORMAT = "%Y-%m-%d_%H-%M-%S"
+"""strftime format of the timestamp that names a run directory, for example ``2026-06-16_14-42-54``."""
+
 
 @dataclasses.dataclass
 class VideoRecordingCfg:
@@ -43,7 +46,7 @@ def timestamped_run_dir(base_dir: str) -> str:
     Mirrors Isaac Lab's log layout so repeated runs land in distinct folders. Call once per run and
     share the result across recorders (and, for the Experiment Runner, across jobs).
     """
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.datetime.now().strftime(RUN_DIR_TIMESTAMP_FORMAT)
     return os.path.join(base_dir, timestamp)
 
 

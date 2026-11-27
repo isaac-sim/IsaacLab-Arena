@@ -1,13 +1,13 @@
 ---
 name: run-experiment
-description: Runs existing Isaac Lab-Arena Experiment Definitions locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), visual inspection of a scene or running simulation (inspect-sim-visually), direct Policy Runner workflows, or OSMO preview, submission, or management.
+description: Runs existing Isaac Lab-Arena Experiment Definitions, or Experiments given on the command line, locally with experiment_runner.py in a ready native or Docker runtime, coordinates required local OpenPI or GR00T servers, applies local CLI overrides, and verifies generated result and report artifacts. Use for local named-Run or batch policy evaluations, variation listing, visualization or video, and result inspection. Do not use for installation or runtime preparation (setup-arena), pytest or regression checks (run-tests), interactive no-policy inspection (environment_runner.py), visual inspection of a scene or running simulation (inspect-sim-visually), direct Policy Runner workflows, or OSMO preview, submission, or management.
 allowed-tools: Read Grep Glob Skill Bash(git rev-parse --show-toplevel) Bash(id --user --name) Bash(test -d *) Bash(test -f *) Bash(test -x .venv/bin/python) Bash(env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python isaaclab_arena/evaluation/experiment_runner.py *) Bash(docker ps *) Bash(docker exec *) Bash(xdg-open *)
 ---
 
 # Run Experiment
 
-Execute an existing Experiment Definition locally and finish with evidence from its canonical
-artifacts. Keep runtime readiness, regression testing, direct Policy Runner workflows, and managed
+Execute an existing Experiment Definition, or an Experiment given by overrides alone, locally and
+finish with evidence from its canonical artifacts. Keep runtime readiness, regression testing, direct Policy Runner workflows, and managed
 submission outside this skill.
 
 ## Read the checked-out documentation
@@ -27,8 +27,9 @@ Runs in a YAML Experiment.
 ## Preflight the run
 
 1. Confirm the repository root with `git rev-parse --show-toplevel`.
-2. Resolve an explicit Experiment path. Never rely on the runner's default configuration, which is
-   only an installation smoke test.
+2. Resolve an explicit Experiment path, unless the user wants a run without a file (see
+   [Build the local command](#build-the-local-command)). Never rely on the runner's default
+   configuration, which is only an installation smoke test.
 3. Inspect the Experiment's Runs, policies, rollout limits, rebuild counts, environment counts,
    cameras, variations, and referenced files. Summarize unexpectedly large work before starting it.
 4. Use `arena-runtime` to select the checkout's ready native uv or Docker route. If it finds no
@@ -77,8 +78,8 @@ zero-action policy and requires no model or policy server.
 
 ## Build the local command
 
-Always pass `--experiment_config` explicitly. Keep runner flags separate from trailing Hydra
-overrides.
+Pass `--experiment_config` explicitly when running an existing Experiment. Keep runner flags
+separate from trailing Hydra overrides.
 
 Replace `<arena-python>` with the launcher for the route selected by `arena-runtime`:
 `env OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y .venv/bin/python` from the repository root for native
@@ -98,9 +99,24 @@ shared.rollout_limit.num_episodes=4
 runs.parallel_envs.environment_builder.num_envs=8
 ```
 
+For a quick run of a registered environment and policy that no Experiment file declares, omit
+`--experiment_config`. The overrides are then the whole Experiment:
+
+```bash
+<arena-python> isaaclab_arena/evaluation/experiment_runner.py \
+  --viz none \
+  runs.quick.environment.type=kitchen_pick_and_place \
+  runs.quick.policy.type=zero_action \
+  runs.quick.rollout_limit.num_steps=50
+```
+
+Read the override rules in `docs/pages/concepts/concept_arena_experiments.rst` before switching a
+`type` or assigning a mapping.
+
 Do not prefix local overrides with `experiment_cfg.`; that prefix belongs to OSMO submission.
-Quote override tokens that contain shell-sensitive characters. Do not edit the source YAML when a
-declared field can be changed with an override.
+Quote override tokens that contain shell-sensitive characters. Do not edit the source YAML when an
+override can make the change; an override can set any path below `shared` or below a Run the file
+declares.
 
 ## Execute and monitor
 
@@ -135,7 +151,7 @@ For `--list_variations`, report the catalogue and explicitly state that no rollo
 artifacts were expected.
 
 Finish with the selected runtime, any policy-server endpoint and whether it was reused or started,
-the Experiment path, effective overrides, output path, per-Run statuses, episode counts, and any
+the Experiment path (or the overrides for a run without a file), effective overrides, output path, per-Run statuses, episode counts, and any
 preserved partial artifacts or failures.
 
 ## Hand off other workflows

@@ -19,7 +19,6 @@ from omegaconf import OmegaConf
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
-from isaaclab_arena.hydra.typed_experiment_loader import split_shared_run_default_overrides
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
@@ -100,25 +99,44 @@ def build_arena_experiment_submission_cfg(
         The fully composed typed submission configuration.
     """
     experiment_cfg_path = Path(experiment_cfg_path).expanduser()
-    shared_default_overrides, submission_overrides = split_shared_run_default_overrides(
-        overrides or [],
-        experiment_config_prefix="experiment_cfg",
-    )
+    experiment_overrides, submission_overrides = _split_experiment_overrides(overrides or [])
     experiment_cfg = load_arena_experiment_from_config_file(
         experiment_cfg_path,
         device="cuda:0",
-        overrides=shared_default_overrides,
+        overrides=experiment_overrides,
     )
     base_submission = ArenaExperimentSubmissionCfg(experiment_cfg=experiment_cfg)
 
-    # The Experiment file determines the concrete config types. Register that concrete root so
-    # Hydra validates every trailing override against it.
+    # The loader already applied the experiment_cfg.* overrides. Register the loaded Experiment as the root so
+    # the remaining osmo.* and experiment_runner.* overrides compose next to it.
     ConfigStore.instance().store(name=SUBMISSION_CONFIG_NAME, node=base_submission)
     with initialize(version_base=None, config_path=None):
         composed = compose(config_name=SUBMISSION_CONFIG_NAME, overrides=submission_overrides)
     submission_cfg = OmegaConf.to_object(composed)
     assert isinstance(submission_cfg, ArenaExperimentSubmissionCfg)
     return submission_cfg
+
+
+def _split_experiment_overrides(overrides: list[str]) -> tuple[list[str], list[str]]:
+    """Separate overrides for the Experiment from overrides for the OSMO submission.
+
+    Args:
+        overrides: Hydra overrides rooted at the submission.
+
+    Returns:
+        Overrides under ``experiment_cfg`` with that prefix removed and any leading ``+``, ``++`` or ``~``
+        kept, followed by all remaining overrides. Order is preserved within each group.
+    """
+    experiment_prefix = "experiment_cfg."
+    experiment_overrides: list[str] = []
+    submission_overrides: list[str] = []
+    for override in overrides:
+        # Only a leading +, ++ or ~ can come before the prefix, so its first occurrence is the one to remove.
+        if override.lstrip("+~").startswith(experiment_prefix):
+            experiment_overrides.append(override.replace(experiment_prefix, "", 1))
+        else:
+            submission_overrides.append(override)
+    return experiment_overrides, submission_overrides
 
 
 def submission_cfg_to_str(submission_cfg: ArenaExperimentSubmissionCfg) -> str:

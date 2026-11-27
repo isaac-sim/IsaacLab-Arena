@@ -46,7 +46,7 @@ Accept the Isaac Sim EULA so the first launch is non-interactive:
     export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
 
 Launch a short zero-action rollout as a visual validation that things are
-running. Without ``--experiment_config``, the Experiment Runner runs
+running. Without ``--experiment_config`` and without overrides, the Experiment Runner runs
 ``isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml``, which steps the
 ``cube_goal_pose`` environment 20 times with the zero-action policy:
 
@@ -54,13 +54,15 @@ running. Without ``--experiment_config``, the Experiment Runner runs
 
     python isaaclab_arena/evaluation/experiment_runner.py
 
-Optionally, watch the rollout in the GUI visualizer by adding ``--viz kit`` (and
-a few more steps so there is time to see it):
+Optionally, watch the rollout in the GUI visualizer by adding ``--viz kit`` and the
+smoke test file (and a few more steps so there is time to see it):
 
 .. code-block:: bash
 
     python isaaclab_arena/evaluation/experiment_runner.py \
-      --viz kit runs.smoke_test.rollout_limit.num_steps=200
+      --viz kit \
+      --experiment_config isaaclab_arena_environments/experiment_configs/smoke_test_experiment.yaml \
+      runs.smoke_test.rollout_limit.num_steps=200
 
 Optionally verify the installation by running the test phases:
 

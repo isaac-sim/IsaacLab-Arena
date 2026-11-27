@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.class_path import import_class_from_path
 
@@ -17,17 +17,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
-
-
-def validate_experiment_config_path(experiment_config: str | Path) -> Path:
-    """Return an existing Experiment configuration path with a YAML suffix."""
-    experiment_config_path = Path(experiment_config)
-    assert experiment_config_path.is_file(), f"Experiment config does not exist: '{experiment_config_path}'"
-    assert experiment_config_path.suffix.lower() in {".yaml", ".yml"}, (
-        f"Experiment config must be a YAML file (.yaml or .yml), got '{experiment_config_path}'. "
-        "JSON Experiment configs are no longer supported; write their jobs as Runs in a YAML Experiment."
-    )
-    return experiment_config_path
 
 
 def load_arena_experiment_from_config_file(
@@ -46,14 +35,27 @@ def load_arena_experiment_from_config_file(
     Returns:
         The loaded, typed Experiment configuration with the process device applied.
     """
-    from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
+    from isaaclab_arena.hydra.experiment_values import read_experiment_values
 
-    path = validate_experiment_config_path(experiment_config_path)
-    experiment_cfg = load_arena_experiment_from_yaml(
-        path,
+    return build_arena_experiment(read_experiment_values(experiment_config_path, overrides), device=device)
+
+
+def build_arena_experiment(experiment_values: dict[str, Any], *, device: str) -> ArenaExperimentCfg:
+    """Build the typed Experiment from its values with the registered types, and apply the process device.
+
+    Args:
+        experiment_values: The values returned by read_experiment_values.
+        device: Process-wide simulation device applied to every Run.
+
+    Returns:
+        The typed Experiment configuration with the process device applied.
+    """
+    from isaaclab_arena.hydra.typed_experiment_loader import build_typed_experiment
+
+    experiment_cfg = build_typed_experiment(
+        experiment_values,
         environment_cfg_types=_registered_environment_cfg_types(),
         policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
-        overrides=overrides,
     )
 
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level
