@@ -12,7 +12,7 @@ it; the config fields become flags after the environment name::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 10 \\
-        --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \\
+        --external_environment_class_path isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment \\
         franka_table --object cracker_box
 """
 

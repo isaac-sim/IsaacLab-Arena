@@ -15,9 +15,9 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 NUM_STEPS = 2
 
-EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment"
+EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment"
 EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
-    "isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment"
+    "isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment"
 )
 
 

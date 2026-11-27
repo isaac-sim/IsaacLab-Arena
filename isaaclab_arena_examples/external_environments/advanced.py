@@ -12,7 +12,7 @@ in the same file::
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 100 \\
         --external_environment_class_path \\
-        isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \\
+        isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment \\
         franka_table_with_task --object cracker_box
 """
 

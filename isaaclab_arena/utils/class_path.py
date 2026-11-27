@@ -6,17 +6,18 @@
 from importlib import import_module
 
 
-def import_class_from_path(class_path: str, separator: str = ".") -> type:
-    """Import the class named by a ``module_path<separator>ClassName`` path.
+def import_class_from_path(class_path: str) -> type:
+    """Import the class named by a ``module_path.ClassName`` path.
 
     Args:
-        class_path: Module path and class name joined by ``separator``, for example ``my_package.envs.MyEnvironment``.
-        separator: Text between the module path and the class name.
+        class_path: Module path and class name joined by a dot, for example ``my_package.envs.MyEnvironment``.
     """
-    assert (
-        separator in class_path
-    ), f"Expected a class path of the form 'module_path{separator}ClassName', got {class_path!r}"
-    module_path, class_name = class_path.rsplit(separator, 1)
+    assert ":" not in class_path, (
+        f"Class path {class_path!r} uses ':'. Write it as module_path.ClassName, for example"
+        f" {class_path.replace(':', '.')!r}"
+    )
+    assert "." in class_path, f"Expected a class path of the form 'module_path.ClassName', got {class_path!r}"
+    module_path, class_name = class_path.rsplit(".", 1)
     imported_object = getattr(import_module(module_path), class_name, None)
     assert imported_object is not None, f"{class_path!r}: {module_path} has no {class_name}"
     assert isinstance(imported_object, type), f"{class_path!r} is not a class"

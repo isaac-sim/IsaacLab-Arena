@@ -84,12 +84,12 @@ environment name and its flags. For example, with a zero-action policy:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_steps 50 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableEnvironment \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment.ExternalFrankaTableEnvironment \
      franka_table \
      --object tomato_soup_can
 
 The ``--external_environment_class_path`` flag takes the module path and the class name of the
-factory, separated by a colon. The module must be importable, for example because your package is
+factory, joined by a dot as in a Python import. The module must be importable, for example because your package is
 installed or on ``PYTHONPATH``. The runner imports the class and registers it under its ``name``.
 The environment name is the first positional argument, and the flags after it set the fields of the
 environment's config.
@@ -118,7 +118,7 @@ stops with an error that names that class.
           --viz kit \
           --policy_type zero_action \
           --num_steps 50 \
-          --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
+          --external_environment_class_path isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment \
           franka_table \
           --object tomato_soup_can
 
@@ -163,8 +163,10 @@ been removed. To migrate an environment defined in your repository:
    of ``args_cli``. If ``get_env()`` read ``args_cli.num_envs`` or ``args_cli.mimic``, add a field
    with that name to the config.
 #. Delete ``add_cli_args()``. The flags are now generated from the config fields.
+#. In commands, write the value of ``--external_environment_class_path`` with a dot,
+   ``module_path.ClassName``, instead of ``module_path:ClassName``.
 
-Commands that use ``--external_environment_class_path`` then keep working without changes.
+The flags after the environment name stay the same.
 
 Before:
 

@@ -158,7 +158,7 @@ def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
         type=str,
         default=None,
         help=(
-            "Module path and class name of an external environment factory, as module_path:ClassName. The"
+            "Module path and class name of an external environment factory, as module_path.ClassName. The"
             " runner imports the class and registers it under its name."
         ),
     )

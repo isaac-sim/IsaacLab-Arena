@@ -91,7 +91,7 @@ def build_environment_from_cli(
 
 
 def import_external_environment_factory(environment_class_path: str) -> type[ArenaEnvironmentFactory]:
-    """Import an environment factory named by a ``module_path:ClassName`` path and register it under its name.
+    """Import an environment factory named by a ``module_path.ClassName`` path and register it under its name.
 
     A factory that its module already registered with ``@register_environment`` is used as is. Built-in
     environments are registered first, so a factory that reuses a built-in name is rejected.
@@ -104,7 +104,7 @@ def import_external_environment_factory(environment_class_path: str) -> type[Are
         The environment factory registered under its ``name``.
     """
     ensure_environments_registered()
-    environment_factory_type = import_class_from_path(environment_class_path, separator=":")
+    environment_factory_type = import_class_from_path(environment_class_path)
     assert issubclass(
         environment_factory_type, ArenaEnvironmentFactory
     ), f"{environment_class_path!r} is not an ArenaEnvironmentFactory subclass"

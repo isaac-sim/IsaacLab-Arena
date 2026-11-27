@@ -203,7 +203,7 @@ def _write_external_factory_module(
         environment_name=environment_name,
     )
     _write_external_module(tmp_path, monkeypatch, module_name, source)
-    return f"{module_name}:ExternalEnvironment"
+    return f"{module_name}.ExternalEnvironment"
 
 
 @pytest.mark.parametrize("decorate", [True, False])
@@ -274,7 +274,7 @@ def test_external_environment_flag_rejects_a_class_that_is_not_a_factory(tmp_pat
     )
 
     with pytest.raises(AssertionError, match="is not an ArenaEnvironmentFactory subclass"):
-        import_external_environment_factory("non_factory_external_environment_module:NotAnEnvironmentFactory")
+        import_external_environment_factory("non_factory_external_environment_module.NotAnEnvironmentFactory")
 
 
 def test_maple_teleop_device_remains_a_cli_only_option():

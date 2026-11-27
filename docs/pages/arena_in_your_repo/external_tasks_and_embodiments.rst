@@ -161,7 +161,7 @@ environment name and its flags. For example, with a zero-action policy:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_episodes 1 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment_with_task:ExternalFrankaTableWithTaskEnvironment \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment_with_task.ExternalFrankaTableWithTaskEnvironment \
      franka_table_with_task \
      --object tomato_soup_can
 
@@ -185,6 +185,6 @@ custom embodiment, because ``@register_asset`` runs when the module is imported.
           --viz kit \
           --policy_type zero_action \
           --num_episodes 1 \
-          --external_environment_class_path isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \
+          --external_environment_class_path isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment \
           franka_table_with_task \
           --object tomato_soup_can
