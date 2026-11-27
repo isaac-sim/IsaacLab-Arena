@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.envs.common import ViewerCfg
 
-from isaaclab_arena.assets.register import register_asset, register_environment
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
@@ -126,7 +126,6 @@ class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
     """Registered name of the object placed on the table."""
 
 
-@register_environment
 class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
 
     name: str = "franka_table_with_task"

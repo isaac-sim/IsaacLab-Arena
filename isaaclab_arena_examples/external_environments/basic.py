@@ -6,10 +6,9 @@
 """Simple example externally-defined environment.
 
 This demonstrates how to define an environment outside Isaac Lab Arena. Like the
-built-in environments, it is a config dataclass plus a factory with ``build(cfg)``,
-registered with ``@register_environment``. Load it with the
-``--external_environment_class_path`` CLI flag; the config fields become flags
-after the environment name::
+built-in environments, it is a config dataclass plus a factory with ``build(cfg)``.
+Load it with the ``--external_environment_class_path`` CLI flag, which also registers
+it; the config fields become flags after the environment name::
 
     python isaaclab_arena/evaluation/policy_runner.py \\
         --policy_type zero_action --num_steps 10 \\
@@ -22,7 +21,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
@@ -37,7 +35,6 @@ class ExternalFrankaTableEnvironmentCfg(ArenaEnvironmentCfg):
     """Registered name of the object placed on the table."""
 
 
-@register_environment
 class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
 
     name: str = "franka_table"

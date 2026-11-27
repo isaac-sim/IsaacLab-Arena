@@ -107,7 +107,6 @@ the custom task, the custom embodiment, and the two episode recorder terms to ``
        """Registered name of the object placed on the table."""
 
 
-   @register_environment
    class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
 
        name: str = "franka_table_with_task"

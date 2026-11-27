@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.cli.dataclass_cli import add_dataclass_cli_args, dataclass_from_cli
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -48,9 +49,8 @@ def _registered_environment_cfg_type(
     """Return the config type that ``@register_environment`` recorded for a typed factory."""
     environment_cfg_types = EnvironmentRegistry().get_environment_cfg_types()
     assert environment_factory_type.name in environment_cfg_types, (
-        f"{environment_factory_type.__name__} has no config in EnvironmentRegistry. Only factories registered with"
-        " @register_environment get generated CLI flags. Typed factories loaded with"
-        " --external_environment_class_path are not supported yet."
+        f"{environment_factory_type.__name__} has no config in EnvironmentRegistry. Register it with"
+        " @register_environment, or load it with --external_environment_class_path."
     )
     return environment_cfg_types[environment_factory_type.name]
 
@@ -91,9 +91,9 @@ def build_environment_from_cli(
 
 
 def import_external_environment_factory(environment_class_path: str) -> type[ArenaEnvironmentFactory]:
-    """Import an environment factory named by a ``module_path:ClassName`` path and check its registration.
+    """Import an environment factory named by a ``module_path:ClassName`` path and register it under its name.
 
-    Importing the module runs the factory's ``@register_environment`` decorator. Built-in
+    A factory that its module already registered with ``@register_environment`` is used as is. Built-in
     environments are registered first, so a factory that reuses a built-in name is rejected.
     Repeated calls return the same class.
 
@@ -112,9 +112,8 @@ def import_external_environment_factory(environment_class_path: str) -> type[Are
     assert environment_name is not None, f"{environment_class_path!r} must set a name"
 
     environment_registry = EnvironmentRegistry()
-    assert environment_registry.is_registered(
-        environment_name
-    ), f"{environment_class_path!r} is not registered. Decorate it with @register_environment."
+    if not environment_registry.is_registered(environment_name):
+        register_environment(environment_factory_type)
     registered_factory_type = environment_registry.get_component_by_name(environment_name)
     assert registered_factory_type is environment_factory_type, (
         f"{environment_class_path!r} uses the name {environment_name!r}, which is taken by"

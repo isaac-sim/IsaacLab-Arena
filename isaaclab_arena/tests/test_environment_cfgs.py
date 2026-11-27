@@ -160,7 +160,7 @@ def test_build_environment_from_cli_calls_typed_build(monkeypatch):
     assert captured["environment_cfg"] == PickAndPlaceMapleTableEnvironmentCfg(light_intensity=750.0)
 
 
-# Decorated factories from these modules stay in EnvironmentRegistry after their test. Their config
+# Factories loaded from these modules stay in EnvironmentRegistry after their test. Their config
 # gives every field a default, so tests that parse each registered environment's default flags pass.
 _EXTERNAL_FACTORY_MODULE_TEMPLATE = """
 from dataclasses import dataclass
@@ -206,11 +206,13 @@ def _write_external_factory_module(
     return f"{module_name}:ExternalEnvironment"
 
 
-def test_external_environment_flag_imports_the_registered_factory(tmp_path, monkeypatch):
-    """Register an external factory only through --external_environment_class_path and parse its flags."""
-    environment_name = "flag_only_external_environment"
+@pytest.mark.parametrize("decorate", [True, False])
+def test_external_environment_flag_registers_the_factory(tmp_path, monkeypatch, decorate):
+    """Load an external factory, decorated or not, only through --external_environment_class_path and parse its flags."""
+    environment_name = "decorated_external_environment" if decorate else "undecorated_external_environment"
+    module_name = f"{environment_name}_module"
     environment_class_path = _write_external_factory_module(
-        tmp_path, monkeypatch, "flag_only_external_environment_module", environment_name
+        tmp_path, monkeypatch, module_name, environment_name, decorate=decorate
     )
     ensure_environments_registered()
     assert not EnvironmentRegistry().is_registered(environment_name)
@@ -222,7 +224,7 @@ def test_external_environment_flag_imports_the_registered_factory(tmp_path, monk
     add_example_environments_cli_args(parser)
     legacy_arguments = parser.parse_args(cli_args)
 
-    external_module = sys.modules["flag_only_external_environment_module"]
+    external_module = sys.modules[module_name]
     environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
     assert environment_factory_type is external_module.ExternalEnvironment
     assert legacy_arguments.example_environment == environment_name
@@ -241,21 +243,6 @@ def test_external_environment_flag_returns_the_same_factory_on_repeated_imports(
 
     assert second_factory_type is first_factory_type
     assert EnvironmentRegistry().get_component_by_name("repeated_external_environment") is first_factory_type
-
-
-def test_external_environment_flag_rejects_an_unregistered_factory(tmp_path, monkeypatch):
-    """Ask for @register_environment instead of registering the factory without its config."""
-    environment_class_path = _write_external_factory_module(
-        tmp_path,
-        monkeypatch,
-        "unregistered_external_environment_module",
-        "unregistered_external_environment",
-        decorate=False,
-    )
-
-    with pytest.raises(AssertionError, match="is not registered. Decorate it with @register_environment"):
-        import_external_environment_factory(environment_class_path)
-    assert not EnvironmentRegistry().is_registered("unregistered_external_environment")
 
 
 def test_external_environment_flag_rejects_a_name_taken_by_another_factory(tmp_path, monkeypatch):

@@ -10,8 +10,9 @@ An environment in your repository uses the same contract as the built-in environ
   user can set. Each environment needs its own configuration class.
 * A factory class that subclasses ``ArenaEnvironmentFactory[YourCfg]``, sets a unique ``name``,
   and implements ``build(cfg)``.
-* The ``@register_environment`` decorator, which registers the factory and its configuration
-  with the ``EnvironmentRegistry`` when the module is imported.
+
+Arena registers the factory when it loads it by its class path, so it doesn't need the
+``@register_environment`` decorator that the built-in environments use.
 
 Below is an example of a custom environment that places a single object on a table.
 
@@ -24,7 +25,6 @@ Below is an example of a custom environment that places a single object on a tab
    from dataclasses import dataclass
    from typing import TYPE_CHECKING
 
-   from isaaclab_arena.assets.register import register_environment
    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
    if TYPE_CHECKING:
@@ -39,7 +39,6 @@ Below is an example of a custom environment that places a single object on a tab
        """Registered name of the object placed on the table."""
 
 
-   @register_environment
    class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
 
        name: str = "franka_table"
@@ -94,9 +93,9 @@ externally-defined environment like this:
 
 The ``--external_environment_class_path`` flag takes the module path and the class name of the
 factory, separated by a colon. The module must be importable, for example because your package is
-installed or on ``PYTHONPATH``. Importing it runs ``@register_environment``, and the runner then
-checks that the decorator registered this class under its ``name``. The environment name is the
-first positional argument, and the flags after it set the fields of the environment's configuration.
+installed or on ``PYTHONPATH``. The runner imports the class and registers it under its ``name``.
+The environment name is the first positional argument, and the flags after it set the fields of the
+environment's configuration.
 
 The flag works the same way with the Environment Runner
 (``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
@@ -104,9 +103,8 @@ environments through
 ``--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback``.
 Isaac Lab scripts take the environment name with ``--task`` instead of as a positional argument.
 
-Use a ``name`` that no other environment uses. If the class is not decorated with
-``@register_environment``, the runner stops with an error that asks for the decorator. If another
-class already owns the name, the error names that class.
+Use a ``name`` that no other environment uses. If another class already owns the name, the runner
+stops with an error that names that class.
 
 .. note::
 
@@ -163,8 +161,7 @@ been removed. To migrate an environment defined in your repository:
 #. Move each flag declared in ``add_cli_args()`` into a field of a new dataclass that subclasses
    ``ArenaEnvironmentCfg``. Use the flag's name as the field name, its default as the field
    default, and a type from the list above.
-#. Replace the ``ExampleEnvironmentBase`` base class with ``ArenaEnvironmentFactory[YourCfg]``, and
-   decorate the class with ``@register_environment``.
+#. Replace the ``ExampleEnvironmentBase`` base class with ``ArenaEnvironmentFactory[YourCfg]``.
 #. Rename ``get_env(self, args_cli)`` to ``build(self, cfg)``, and read values from ``cfg`` instead
    of ``args_cli``. If ``get_env()`` read ``args_cli.num_envs`` or ``args_cli.mimic``, add a field
    with that name to the configuration.
@@ -200,7 +197,6 @@ After:
 
    from dataclasses import dataclass
 
-   from isaaclab_arena.assets.register import register_environment
    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 
@@ -209,7 +205,6 @@ After:
        object: str = "cracker_box"
 
 
-   @register_environment
    class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
 
        name: str = "franka_table"
