@@ -4,7 +4,9 @@ Your Own Tasks and Embodiments
 The :doc:`previous page <external_environments>` showed how to define an
 environment in your repository, external to the Isaac Lab - Arena source tree.
 Typical users will also want to define their own tasks and embodiments.
-This page describes how that is done, in an external repo.
+This page describes how that is done, in an external repo. The code comes from
+``isaaclab_arena_examples/external_environments/advanced.py``. Copy the file into your package, for
+example as ``my_package/isaaclab_arena_environments/my_environment_with_task.py``.
 
 Defining a Custom Task
 ----------------------
@@ -15,35 +17,9 @@ The excerpt below shows a task that succeeds after a fixed number of steps.
 This task can be passed to the ``ArenaEnvBuilder`` to create an environment
 (see :ref:`putting_it_all_together` below for an example).
 
-.. code-block:: python
-
-   # my_package/isaaclab_arena_environments/my_environment_with_task.py
-
-   class SuccessAfterNStepsTask(TaskBase):
-       """Minimal task: the episode succeeds after a fixed number of steps."""
-
-       def __init__(self, num_steps_for_success: int = 50, episode_length_s: float = 10.0):
-           super().__init__(
-               episode_length_s=episode_length_s,
-               task_description=f"Succeed after {num_steps_for_success} steps",
-           )
-           self.num_steps_for_success = num_steps_for_success
-
-       def get_termination_cfg(self) -> TaskTerminationCfg:
-           return TaskTerminationCfg(
-               success=[
-                   CompletionCriteria(name="wait", predicate_sequence=[self.has_reached_step_count]),
-               ],
-               timeout_s=self.episode_length_s,
-           )
-
-       def has_reached_step_count(self, env):
-           return env.episode_length_buf >= self.num_steps_for_success
-
-Imports and the required ``get_scene_cfg()``, ``get_events_cfg()``, and ``get_mimic_env_cfg()``
-methods are omitted here. See the
-`complete example <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py>`_
-for their definitions.
+.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
+   :language: python
+   :pyobject: SuccessAfterNStepsTask
 
 Defining a Custom Embodiment
 ----------------------------
@@ -54,23 +30,9 @@ In this example, we keep things simple by subclassing an existing embodiment
 (``FrankaIKEmbodiment``) and overriding some joint PD gains to produce a more compliant
 arm:
 
-.. code-block:: python
-
-   # my_package/isaaclab_arena_environments/my_environment_with_task.py
-
-
-   @register_asset
-   class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
-       """Franka IK embodiment with halved joint PD gains."""
-
-       registry_name = "franka_ik_soft"
-
-       def __init__(self, **kwargs):
-           super().__init__(**kwargs)
-           for actuator_name in ("panda_shoulder", "panda_forearm"):
-               actuator = self.scene_config.robot.actuators[actuator_name]
-               actuator.stiffness = 200.0
-               actuator.damping = 40.0
+.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
+   :language: python
+   :pyobject: SoftFrankaIKEmbodiment
 
 The ``@register_asset`` decorator registers the class with the
 ``AssetRegistry`` under its ``registry_name``, ``"franka_ik_soft"``, so it can be fetched
@@ -95,63 +57,9 @@ Putting It All Together
 Here we create an example environment, like in :doc:`external_environments`. This time it passes
 the custom task, the custom embodiment, and the two episode recorder terms to ``IsaacLabArenaEnvironment``.
 
-.. code-block:: python
-
-   # my_package/isaaclab_arena_environments/my_environment_with_task.py
-
-   @dataclass
-   class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
-       """Configure the external Franka table environment with a custom task."""
-
-       object: str = "cracker_box"
-       """Registered name of the object placed on the table."""
-
-
-   class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
-
-       name: str = "franka_table_with_task"
-
-       def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
-           """Build the environment from its config."""
-           from isaaclab_arena.assets.object_reference import ObjectReference
-           from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-           from isaaclab_arena.relations.relations import IsAnchor, On
-           from isaaclab_arena.scene.scene import Scene
-
-           background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-           light = self.asset_registry.get_asset_by_name("light")()
-           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
-           embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")(enable_cameras=cfg.enable_cameras)
-
-           table_reference = ObjectReference(
-               name="table",
-               prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
-               parent_asset=background,
-           )
-           table_reference.add_relation(IsAnchor())
-           pick_up_object.add_relation(On(table_reference))
-
-           scene = Scene(assets=[background, table_reference, pick_up_object, light])
-
-           task = SuccessAfterNStepsTask(
-               num_steps_for_success=50,
-               episode_length_s=10.0,
-           )
-
-           return IsaacLabArenaEnvironment(
-               name=self.name,
-               embodiment=embodiment,
-               scene=scene,
-               task=task,
-               episode_recorder_terms={
-                   "object_final_height": EpisodeRecorderTermCfg(
-                       func=record_object_final_height, params={"object_name": pick_up_object.name}
-                   ),
-                   "object_peak_speed": EpisodeRecorderTermCfg(
-                       func=ObjectPeakSpeed, params={"object_name": pick_up_object.name}
-                   ),
-               },
-           )
+.. literalinclude:: ../../../isaaclab_arena_examples/external_environments/advanced.py
+   :language: python
+   :start-at: @dataclass
 
 To run it, pass the factory class to ``--external_environment_class_path``, followed by the
 environment name and its flags. For example, with a zero-action policy:
@@ -170,12 +78,8 @@ import.
 
 .. note::
 
-    The environment above is actually located in ``isaaclab_arena_examples/external_environments/advanced.py``.
-    So this environment is located in the Isaac Lab - Arena source-tree, but isn't included
-    in the built in environments, so must be called through the external environment syntax.
-    This is done to demonstrate how this would be done in an external codebase.
-
-    The environment can be run with:
+    The example is not a built-in environment, so it also runs through
+    ``--external_environment_class_path`` from the Arena source tree:
 
     .. code-block:: bash
 
