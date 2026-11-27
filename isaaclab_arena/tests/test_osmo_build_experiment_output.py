@@ -50,6 +50,7 @@ def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, objec
         "environment": {
             "name": environment_name,
             "definition": f"definitions/{environment_name}.yaml",
+            "tags": ["pick_and_place"],
         },
         "policy_variant": policy_variant,
     }
@@ -354,6 +355,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert first_run_result["environment"] == {
         "name": "first-environment",
         "definition": "definitions/first-environment.yaml",
+        "tags": ["pick_and_place"],
     }
     assert first_run_result["policy_variant"] == "pi05"
     assert first_run_result["status"] == "completed"

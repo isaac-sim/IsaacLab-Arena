@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_spatial_pepper_in_middle_bowl_scandinavian
+tags:
+- pick_and_place
+- spatial_reasoning
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

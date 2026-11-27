@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_lightwheel_open_fridge
+tags:
+- open_door
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

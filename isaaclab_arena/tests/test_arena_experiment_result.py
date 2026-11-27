@@ -34,11 +34,13 @@ def _metadata(
     *,
     policy_variant: str = "pi05",
     status: str = "completed",
+    tags: list[str] | None = None,
 ) -> dict:
     return {
         "environment": {
             "name": environment_name,
             "definition": f"environments/{environment_name}.yaml",
+            "tags": tags or [],
         },
         "policy_variant": policy_variant,
         "status": status,
@@ -75,7 +77,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
     result = ArenaExperimentResult.from_run_outputs(
         tmp_path,
         {
-            "completed": _metadata("completed_task"),
+            "completed": _metadata("completed_task", tags=["pick_and_place"]),
             "failed": _metadata("failed_task", status="failed"),
         },
         experiment_name=EXPERIMENT_NAME,
@@ -89,6 +91,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 "environment": {
                     "name": "completed_task",
                     "definition": "environments/completed_task.yaml",
+                    "tags": ["pick_and_place"],
                 },
                 "policy_variant": "pi05",
                 "status": "completed",
@@ -104,6 +107,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 "environment": {
                     "name": "failed_task",
                     "definition": "environments/failed_task.yaml",
+                    "tags": [],
                 },
                 "policy_variant": "pi05",
                 "status": "failed",
@@ -255,7 +259,7 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
     monkeypatch.setattr(
         arena_env_graph_yaml_loader,
         "load_env_graph_spec_dict",
-        lambda path: {"env_name": "banana_in_bowl"},
+        lambda path: {"env_name": "banana_in_bowl", "tags": ["pick_and_place"]},
     )
     run_cfg = _RunCfg(
         environment=_GraphEnvironmentCfg("configs/../tasks/banana_in_bowl.yaml"),
@@ -266,14 +270,23 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
         "environment": {
             "name": "banana_in_bowl",
             "definition": "configs/../tasks/banana_in_bowl.yaml",
+            "tags": ["pick_and_place"],
         },
         "policy_variant": "Pi0.5-Exact",
     }
 
 
+def test_records_empty_tags_for_a_graph_environment_without_tags(monkeypatch):
+    monkeypatch.setattr(arena_env_graph_yaml_loader, "load_env_graph_spec_dict", lambda path: {"env_name": "untagged"})
+    run_cfg = _RunCfg(environment=_GraphEnvironmentCfg("untagged.yaml"), policy=_PolicyCfg(policy_variant="pi05"))
+
+    assert build_arena_run_result_metadata(run_cfg)["environment"]["tags"] == []
+
+
 def test_builds_registered_environment_and_policy_metadata(monkeypatch):
     class _EnvironmentFactory:
         name = "registered_environment"
+        tags = ("open_door",)
 
     class _Policy:
         name = "registered_policy"
@@ -293,6 +306,7 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
         "environment": {
             "name": "registered_environment",
             "definition": "registered_environment",
+            "tags": ["open_door"],
         },
         "policy_variant": "registered_policy",
     }

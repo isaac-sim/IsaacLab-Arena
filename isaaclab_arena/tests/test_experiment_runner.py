@@ -187,7 +187,7 @@ def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monke
         arena_experiment_result,
         "build_arena_run_result_metadata",
         lambda run_cfg: {
-            "environment": {"name": "env", "definition": "env"},
+            "environment": {"name": "env", "definition": "env", "tags": []},
             "policy_variant": "zero_action",
         },
     )
@@ -261,6 +261,7 @@ runs:
     assert run_result["environment"] == {
         "name": "pick_and_place_maple_table",
         "definition": "pick_and_place_maple_table",
+        "tags": [],
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"

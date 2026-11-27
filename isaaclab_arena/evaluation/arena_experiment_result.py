@@ -53,11 +53,18 @@ class ArenaRebuildResultData(TypedDict):
     episodes: list[ArenaEpisodeResultData]
 
 
+class ArenaRunEnvironmentData(TypedDict):
+    """Environment a Run evaluated."""
+
+    name: str
+    definition: str
+    tags: list[str]
+
+
 class ArenaExperimentRunData(TypedDict):
     """Data stored for one configured Run in an Arena Experiment result."""
 
-    environment: dict[str, str]
-    """Maps ``name`` and ``definition`` to the Run's environment name and definition."""
+    environment: ArenaRunEnvironmentData
 
     policy_variant: str
     status: str
@@ -259,6 +266,7 @@ class ArenaExperimentResult:
             "environment": {
                 "name": environment["name"],
                 "definition": environment["definition"],
+                "tags": list(environment["tags"]),
             },
             "policy_variant": run_metadata["policy_variant"],
             "status": status,
@@ -300,6 +308,7 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
             environment_graph.get("env_name"),
             f"env_name in graph environment definition {environment_definition!r}",
         )
+        environment_tags = list(environment_graph.get("tags") or [])
     else:
         environment_factory_type = EnvironmentRegistry().get_factory_type_for_cfg(environment_cfg)
         environment_name = _require_nonempty_string(
@@ -307,6 +316,7 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
             f"registered environment name for {type(environment_cfg).__name__}",
         )
         environment_definition = environment_name
+        environment_tags = list(environment_factory_type.tags)
 
     configured_policy_variant = getattr(run_cfg.policy, "policy_variant", None)
     if isinstance(configured_policy_variant, str) and configured_policy_variant.strip():
@@ -322,6 +332,7 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
         "environment": {
             "name": environment_name,
             "definition": environment_definition,
+            "tags": environment_tags,
         },
         "policy_variant": policy_variant,
     }

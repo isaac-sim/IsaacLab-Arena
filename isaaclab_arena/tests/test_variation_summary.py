@@ -24,7 +24,7 @@ def test_groups_hdr_episodes_across_rebuilds_and_ranks_per_completed_run(tmp_pat
     for run_name, status in (("first", "completed"), ("second", "completed"), ("failed", "failed")):
         (tmp_path / run_name).mkdir()
         metadata[run_name] = {
-            "environment": {"name": "task", "definition": "task"},
+            "environment": {"name": "task", "definition": "task", "tags": []},
             "policy_variant": "zero_action",
             "status": status,
             "start_timestamp_ns": 1792799000000000000,

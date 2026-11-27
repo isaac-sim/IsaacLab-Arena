@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_spatial_bagel_on_plate_left_of_mug_l_island
+tags:
+- pick_and_place
+- spatial_reasoning
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_lightwheel_press_right_toaster_cancel_button_g_shaped_large_scandinavian
+tags:
+- press_button
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

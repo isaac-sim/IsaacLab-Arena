@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_turn_blender008_one_wall_coastal
+tags:
+- turn_knob
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
