@@ -139,7 +139,7 @@ def test_experiment_runner_rejects_unknown_non_hydra_arguments():
 
 
 def run_experiment_runner(
-    experiment_config_path: str,
+    experiment_config_path: str | None,
     headless: bool = HEADLESS,
     extra_args: list[str] | None = None,
     capture_output: bool = False,
@@ -151,7 +151,7 @@ def run_experiment_runner(
     unless extra_args contains --continue_on_error.
 
     Args:
-        experiment_config_path: Path to the Experiment configuration file.
+        experiment_config_path: Path to the Experiment configuration file, or None to omit --experiment_config.
         headless: Whether to run in headless mode.
         extra_args: Additional Experiment Runner arguments.
         capture_output: Whether to capture and return the subprocess output.
@@ -161,8 +161,9 @@ def run_experiment_runner(
         The completed subprocess when output is captured, otherwise None.
     """
     args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/experiment_runner.py"]
-    args.append("--experiment_config")
-    args.append(experiment_config_path)
+    if experiment_config_path is not None:
+        args.append("--experiment_config")
+        args.append(experiment_config_path)
     args.extend(extra_args or [])
     if not headless:
         args.append("--viz")
@@ -175,6 +176,24 @@ def read_run_statuses(experiment_output_directory: Path) -> dict[str, str]:
     """Return each Run's status from an Experiment's result file."""
     experiment_result = ArenaExperimentResult.from_experiment_output(experiment_output_directory)
     return {run_name: run_data["status"] for run_name, run_data in experiment_result.runs.items()}
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_runs_an_experiment_given_only_on_the_command_line(tmp_path):
+    experiment_output_directory = tmp_path / "command-line-experiment"
+
+    run_experiment_runner(
+        None,
+        extra_args=[
+            "runs.quick.environment.type=cube_goal_pose",
+            "runs.quick.policy.type=zero_action",
+            "runs.quick.rollout_limit.num_steps=2",
+            "--experiment_output_directory",
+            str(experiment_output_directory),
+        ],
+    )
+
+    assert read_run_statuses(experiment_output_directory) == {"quick": "completed"}
 
 
 def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):

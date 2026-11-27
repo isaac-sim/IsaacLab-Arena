@@ -18,12 +18,12 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--experiment_config",
         type=str,
-        default=_DEFAULT_EXPERIMENT_CONFIG_PATH,
+        default=None,
         help=(
-            "Path to a typed YAML Experiment. "
-            "Use shared.<path>=<value> to change a default for every Run, or "
-            "runs.<name>.<path>=<value> to change one Run. Shared values must already be declared in the YAML; "
-            "Hydra's +, ++, and ~ operators are not supported for them."
+            "Path to a typed YAML Experiment. Use shared.<path>=<value> to change a default for every Run, or "
+            "runs.<name>.<path>=<value> to set a value in one Run; overrides cannot add a Run to the file. "
+            "Without this option, the overrides are the whole Experiment. "
+            "Without this option and without overrides, the smoke test Experiment runs."
         ),
     )
     parser.add_argument(
@@ -82,6 +82,24 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Continue evaluation with remaining Runs when a Run fails instead of stopping immediately.",
     )
+
+
+def select_experiment_config_path(experiment_config: str | None, experiment_overrides: list[str]) -> Path | None:
+    """Return the Experiment file to load, or None when the command-line overrides are the whole Experiment.
+
+    Args:
+        experiment_config: Value of ``--experiment_config``, or None when it was not given.
+        experiment_overrides: Hydra override tokens from the command line.
+
+    Returns:
+        The given file, the smoke test file when there is neither a file nor overrides, otherwise None. The file is
+        checked when it is read.
+    """
+    if experiment_config is not None:
+        return Path(experiment_config)
+    if not experiment_overrides:
+        return Path(_DEFAULT_EXPERIMENT_CONFIG_PATH)
+    return None
 
 
 def parse_experiment_runner_args(argv: list[str] | None = None) -> tuple[argparse.Namespace, list[str]]:

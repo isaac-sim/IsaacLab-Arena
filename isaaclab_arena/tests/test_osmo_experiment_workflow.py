@@ -192,6 +192,45 @@ def test_explicit_experiment_composes_typed_defaults():
     assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
 
 
+def test_experiment_cfg_override_changes_a_run_type():
+    """Apply an ``experiment_cfg.runs`` override to the Experiment values, so it can change a Run's policy type."""
+    # The OpenPI policy keys do not exist on ZeroActionPolicyCfg, so the whole policy section is replaced.
+    submission_cfg = _compose_submission([f"experiment_cfg.runs.{OPENPI_RUN_NAME}.policy={{type:zero_action}}"])
+
+    assert isinstance(submission_cfg.experiment_cfg.runs[OPENPI_RUN_NAME].policy, ZeroActionPolicyCfg)
+
+
+def test_plus_on_experiment_cfg_shared_override_is_accepted(tmp_path):
+    """Treat ``+experiment_cfg.shared...`` as a plain assignment, even for a path the Experiment lacks."""
+    experiment_config_path = tmp_path / "experiment.yaml"
+    experiment_config_path.write_text("""
+shared:
+  environment:
+    type: pick_and_place_maple_table
+    embodiment: droid_rel_joint_pos
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_episodes: 1
+runs:
+  first: {}
+  second: {}
+""")
+
+    submission_cfg = _compose_submission(
+        ["+experiment_cfg.shared.rollout_limit.num_steps=7", "~experiment_cfg.shared.rollout_limit.num_episodes"],
+        experiment_config_path,
+    )
+
+    assert {run.rollout_limit.num_steps for run in submission_cfg.experiment_cfg.runs.values()} == {7}
+
+
+def test_unknown_run_in_experiment_cfg_override_lists_the_runs():
+    """Reject an override for a Run the file does not declare, naming the declared Runs."""
+    with pytest.raises(AssertionError, match=f"not declared.*{OPENPI_RUN_NAME}"):
+        _compose_submission(["experiment_cfg.runs.no_such_run.rollout_limit.num_episodes=1"])
+
+
 @pytest.mark.parametrize("config_path", ["osmo.not_a_field", "experiment_runner.not_a_field", "servers"])
 def test_hydra_rejects_unknown_typed_config_fields(config_path):
     """Let the structured Hydra root reject fields outside their owning config."""
@@ -621,7 +660,7 @@ def test_osmo_workflow_cfg_has_no_kpi_exporters_field():
 
 def test_null_experiment_name_fails_submission():
     """Reject experiment_cfg.name=null, because an Experiment must have a name."""
-    with pytest.raises(Exception, match="experiment_cfg.name=null"):
+    with pytest.raises(AssertionError, match="Experiment 'name' must be a string"):
         _compose_submission(["experiment_cfg.name=null"])
 
 

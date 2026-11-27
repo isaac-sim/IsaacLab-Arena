@@ -12,13 +12,10 @@ import pytest
 
 from isaaclab_arena.evaluation import arena_experiment_config_loader, experiment_runner
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_experiment_config_loader import (
-    load_arena_experiment_from_config_file,
-    validate_experiment_config_path,
-)
+from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
-from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args, select_experiment_config_path
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
@@ -283,9 +280,11 @@ def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
 
     # The default path is relative to the repository root, where the documented command runs.
     monkeypatch.chdir(TestConstants.repo_root)
-    args_cli, _ = parse_experiment_runner_args([])
+    args_cli, experiment_overrides = parse_experiment_runner_args([])
 
-    experiment_cfg = load_arena_experiment_from_config_file(args_cli.experiment_config, device="cuda:0")
+    experiment_cfg = load_arena_experiment_from_config_file(
+        select_experiment_config_path(args_cli.experiment_config, experiment_overrides), device="cuda:0"
+    )
 
     assert list(experiment_cfg.runs) == ["smoke_test"]
     smoke_test_run = experiment_cfg.runs["smoke_test"]
@@ -314,7 +313,7 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
         return _experiment_cfg()
 
     monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
-    monkeypatch.setattr(experiment_runner, "load_arena_experiment_from_config_file", load_experiment_after_startup)
+    monkeypatch.setattr(experiment_runner, "build_arena_experiment", load_experiment_after_startup)
     monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
     monkeypatch.setattr(
         "sys.argv",
@@ -329,6 +328,35 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
     experiment_runner.main()
 
 
+def test_experiment_runner_rejects_a_run_without_a_type_before_simulation_starts(monkeypatch, tmp_path):
+    class _SimulationAppContext:
+        def __init__(self, _args_cli):
+            pass
+
+        def __enter__(self):
+            raise AssertionError("SimulationApp must not start for an invalid Experiment")
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            pass
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    # --record_camera_video enables cameras by itself, so the Experiment must still be read before startup.
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--record_camera_video",
+            "--output_base_dir",
+            str(tmp_path),
+            "runs.smoke_test.rollout_limit.num_steps=200",
+        ],
+    )
+
+    with pytest.raises(AssertionError, match=r"Run 'smoke_test': missing 'environment\.type'"):
+        experiment_runner.main()
+    assert not any(tmp_path.iterdir())
+
+
 def test_camera_support_invariant_holds_for_composed_runs():
     experiment_cfg = _experiment_cfg(enable_cameras=True)
 
@@ -339,14 +367,45 @@ def test_camera_support_invariant_holds_for_composed_runs():
     _assert_camera_support_enabled(_experiment_cfg(enable_cameras=False), enable_cameras=False)
 
 
+QUICK_RUN_OVERRIDES = [
+    "runs.quick.environment.type=pick_and_place_maple_table",
+    "runs.quick.policy.type=zero_action",
+]
+
+
 @pytest.mark.parametrize(
-    ("experiment_config_path", "expected_enable_cameras"),
-    [(CAMERA_SENSITIVITY_YAML_PATH, True), (GETTING_STARTED_YAML_PATH, False)],
+    ("experiment_config_path", "overrides", "expected_enable_cameras"),
+    [
+        pytest.param(CAMERA_SENSITIVITY_YAML_PATH, [], True, id="file_enables"),
+        pytest.param(GETTING_STARTED_YAML_PATH, [], False, id="file_disables"),
+        pytest.param(
+            GETTING_STARTED_YAML_PATH,
+            ["runs.baseline.environment.enable_cameras=true"],
+            True,
+            id="run_override_enables",
+        ),
+        pytest.param(
+            GETTING_STARTED_YAML_PATH, ["shared.environment.enable_cameras=true"], True, id="shared_override_enables"
+        ),
+        pytest.param(
+            CAMERA_SENSITIVITY_YAML_PATH,
+            ["runs.droid_pnp_camera_sensitivity_openpi.environment.enable_cameras=false"],
+            False,
+            id="run_override_disables",
+        ),
+        pytest.param(
+            None,
+            [*QUICK_RUN_OVERRIDES, "runs.quick.environment.enable_cameras=true"],
+            True,
+            id="command_line_enables",
+        ),
+        pytest.param(None, QUICK_RUN_OVERRIDES, False, id="command_line_default"),
+    ],
 )
-def test_typed_experiment_enables_camera_support_from_its_config(
-    monkeypatch, experiment_config_path, expected_enable_cameras
+def test_experiment_enables_camera_support_from_its_values(
+    monkeypatch, experiment_config_path, overrides, expected_enable_cameras
 ):
-    """A typed Experiment that declares cameras must not also need --enable_cameras on the CLI."""
+    """An Experiment whose Runs enable cameras, in the file or by override, must not also need --enable_cameras."""
     launched_with_cameras = None
 
     class _SimulationAppContext:
@@ -363,19 +422,12 @@ def test_typed_experiment_enables_camera_support_from_its_config(
     monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
     monkeypatch.setattr(
         experiment_runner,
-        "load_arena_experiment_from_config_file",
+        "build_arena_experiment",
         lambda *_args, **_kwargs: _experiment_cfg(enable_cameras=expected_enable_cameras),
     )
     monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "experiment_runner.py",
-            "--experiment_config",
-            str(experiment_config_path),
-            "--list_variations",
-        ],
-    )
+    config_arguments = [] if experiment_config_path is None else ["--experiment_config", str(experiment_config_path)]
+    monkeypatch.setattr("sys.argv", ["experiment_runner.py", *config_arguments, "--list_variations", *overrides])
 
     experiment_runner.main()
 
@@ -407,4 +459,4 @@ def test_unknown_experiment_config_file_type_is_rejected(tmp_path, file_name):
     config_path.write_text("", encoding="utf-8")
 
     with pytest.raises(AssertionError, match="must be a YAML file"):
-        validate_experiment_config_path(config_path)
+        load_arena_experiment_from_config_file(config_path, device="cpu")

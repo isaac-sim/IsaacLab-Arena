@@ -5,6 +5,7 @@
 
 """Test Hydra composition of typed YAML Experiments."""
 
+import re
 import yaml
 from dataclasses import replace
 from pathlib import Path
@@ -18,33 +19,38 @@ from hydra.core.global_hydra import GlobalHydra
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import RolloutLimitCfg
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
-from isaaclab_arena.hydra.typed_experiment_loader import (
-    load_arena_experiment_from_yaml,
-    load_experiment_run_definitions_from_yaml,
-    split_shared_run_default_overrides,
-)
+from isaaclab_arena.hydra.experiment_values import read_experiment_values
+from isaaclab_arena.hydra.typed_experiment_loader import build_typed_experiment
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
+from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicyCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena_environments.kitchen_pick_and_place_environment import KitchenPickAndPlaceEnvironmentCfg
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
-ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "robolab" / "experiment_configs"
+QUICK_RUN_OVERRIDES = ["runs.quick.environment.type=pick_and_place_maple_table", "runs.quick.policy.type=zero_action"]
+"""Overrides that define a complete Run named quick without an Experiment file."""
+DEFAULT_EXPERIMENT_NAME_PATTERN = r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_experiment"
+"""Name of an Experiment without a file and without a name override: a timestamp and ``_experiment``."""
 
 
-def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[ZeroActionPolicyCfg]:
-    return {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path]
+def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
+    return {"replay": ReplayActionPolicyCfg, "zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path]
 
 
-def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
-    return load_arena_experiment_from_yaml(
-        config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+def _load_experiment(config_path: str | Path | None, overrides: list[str] | None = None):
+    return build_typed_experiment(
+        read_experiment_values(config_path, overrides),
+        environment_cfg_types={
+            "kitchen_pick_and_place": KitchenPickAndPlaceEnvironmentCfg,
+            "pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg,
+        },
         policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
-        overrides=overrides,
     )
 
 
@@ -250,7 +256,8 @@ runs:
     assert second_run.environment.light_intensity == 650.0
     assert second_run.environment_builder.num_envs == 2
     assert second_run.variations["camera"]["enabled"] is False
-    with pytest.raises(ValueError, match="missing"):
+    # A shared key the Run config does not have fails when the Run is composed.
+    with pytest.raises(ValueError, match=r"Key 'missing' not in 'ArenaRunCfg'"):
         _load_experiment(config_path, overrides=["shared.missing=true"])
 
 
@@ -284,45 +291,14 @@ runs:
     assert runs["per_rebuild"].rollout_limit == RolloutLimitCfg(num_episodes_per_rebuild=[3, 1])
 
 
-@pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
-@pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
-def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
-    override_prefix = f"{experiment_config_prefix}." if experiment_config_prefix else ""
-    override = f"{operator}{override_prefix}shared.rollout_limit.num_steps{assignment}"
-
-    with pytest.raises(AssertionError, match="uses an unsupported Hydra operator"):
-        split_shared_run_default_overrides([override], experiment_config_prefix)
-
-
-@pytest.mark.parametrize(
-    ("config_name", "expected_run_count"),
-    [
-        ("robolab_18_tasks_pi0_and_cosmos.yaml", 36),
-        ("robolab_20_tasks_pi0_and_cosmos.yaml", 40),
-    ],
-)
-def test_robolab_experiments_apply_shared_run_defaults(config_name, expected_run_count):
-    config_path = ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY / config_name
-
-    default_run_values = load_experiment_run_definitions_from_yaml(config_path)
-    enabled_run_values = load_experiment_run_definitions_from_yaml(
-        config_path,
-        shared_default_overrides=["shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true"],
+def test_run_rollout_limit_override_replaces_shared_rollout_limit():
+    # baseline declares no rollout_limit, so the override becomes its own limit instead of joining shared num_episodes.
+    experiment_cfg = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH, overrides=["runs.baseline.rollout_limit.num_steps=5"]
     )
 
-    assert len(default_run_values) == expected_run_count
-    assert len(enabled_run_values) == expected_run_count
-    assert all(run["environment"]["enable_cameras"] for run in default_run_values.values())
-    assert all(run["environment_builder"]["num_envs"] == 20 for run in default_run_values.values())
-    assert all(run["rollout_limit"]["num_episodes"] == 100 for run in default_run_values.values())
-    assert not any(
-        run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
-        for run in default_run_values.values()
-    )
-    assert all(
-        run["variations"]["droid_abs_joint_pos"]["camera_extrinsics_wrist_camera"]["enabled"]
-        for run in enabled_run_values.values()
-    )
+    assert experiment_cfg.runs["baseline"].rollout_limit == RolloutLimitCfg(num_steps=5)
+    assert experiment_cfg.runs["change_background_hdr"].rollout_limit == RolloutLimitCfg(num_episodes=1)
 
 
 def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
@@ -538,7 +514,7 @@ def test_recorded_variations_workflow_accepts_cli_timeout_override(config_name, 
     assert baseline.environment_builder.env_cfg_override == {}
 
     run = _load_experiment(
-        config_path, overrides=[f"+runs.{run_name}.environment_builder.env_cfg_override={{episode_length_s:1.0}}"]
+        config_path, overrides=[f"runs.{run_name}.environment_builder.env_cfg_override={{episode_length_s:1.0}}"]
     ).runs[run_name]
     assert run.environment_builder.env_cfg_override == {"episode_length_s": 1.0}
     assert run.environment == baseline.environment
@@ -747,13 +723,6 @@ def test_shared_values_must_be_a_mapping(tmp_path):
         _load_experiment(config_path)
 
 
-def test_experiment_requires_at_least_one_run(tmp_path):
-    config_path = _write_experiment(tmp_path, "runs: {}\n")
-
-    with pytest.raises(AssertionError, match="must define at least one Run"):
-        _load_experiment(config_path)
-
-
 def test_run_name_must_be_non_empty(tmp_path):
     config_path = _write_experiment(tmp_path, 'runs:\n  "": {}\n')
 
@@ -823,43 +792,138 @@ runs:
         _load_experiment(config_path)
 
 
-def test_run_mapping_key_cannot_be_overridden(tmp_path):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-runs:
-  maple_table:
-    environment:
-      type: pick_and_place_maple_table
-    policy:
-      type: zero_action
-""",
+def test_override_changes_a_run_environment_type_and_sets_its_fields():
+    experiment_from_file = _load_experiment(GETTING_STARTED_EXPERIMENT_PATH)
+
+    experiment_cfg = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH,
+        overrides=[
+            "runs.baseline.environment.type=kitchen_pick_and_place",
+            "runs.baseline.environment.object=mustard_bottle",
+            "runs.baseline.environment.embodiment=franka_joint_pos",
+        ],
     )
 
-    with pytest.raises(AssertionError, match="cannot be overridden"):
-        _load_experiment(config_path, overrides=["runs.maple_table.name=other_name"])
+    # The baseline Run does not inherit the maple-table fields under shared.environment.
+    assert experiment_cfg.runs["baseline"].environment == KitchenPickAndPlaceEnvironmentCfg(
+        object="mustard_bottle",
+        embodiment="franka_joint_pos",
+    )
+    assert experiment_cfg.runs["baseline"].policy == ZeroActionPolicyCfg()
+    for run_name in ["swap_objects", "change_background_hdr", "parallel_envs"]:
+        assert isinstance(experiment_cfg.runs[run_name].environment, PickAndPlaceMapleTableEnvironmentCfg)
+        assert experiment_cfg.runs[run_name] == experiment_from_file.runs[run_name]
 
 
-def test_unknown_hydra_override_is_rejected(tmp_path):
-    config_path = _write_experiment(
-        tmp_path,
-        """
-runs:
-  maple_table:
-    environment:
-      type: pick_and_place_maple_table
-    policy:
-      type: zero_action
-""",
+def test_override_switches_policy_to_one_with_a_required_field():
+    experiment_cfg = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH,
+        overrides=["runs.baseline.policy.type=replay", "runs.baseline.policy.replay_file_path=demo.hdf5"],
     )
 
-    with pytest.raises(ValueError, match="unknown_field"):
-        _load_experiment(config_path, overrides=["runs.maple_table.environment.unknown_field=true"])
+    assert experiment_cfg.runs["baseline"].policy == ReplayActionPolicyCfg(replay_file_path="demo.hdf5")
+    assert experiment_cfg.runs["swap_objects"].policy == ZeroActionPolicyCfg()
 
 
-def test_hydra_override_cannot_add_run():
-    with pytest.raises(ValueError, match="Error merging override"):
+def test_experiment_from_the_command_line_alone():
+    experiment_cfg = _load_experiment(None, overrides=[*QUICK_RUN_OVERRIDES, "runs.quick.rollout_limit.num_steps=50"])
+
+    assert re.fullmatch(DEFAULT_EXPERIMENT_NAME_PATTERN, experiment_cfg.name)
+    assert list(experiment_cfg.runs) == ["quick"]
+    quick_run = experiment_cfg.runs["quick"]
+    assert quick_run.environment == PickAndPlaceMapleTableEnvironmentCfg()
+    assert quick_run.policy == ZeroActionPolicyCfg()
+    assert quick_run.rollout_limit == RolloutLimitCfg(num_steps=50)
+
+
+def test_type_switch_of_a_run_with_fields_of_the_old_type_needs_a_mapping():
+    # swap_objects writes destination_location, which the kitchen environment does not have.
+    with pytest.raises(ValueError, match=r"(?s)Run 'swap_objects': .*not in 'KitchenPickAndPlaceEnvironmentCfg'"):
         _load_experiment(
-            GETTING_STARTED_EXPERIMENT_PATH,
-            overrides=["+runs.new_run={environment:{type:pick_and_place_maple_table},policy:{type:zero_action}}"],
+            GETTING_STARTED_EXPERIMENT_PATH, overrides=["runs.swap_objects.environment.type=kitchen_pick_and_place"]
         )
+
+    # A mapping value replaces the Run's whole environment section.
+    runs = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH, overrides=["runs.swap_objects.environment={type:kitchen_pick_and_place}"]
+    ).runs
+
+    assert runs["swap_objects"].environment == KitchenPickAndPlaceEnvironmentCfg()
+
+
+@pytest.mark.parametrize(
+    ("config_path", "overrides", "exception_type", "error"),
+    [
+        pytest.param(
+            None,
+            [*QUICK_RUN_OVERRIDES, "runs.quick.environment.unknown_field=true"],
+            ValueError,
+            rf"(?s)Could not compose Arena Experiment '{DEFAULT_EXPERIMENT_NAME_PATTERN}': "
+            r"Run 'quick': .*unknown_field",
+            id="unknown_field_without_a_file",
+        ),
+        pytest.param(
+            GETTING_STARTED_EXPERIMENT_PATH,
+            ["runs.baseline.environment.ligth_intensity=5"],
+            ValueError,
+            r"(?s)Run 'baseline': .*Key 'ligth_intensity' not in",
+            id="misspelled_field",
+        ),
+        # swap_objects declares num_episodes, so setting num_steps gives it two kinds of limit.
+        pytest.param(
+            GETTING_STARTED_EXPERIMENT_PATH,
+            ["runs.swap_objects.rollout_limit.num_steps=5"],
+            AssertionError,
+            r"Run 'swap_objects': num_steps is mutually exclusive",
+            id="two_kinds_of_limit",
+        ),
+        # swap_objects runs 3 episodes, too few for 5 rebuilds. The message names the Run once.
+        pytest.param(
+            GETTING_STARTED_EXPERIMENT_PATH,
+            ["runs.swap_objects.num_rebuilds=5"],
+            AssertionError,
+            r"^Run 'swap_objects': num_episodes \(3\) must be >= num_rebuilds \(5\)",
+            id="too_few_episodes_for_the_rebuilds",
+        ),
+    ],
+)
+def test_typed_run_build_error_names_the_run(config_path, overrides, exception_type, error):
+    with pytest.raises(exception_type, match=error):
+        _load_experiment(config_path, overrides)
+
+
+def test_graph_spec_path_set_by_override_builds_legacy_cfg():
+    graph_spec_path = "isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml"
+
+    experiment_cfg = _load_experiment(
+        GETTING_STARTED_EXPERIMENT_PATH,
+        overrides=[f"runs.baseline.environment.type={graph_spec_path}"],
+    )
+
+    # The path differs from the shared environment type, so no maple-table fields become graph overrides.
+    assert experiment_cfg.runs["baseline"].environment == LegacyGraphEnvironmentCfg(env_spec_path=graph_spec_path)
+
+
+def test_interpolation_set_by_override_resolves_at_composition(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  first:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    environment_builder:
+      num_envs: 2
+    rollout_limit:
+      num_episodes: 4
+""",
+    )
+
+    experiment_cfg = _load_experiment(
+        config_path,
+        overrides=["runs.first.rollout_limit={num_steps:${environment_builder.num_envs}}"],
+    )
+
+    assert experiment_cfg.runs["first"].rollout_limit == RolloutLimitCfg(num_steps=2)

@@ -3,14 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load typed Arena Experiments through Hydra."""
+"""Build typed Arena Experiments through Hydra from the values of an Experiment."""
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from hydra import compose, initialize
@@ -27,10 +25,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
     from isaaclab_arena.policy.policy_base import PolicyCfg
 
-RUN_FIELDS_REPLACING_SHARED = frozenset({"rollout_limit"})
-"""Run fields that replace the shared value as a whole when a Run declares them, instead of merging into it.
-A rollout limit is one choice among exclusive fields, so merging two limits of different kinds would combine both."""
-
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     """Initialize Hydra only when composition has no caller-owned context.
@@ -43,51 +37,40 @@ def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
     return initialize(version_base=None, config_path=None)
 
 
-def load_arena_experiment_from_yaml(
-    yaml_path: str | Path,
+def build_typed_experiment(
+    experiment_values: dict[str, Any],
     *,
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
-    overrides: list[str] | None = None,
 ) -> ArenaExperimentCfg:
-    """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
+    """Build an Arena Experiment Definition with typed named Runs from the Experiment's values.
 
-    Each entry in the runs mapping declares one Run using its key as the Run
-    name. The environment.type selector chooses from the supplied mapping, or
-    names a graph-spec YAML path; policy.type is resolved when its Run is built.
-    Hydra overrides can update shared Run defaults or fields on Runs declared in YAML, but cannot add Runs.
-    Shared defaults are applied before Run overrides. The Experiment name is the file's top-level ``name`` or,
-    when it has none, the file stem. The optional top-level ``kpi_exporters`` list selects the KPI exporters; an override
-    ``kpi_exporters=[<x>,<y>]`` replaces it, and the default applies when the file has none.
+    Each Run's environment.type and policy.type select its typed configs. environment.type may also name a
+    graph-spec YAML path.
 
     Args:
-        yaml_path: Path to the Arena Experiment YAML file.
+        experiment_values: The values returned by read_experiment_values, with ``shared`` merged into each Run.
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
-        overrides: Hydra field overrides for shared Run defaults, the KPI exporters, or Runs already declared in YAML.
 
     Returns:
-        The typed Experiment Definition, preserving YAML mapping declaration order.
+        The typed Experiment Definition, preserving Run declaration order.
     """
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 
-    shared_default_overrides, run_overrides = split_shared_run_default_overrides(overrides or [])
-    run_values_by_name = load_experiment_run_definitions_from_yaml(
-        yaml_path,
-        shared_default_overrides=shared_default_overrides,
-    )
-    default_experiment_name = _read_experiment_name_from_yaml_or_stem(yaml_path)
-    yaml_kpi_exporters = _read_kpi_exporters_from_yaml(yaml_path)
-    # A file without kpi_exporters keeps the ArenaExperimentCfg default.
-    kpi_exporters_kwargs = {} if yaml_kpi_exporters is None else {"kpi_exporters": yaml_kpi_exporters}
+    # An Experiment without kpi_exporters keeps the ArenaExperimentCfg default.
+    kpi_exporters_kwargs = {}
+    if "kpi_exporters" in experiment_values:
+        kpi_exporters_kwargs["kpi_exporters"] = experiment_values["kpi_exporters"]
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
     hydra_config_namespace = "isaaclab_arena_typed_experiment_loader"
 
-    try:
-        with _get_new_hydra_context_if_none_exists():
-            arena_runs_by_name = {
-                run_name: _build_arena_run_cfg_from_yaml_values(
+    arena_runs_by_name = {}
+    with _get_new_hydra_context_if_none_exists():
+        for index, (run_name, run_values) in enumerate(experiment_values["runs"].items()):
+            try:
+                arena_runs_by_name[run_name] = _build_arena_run_cfg(
                     config_store,
                     hydra_config_namespace,
                     index,
@@ -96,157 +79,16 @@ def load_arena_experiment_from_yaml(
                     environment_cfg_types,
                     policy_cfg_type_resolver,
                 )
-                for index, (run_name, run_values) in enumerate(run_values_by_name.items())
-            }
-            hydra_experiment_config_name = f"{hydra_config_namespace}_root"
-            config_store.store(
-                name=hydra_experiment_config_name,
-                node=ArenaExperimentCfg(
-                    runs=arena_runs_by_name,
-                    name=default_experiment_name,
-                    **kpi_exporters_kwargs,
-                ),
-            )
-            composed_experiment = compose(config_name=hydra_experiment_config_name, overrides=run_overrides)
-            experiment_cfg = OmegaConf.to_object(composed_experiment)
-    except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
-        raise ValueError(f"Could not compose Arena Experiment '{yaml_path}': {exc}") from exc
-
-    assert isinstance(experiment_cfg, ArenaExperimentCfg)
-    return experiment_cfg
+            except AssertionError as exc:
+                raise AssertionError(f"Run '{run_name}': {exc}") from exc
+            except (HydraException, OmegaConfBaseException, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Could not compose Arena Experiment '{experiment_values['name']}': Run '{run_name}': {exc}"
+                ) from exc
+    return ArenaExperimentCfg(runs=arena_runs_by_name, name=experiment_values["name"], **kpi_exporters_kwargs)
 
 
-def _read_experiment_name_from_yaml_or_stem(yaml_path: str | Path) -> str:
-    """Return the top-level name of an Arena Experiment YAML file, or the file stem when it has none."""
-    raw_experiment_config = OmegaConf.load(Path(yaml_path))
-    experiment_name = raw_experiment_config.get("name")
-    assert experiment_name is None or isinstance(
-        experiment_name, str
-    ), f"Experiment 'name' must be a string, got {experiment_name!r}"
-    return experiment_name if experiment_name is not None else Path(yaml_path).stem
-
-
-def _read_kpi_exporters_from_yaml(yaml_path: str | Path) -> list[str] | None:
-    """Return the top-level kpi_exporters of an Arena Experiment YAML file, or None when it has none."""
-    raw_experiment_config = OmegaConf.load(Path(yaml_path))
-    if "kpi_exporters" not in raw_experiment_config:
-        return None
-    assert OmegaConf.is_list(
-        raw_experiment_config.kpi_exporters
-    ), f"Experiment 'kpi_exporters' must be a list of names, got {raw_experiment_config.kpi_exporters!r}"
-    return OmegaConf.to_container(raw_experiment_config.kpi_exporters)
-
-
-def _assert_run_name_is_hydra_compatible(run_name: str) -> None:
-    """Check that a Run name can be used directly in a Hydra override path."""
-    assert re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", run_name), (
-        f"Experiment Run name '{run_name}' must start with a letter or underscore and contain only letters, "
-        "numbers, underscores, or hyphens"
-    )
-
-
-def split_shared_run_default_overrides(
-    overrides: list[str],
-    experiment_config_prefix: str = "",
-) -> tuple[list[str], list[str]]:
-    """Split overrides into shared Run defaults and all remaining overrides.
-
-    Args:
-        overrides: Command-line overrides rooted at an Arena Experiment Definition.
-        experiment_config_prefix: Optional path to the Experiment within an outer configuration.
-            Matching shared overrides have this prefix removed before they are applied to the Experiment YAML.
-
-    Returns:
-        Shared Run-default overrides followed by all remaining overrides, preserving order within each group.
-    """
-    experiment_override_prefix = f"{experiment_config_prefix}." if experiment_config_prefix else ""
-    shared_override_prefix = f"{experiment_override_prefix}shared."
-    shared_default_overrides: list[str] = []
-    remaining_overrides: list[str] = []
-    for override in overrides:
-        override_without_hydra_operator = override.lstrip("+~")
-        is_shared_default_override = override_without_hydra_operator.startswith(shared_override_prefix)
-
-        # NOTE(cvolk, 2026-08-07): Shared defaults are applied before Hydra composes the
-        # typed Experiment, so Hydra's +, ++, and ~ operators are not available here.
-        # This restriction can be removed once Hydra composes the complete Experiment.
-        assert override == override_without_hydra_operator or not is_shared_default_override, (
-            f"Shared Run-default override '{override}' uses an unsupported Hydra operator. "
-            f"Use '{shared_override_prefix}<path>=<value>'; the path must already be declared "
-            "under 'shared' in the Experiment YAML."
-        )
-
-        if is_shared_default_override:
-            shared_default_overrides.append(override.removeprefix(experiment_override_prefix))
-        else:
-            remaining_overrides.append(override)
-    return shared_default_overrides, remaining_overrides
-
-
-def load_experiment_run_definitions_from_yaml(
-    yaml_path: str | Path,
-    shared_default_overrides: list[str] | None = None,
-) -> dict[str, dict[str, Any]]:
-    """Read an Arena Experiment YAML file and return its Run values by name.
-
-    Values below ``shared`` are defaults for every Run. Shared overrides update
-    those defaults before each Run is merged over them. A Run field listed in
-    ``RUN_FIELDS_REPLACING_SHARED`` replaces the shared value instead. Interpolations remain
-    unresolved for the environment, policy, or Run composition stage that owns
-    them.
-
-    Args:
-        yaml_path: Path to the Arena Experiment YAML file.
-        shared_default_overrides: Hydra overrides already separated for the optional shared Run defaults.
-
-    Returns:
-        Run names mapped to their YAML values, in mapping declaration order.
-    """
-    path = Path(yaml_path)
-    assert path.suffix.lower() in {".yaml", ".yml"}, f"Experiment config must be YAML, got '{path}'"
-    assert path.is_file(), f"Experiment config does not exist: '{path}'"
-
-    try:
-        raw_experiment_config = OmegaConf.load(path)
-    except OmegaConfBaseException as exc:
-        raise ValueError(f"Could not load Experiment YAML '{path}': {exc}") from exc
-    assert OmegaConf.is_dict(raw_experiment_config), "Experiment config must be a mapping"
-
-    unknown_fields = sorted(set(raw_experiment_config.keys()) - {"name", "kpi_exporters", "runs", "shared"})
-    assert not unknown_fields, f"Unknown Experiment fields: {', '.join(unknown_fields)}"
-    if "shared" in raw_experiment_config:
-        assert OmegaConf.is_dict(raw_experiment_config.shared), "Experiment 'shared' must be a mapping"
-    assert "runs" in raw_experiment_config, "Experiment config is missing the 'runs' field"
-    assert OmegaConf.is_dict(
-        raw_experiment_config.runs
-    ), "Experiment 'runs' must be a mapping from Run names to Run configurations"
-    assert raw_experiment_config.runs, "Experiment must define at least one Run"
-
-    try:
-        shared_defaults_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
-        OmegaConf.set_struct(shared_defaults_config, True)
-        shared_defaults_config.merge_with_dotlist(shared_default_overrides or [])
-        shared_run_defaults = OmegaConf.to_container(shared_defaults_config.shared, resolve=False)
-        assert isinstance(shared_run_defaults, dict)
-
-        runs: dict[str, dict[str, Any]] = {}
-        for run_name, raw_run_config in raw_experiment_config.runs.items():
-            assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
-            _assert_run_name_is_hydra_compatible(run_name)
-            assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
-            replaced_fields = RUN_FIELDS_REPLACING_SHARED & set(raw_run_config.keys())
-            run_defaults = {key: value for key, value in shared_run_defaults.items() if key not in replaced_fields}
-            merged_run_config = OmegaConf.merge(run_defaults, raw_run_config)
-            run_values = OmegaConf.to_container(merged_run_config, resolve=False)
-            assert isinstance(run_values, dict)
-            assert "name" not in run_values, f"Run '{run_name}' must not define 'name'; its mapping key is the Run name"
-            runs[run_name] = run_values
-    except (OmegaConfBaseException, TypeError, ValueError) as exc:
-        raise ValueError(f"Could not apply shared Run defaults in Arena Experiment '{yaml_path}': {exc}") from exc
-    return runs
-
-
-def _build_arena_run_cfg_from_yaml_values(
+def _build_arena_run_cfg(
     config_store: ConfigStore,
     hydra_config_namespace: str,
     index: int,
@@ -255,13 +97,13 @@ def _build_arena_run_cfg_from_yaml_values(
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
 ) -> ArenaRunCfg:
-    """Build one typed Arena Run from its unresolved YAML values.
+    """Build one typed Arena Run from its unresolved values.
 
     Args:
         config_store: Hydra store used for the temporary typed schemas.
         hydra_config_namespace: Unique prefix for this Experiment's temporary Hydra configs.
-        index: Position of the Run in YAML declaration order.
-        run_name: Name declared by the Run's YAML mapping key.
+        index: Position of the Run in declaration order.
+        run_name: Name of the Run, its key under ``runs``.
         run_values: Values declared for the Run after applying shared defaults.
         environment_cfg_types: Environment selectors mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
@@ -273,31 +115,24 @@ def _build_arena_run_cfg_from_yaml_values(
     from isaaclab_arena.policy.policy_base import PolicyCfg
 
     remaining_values = dict(run_values)
-    environment_values = remaining_values.pop("environment", None)
-    policy_values = remaining_values.pop("policy", None)
+    environment_values = remaining_values.pop("environment")
+    policy_values = remaining_values.pop("policy")
 
     hydra_run_config_name = f"{hydra_config_namespace}_run_{index}"
     hydra_environment_config_name = f"{hydra_run_config_name}_environment"
     hydra_policy_config_name = f"{hydra_run_config_name}_policy"
-    environment = _build_environment_cfg_from_yaml_values(
+    environment = _build_environment_cfg(
         config_store,
         hydra_environment_config_name,
-        run_name,
         environment_values,
         environment_cfg_types,
     )
-    policy_cfg_types: dict[str, type[PolicyCfg]] = {}
-    if isinstance(policy_values, dict):
-        policy_selector = policy_values.get("type")
-        if isinstance(policy_selector, str) and policy_selector:
-            policy_cfg_types[policy_selector] = policy_cfg_type_resolver(policy_selector)
-    policy = _compose_typed_config_from_yaml_selector(
+    policy = _compose_typed_config(
         config_store,
         hydra_policy_config_name,
-        run_name,
         "policy",
         policy_values,
-        policy_cfg_types,
+        policy_cfg_type_resolver(policy_values["type"]),
         PolicyCfg,
     )
 
@@ -312,10 +147,9 @@ def _build_arena_run_cfg_from_yaml_values(
     return run
 
 
-def _build_environment_cfg_from_yaml_values(
+def _build_environment_cfg(
     config_store: ConfigStore,
     hydra_environment_config_name: str,
-    run_name: str,
     environment_values: dict[str, Any],
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
 ) -> ArenaEnvironmentCfg:
@@ -326,31 +160,33 @@ def _build_environment_cfg_from_yaml_values(
     """
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 
-    if _is_environment_graph_yaml_spec(environment_values):
-        env_spec_path = _graph_spec_yaml_path(environment_values)
+    environment_type = environment_values["type"]
+    if environment_type.lower().endswith((".yaml", ".yml")):
         per_run_overrides = {
             field_name: value for field_name, value in environment_values.items() if field_name != "type"
         }
-        return _graph_environment_cfg_from_yaml_values(env_spec_path, per_run_overrides)
-    else:
-        return _compose_typed_config_from_yaml_selector(
-            config_store,
-            hydra_environment_config_name,
-            run_name,
-            "environment",
-            environment_values,
-            environment_cfg_types,
-            ArenaEnvironmentCfg,
-        )
+        return _build_graph_environment_cfg(environment_type, per_run_overrides)
+    available_types = ", ".join(sorted(environment_cfg_types)) or "(none)"
+    assert (
+        environment_type in environment_cfg_types
+    ), f"unknown environment type '{environment_type}'. Available types: {available_types}"
+    return _compose_typed_config(
+        config_store,
+        hydra_environment_config_name,
+        "environment",
+        environment_values,
+        environment_cfg_types[environment_type],
+        ArenaEnvironmentCfg,
+    )
 
 
 # TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this factory when graph-YAML
 # environments have a typed configuration and no longer use the argparse compatibility path.
-def _graph_environment_cfg_from_yaml_values(
+def _build_graph_environment_cfg(
     env_spec_path: str,
     per_run_overrides: dict[str, Any],
 ) -> LegacyGraphEnvironmentCfg:
-    """Create the temporary graph-YAML compatibility config from typed YAML Run values.
+    """Create the temporary graph-YAML compatibility config from a Run's environment values.
 
     The path and environment values are stored structured and rendered into CLI tokens for
     the existing graph-environment argparse path on demand at execution; the Run's
@@ -366,57 +202,31 @@ def _graph_environment_cfg_from_yaml_values(
     )
 
 
-def _is_environment_graph_yaml_spec(environment_values: Any) -> bool:
-    """Return whether a Run's environment.type names a graph-spec YAML path."""
-    return _graph_spec_yaml_path(environment_values) is not None
-
-
-def _graph_spec_yaml_path(environment_values: Any) -> str | None:
-    """Return the environment.type value when it names a graph-spec YAML path, else None."""
-    if not isinstance(environment_values, dict):
-        return None
-    environment_type = environment_values.get("type")
-    if isinstance(environment_type, str) and environment_type.lower().endswith((".yaml", ".yml")):
-        return environment_type
-    return None
-
-
-def _compose_typed_config_from_yaml_selector(
+def _compose_typed_config(
     config_store: ConfigStore,
     hydra_config_name: str,
-    run_name: str,
     section_name: str,
-    section_values_with_selector: dict[str, Any],
-    cfg_types: dict[str, type[Any]],
+    section_values: dict[str, Any],
+    cfg_type: type[Any],
     expected_base_type: type[Any],
 ) -> Any:
-    """Resolve one YAML type selector into a concrete typed configuration.
+    """Compose one Run section into an instance of the typed configuration class its ``type`` selects.
 
-    The value under type selects a class from cfg_types. All remaining
-    values are composed and validated against that class by Hydra.
+    Hydra validates every value of the section except ``type`` against ``cfg_type``.
 
     Args:
         config_store: Hydra store used for the temporary typed schema.
         hydra_config_name: Unique name for the temporary Hydra config.
-        run_name: Run containing the selected environment or policy.
-        section_name: YAML section being composed, such as environment or policy.
-        section_values_with_selector: YAML field values for the section, including its type selector.
-        cfg_types: Available selector names mapped to typed configuration classes.
+        section_name: Section being composed: environment or policy.
+        section_values: Field values of the section, including its ``type``.
+        cfg_type: Typed configuration class selected by the section's ``type``.
         expected_base_type: Base class that the selected configuration must inherit.
 
     Returns:
-        An instance of the selected concrete configuration class.
+        An instance of ``cfg_type``.
     """
-    assert isinstance(section_values_with_selector, dict), f"Run '{run_name}' must define '{section_name}' as a mapping"
-    values = section_values_with_selector.copy()
-    selector = values.pop("type", None)
-    assert isinstance(selector, str) and selector, f"Run '{run_name}' is missing '{section_name}.type'"
-    available = ", ".join(sorted(cfg_types)) or "(none)"
-    assert (
-        selector in cfg_types
-    ), f"Run '{run_name}' selects unknown {section_name} type '{selector}'. Available types: {available}"
-
-    cfg_type = cfg_types[selector]
+    values = dict(section_values)
+    selector = values.pop("type")
     assert isinstance(cfg_type, type) and issubclass(cfg_type, expected_base_type), (
         f"Configuration type registered for {section_name} selector '{selector}' "
         f"must inherit from {expected_base_type.__name__}"
