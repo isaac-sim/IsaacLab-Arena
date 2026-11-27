@@ -157,5 +157,5 @@ def add_external_environments_cli_args(parser: argparse.ArgumentParser) -> None:
         "--external_environment_class_path",
         type=str,
         default=None,
-        help="Name of the external environment to run",
+        help="Module path and class name of an external environment factory, as module_path.ClassName.",
     )

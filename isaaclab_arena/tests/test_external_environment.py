@@ -15,9 +15,9 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 NUM_STEPS = 2
 
-EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment"
+EXTERNAL_ENV_BASIC_IMPORT_PATH = "isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment"
 EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
-    "isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment"
+    "isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment"
 )
 
 
@@ -25,14 +25,17 @@ def _test_external_environment_registration_callback(_) -> bool:
     """Verify the Isaac Lab callback registers an externally defined Arena environment."""
     import gymnasium as gym
 
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
     from isaaclab_arena.environments.isaaclab_interop import environment_registration_callback
 
+    # Only --external_environment_class_path may import the module, or this test would pass without the flag.
+    assert not EnvironmentRegistry().is_registered("franka_table_with_task")
     callback_args = [
         "external_environment_interop_test",
         "--task",
-        "franka_table",
+        "franka_table_with_task",
         "--external_environment_class_path",
-        EXTERNAL_ENV_BASIC_IMPORT_PATH,
+        EXTERNAL_ENV_ADVANCED_IMPORT_PATH,
         "--object",
         "cracker_box",
     ]
@@ -40,7 +43,7 @@ def _test_external_environment_registration_callback(_) -> bool:
         remaining_args = environment_registration_callback()
 
     assert remaining_args == []
-    assert gym.spec("franka_table").id == "franka_table"
+    assert gym.spec("franka_table_with_task").id == "franka_table_with_task"
     return True
 
 

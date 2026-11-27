@@ -14,8 +14,9 @@ def test_import_class_from_dotted_path():
     assert import_class_from_path("pathlib.Path") is Path
 
 
-def test_import_class_with_a_different_separator():
-    assert import_class_from_path("pathlib:Path", separator=":") is Path
+def test_import_class_rejects_a_colon_with_the_dotted_form():
+    with pytest.raises(AssertionError, match=r"Class path 'pathlib:Path' uses ':'\. .*'pathlib\.Path'"):
+        import_class_from_path("pathlib:Path")
 
 
 @pytest.mark.parametrize(

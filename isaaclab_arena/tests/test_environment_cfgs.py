@@ -11,19 +11,24 @@ exercise that boundary without constructing an Isaac Sim environment.
 """
 
 import argparse
+import sys
+import textwrap
 from dataclasses import fields, is_dataclass
+from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
+from isaaclab_arena.cli.isaaclab_arena_cli import add_external_environments_cli_args
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena_environments.cli import (
     _environment_cfg_from_cli,
     add_environment_cli_args,
+    add_example_environments_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
+    import_external_environment_factory,
 )
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
 from isaaclab_arena_environments.gr1_table_multi_object_no_collision_environment import (
     GR1TableMultiObjectNoCollisionEnvironment,
@@ -155,31 +160,121 @@ def test_build_environment_from_cli_calls_typed_build(monkeypatch):
     assert captured["environment_cfg"] == PickAndPlaceMapleTableEnvironmentCfg(light_intensity=750.0)
 
 
-def test_build_environment_from_cli_keeps_external_legacy_path():
-    """Dispatch an external compatibility factory through its own argparse methods."""
-    expected_environment = object()
+# Factories loaded from these modules stay in EnvironmentRegistry after their test. Their config
+# gives every field a default, so tests that parse each registered environment's default flags pass.
+_EXTERNAL_FACTORY_MODULE_TEMPLATE = """
+from dataclasses import dataclass
 
-    class LegacyExternalEnvironment(ExampleEnvironmentBase):
-        name = "legacy_external"
+from isaaclab_arena.assets.register import register_environment
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
-        def __init__(self):
-            pass
 
-        @staticmethod
-        def add_cli_args(parser):
-            parser.add_argument("--selection", default="default")
+@dataclass
+class ExternalEnvironmentCfg(ArenaEnvironmentCfg):
+    object: str = "cracker_box"
 
-        def get_env(self, args_cli):
-            assert args_cli.selection == "custom"
-            return expected_environment
 
+{decorator}
+class ExternalEnvironment(ArenaEnvironmentFactory[ExternalEnvironmentCfg]):
+    name = "{environment_name}"
+
+    def build(self, cfg):
+        raise NotImplementedError
+"""
+
+
+def _write_external_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, module_name: str, source: str) -> None:
+    """Write an importable module that only the code under test imports."""
+    (tmp_path / f"{module_name}.py").write_text(textwrap.dedent(source), encoding="utf-8")
+    monkeypatch.syspath_prepend(tmp_path)
+    assert module_name not in sys.modules
+
+
+def _write_external_factory_module(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    module_name: str,
+    environment_name: str,
+    decorate: bool = True,
+) -> str:
+    """Write a module with one external environment factory and return its ``module.Class`` path."""
+    source = _EXTERNAL_FACTORY_MODULE_TEMPLATE.format(
+        decorator="@register_environment" if decorate else "",
+        environment_name=environment_name,
+    )
+    _write_external_module(tmp_path, monkeypatch, module_name, source)
+    return f"{module_name}.ExternalEnvironment"
+
+
+@pytest.mark.parametrize("decorate", [True, False])
+def test_external_environment_flag_registers_the_factory(tmp_path, monkeypatch, decorate):
+    """Load an external factory, decorated or not, only through --external_environment_class_path and parse its flags."""
+    environment_name = "decorated_external_environment" if decorate else "undecorated_external_environment"
+    module_name = f"{environment_name}_module"
+    environment_class_path = _write_external_factory_module(
+        tmp_path, monkeypatch, module_name, environment_name, decorate=decorate
+    )
+    ensure_environments_registered()
+    assert not EnvironmentRegistry().is_registered(environment_name)
+
+    cli_args = ["--external_environment_class_path", environment_class_path, environment_name, "--object", "mug"]
+    monkeypatch.setattr(sys, "argv", ["environment_runner.py", *cli_args])
     parser = argparse.ArgumentParser(exit_on_error=False)
-    add_environment_cli_args(parser, LegacyExternalEnvironment)
-    legacy_arguments = parser.parse_args(["--selection", "custom"])
+    add_external_environments_cli_args(parser)
+    add_example_environments_cli_args(parser)
+    legacy_arguments = parser.parse_args(cli_args)
 
-    environment = build_environment_from_cli(LegacyExternalEnvironment, legacy_arguments)
+    external_module = sys.modules[module_name]
+    environment_factory_type = EnvironmentRegistry().get_component_by_name(environment_name)
+    assert environment_factory_type is external_module.ExternalEnvironment
+    assert legacy_arguments.example_environment == environment_name
+    environment_cfg = _environment_cfg_from_cli(environment_factory_type, legacy_arguments)
+    assert environment_cfg == external_module.ExternalEnvironmentCfg(object="mug")
 
-    assert environment is expected_environment
+
+def test_external_environment_flag_returns_the_same_factory_on_repeated_imports(tmp_path, monkeypatch):
+    """Return the registered factory again when the same class path is imported a second time."""
+    environment_class_path = _write_external_factory_module(
+        tmp_path, monkeypatch, "repeated_external_environment_module", "repeated_external_environment"
+    )
+
+    first_factory_type = import_external_environment_factory(environment_class_path)
+    second_factory_type = import_external_environment_factory(environment_class_path)
+
+    assert second_factory_type is first_factory_type
+    assert EnvironmentRegistry().get_component_by_name("repeated_external_environment") is first_factory_type
+
+
+def test_external_environment_flag_rejects_a_name_taken_by_another_factory(tmp_path, monkeypatch):
+    """Name the factory that already owns a name instead of replacing it."""
+    environment_class_path = _write_external_factory_module(
+        tmp_path, monkeypatch, "taken_name_external_environment_module", "kitchen_pick_and_place"
+    )
+
+    with pytest.raises(
+        AssertionError,
+        match=(
+            "uses the name 'kitchen_pick_and_place', which is taken by"
+            r" isaaclab_arena_environments\.kitchen_pick_and_place_environment\.KitchenPickAndPlaceEnvironment"
+        ),
+    ):
+        import_external_environment_factory(environment_class_path)
+
+
+def test_external_environment_flag_rejects_a_class_that_is_not_a_factory(tmp_path, monkeypatch):
+    """Reject a class that does not subclass ArenaEnvironmentFactory."""
+    _write_external_module(
+        tmp_path,
+        monkeypatch,
+        "non_factory_external_environment_module",
+        """
+        class NotAnEnvironmentFactory:
+            name = "non_factory_external_environment"
+        """,
+    )
+
+    with pytest.raises(AssertionError, match="is not an ArenaEnvironmentFactory subclass"):
+        import_external_environment_factory("non_factory_external_environment_module.NotAnEnvironmentFactory")
 
 
 def test_maple_teleop_device_remains_a_cli_only_option():
