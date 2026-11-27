@@ -19,6 +19,8 @@ from isaaclab.utils.warp import ProxyArray
 from isaaclab_physx.renderers.isaac_rtx_renderer import IsaacRtxRenderData, IsaacRtxRenderer
 from isaaclab_physx.renderers.isaac_rtx_renderer_cfg import IsaacRtxRendererCfg
 
+from isaaclab_arena.utils.cameras import UNTILED_RENDERER
+
 if TYPE_CHECKING:
     from isaaclab.sensors.camera.camera_data import CameraData
 
@@ -107,7 +109,7 @@ def assert_camera_cfg_compatible_with_independent_rendering(camera_cfg: CameraCf
     assert camera_cfg.renderer_cfg.class_type in (
         IsaacRtxRendererCfg().class_type,
         IsaacRtxRenderer,
-        UnTiledIsaacRtxRenderer,
+        UNTILED_RENDERER,
     ), "Untiled Arena cameras cannot replace a custom renderer"
     assert camera_cfg.data_types and set(camera_cfg.data_types) <= {
         "rgb",

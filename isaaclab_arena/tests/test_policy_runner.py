@@ -77,6 +77,15 @@ def test_zero_action_policy():
     )
 
 
+@pytest.mark.with_newton
+def test_zero_action_policy_on_newton_without_kit():
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import STARTUP_COMPLETE_MARKER
+
+    args = [TestConstants.python_path, f"{TestConstants.evaluation_dir}/policy_runner.py", "--presets", "newton"]
+    args += ["--policy_type", "zero_action", "--num_steps", str(NUM_STEPS), "--num_envs", "2", "gear_insertion"]
+    assert STARTUP_COMPLETE_MARKER not in run_subprocess(args, capture_output=True).stderr
+
+
 @pytest.mark.with_subprocess
 def test_replay_policy():
     run_policy_runner(

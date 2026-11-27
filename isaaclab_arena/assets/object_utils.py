@@ -10,7 +10,7 @@ from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.utils.usd.helpers import get_prim_depth, is_articulation_root, is_rigid_body
+from isaaclab_arena.utils.usd.helpers import get_prim_depth, is_articulation_root, is_rigid_body, open_usd_file
 from isaaclab_arena.utils.usd.variants import apply_usd_variant_selections
 
 
@@ -40,7 +40,7 @@ def detect_object_type(
     assert usd_path is None or stage is None, "Either usd_path or stage must be provided"
     if usd_path is not None:
         # Open a stage to inspect the USD.
-        stage = Usd.Stage.Open(usd_path)
+        stage = open_usd_file(usd_path)
     # Select variants in the session layer, so the asset's layer, which other open stages share, stays unedited.
     with Usd.EditContext(stage, stage.GetSessionLayer()):
         apply_usd_variant_selections(stage, variants)

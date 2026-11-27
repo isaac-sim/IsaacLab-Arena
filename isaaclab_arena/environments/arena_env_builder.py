@@ -9,6 +9,7 @@ import datetime
 import gymnasium as gym
 from typing import TYPE_CHECKING, Any
 
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
@@ -16,6 +17,8 @@ from isaaclab.envs.mdp import time_out
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import ContactSensorCfg
+from isaaclab.utils.version import has_kit
 from isaaclab.visualizers import VisualizerCfg
 from isaaclab_newton.physics import NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
@@ -94,6 +97,20 @@ def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnv
     env_cfg.viewer = ViewerCfg()
 
 
+def _filter_static_contact_partners_by_shape(scene_cfg: InteractiveSceneCfg) -> None:
+    """Filter contact sensors whose partner is a static prim by the partner's collision shapes, for Newton.
+
+    Newton matches body filters against its rigid bodies only, and a static prim, such as a counter in the background,
+    has none. Static prims are the scene entries configured as a plain ``AssetBaseCfg``.
+    """
+    static_prim_paths = {cfg.prim_path for cfg in vars(scene_cfg).values() if type(cfg) is AssetBaseCfg}
+    for sensor_cfg in vars(scene_cfg).values():
+        if isinstance(sensor_cfg, ContactSensorCfg) and static_prim_paths & set(sensor_cfg.filter_prim_paths_expr):
+            # Each pattern matches the partner prim and every prim below it.
+            sensor_cfg.filter_shape_prim_expr = [f"{path}(/.*)?" for path in sensor_cfg.filter_prim_paths_expr]
+            sensor_cfg.filter_prim_paths_expr = []
+
+
 class ArenaEnvBuilder:
     """Build Isaac Lab configurations and registered environments from an Arena environment."""
 
@@ -159,6 +176,12 @@ class ArenaEnvBuilder:
                 "camera_renderer 'newton_warp' requires the Newton physics backend, but this build uses"
                 f" '{self.resolved_physics_backend}'. With PhysX, Newton Warp leaves cameras on robot links at their"
                 " start pose."
+            )
+        if self.cfg.camera_renderer is CameraRenderer.OVRTX and has_kit():
+            # OVRTX ships its own RTX libraries, which clash with Kit's in one process.
+            raise ValueError(
+                "camera_renderer 'ovrtx' cannot run with Kit. Use --presets newton and nothing that needs Kit, such"
+                " as --viz kit or XR."
             )
         embodiment = self.arena_env.embodiment
         if embodiment is not None and embodiment.camera_config is not None:
@@ -588,6 +611,7 @@ class ArenaEnvBuilder:
             # replicate_physics=False is not supported for Newton, so force it to True here.
             # submodules/IsaacLab/source/isaaclab/isaaclab/scene/interactive_scene_cfg.py:120
             env_cfg.scene.replicate_physics = True
+            _filter_static_contact_partners_by_shape(env_cfg.scene)
 
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
@@ -644,7 +668,8 @@ class ArenaEnvBuilder:
             A ``(name, cfg, env_kwargs)`` tuple.
         """
         install_empty_cpu_warp_to_torch_patch()
-        apply_arena_global_settings()
+        if has_kit():
+            apply_arena_global_settings()
         name = self.arena_env.name
         if env_cfg is None:
             env_cfg, env_kwargs = self.build_env_cfg()

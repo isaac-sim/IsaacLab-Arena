@@ -110,8 +110,8 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         choices=list(CameraRenderer),
         default=CameraRenderer.ISAAC_RTX,
         help=(
-            "Renderer of the embodiment cameras: 'isaac_rtx' or 'newton_warp'. 'newton_warp' requires Newton physics:"
-            " with PhysX, cameras on robot links stay at their start pose."
+            "Renderer of the embodiment cameras: 'isaac_rtx', 'newton_warp' or 'ovrtx'. 'newton_warp' and 'ovrtx'"
+            " require Newton physics; with --presets newton they need no Kit. 'ovrtx' cannot run with Kit."
         ),
     )
     arena_group.add_argument(

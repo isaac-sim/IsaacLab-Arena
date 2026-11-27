@@ -11,50 +11,56 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 from isaaclab_arena.utils.camera_renderer import CameraRenderer
 
 
-def _test_camera_rig_selects_newton_warp_for_every_camera(simulation_app):
+def _test_camera_rig_selects_renderer_for_every_camera(simulation_app, renderer):
     # The renderer configs import Kit modules, so they are imported after the SimulationApp starts.
-    from isaaclab_newton.renderers import NewtonWarpRendererCfg
     from isaaclab_physx.renderers import IsaacRtxRendererCfg
 
     from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
 
     source_rig = DroidCameraCfg()
-    # Use nondefault output settings to verify they carry over to Newton Warp.
+    # Use nondefault output settings to verify they carry over.
+    source_rig.wrist_camera.renderer_cfg.colorize_semantic_segmentation = False
     source_rig.wrist_camera.renderer_cfg.depth_clipping_behavior = "max"
     source_rig.wrist_camera.renderer_cfg.semantic_filter = "class:*"
-    source_rig.set_renderer(CameraRenderer.NEWTON_WARP)
+    source_rig.set_renderer(renderer)
     rig = source_rig.get_cfg()
 
     for camera_name in rig.camera_names():
         camera_cfg = getattr(rig, camera_name)
-        assert isinstance(camera_cfg.renderer_cfg, NewtonWarpRendererCfg)
+        assert camera_cfg.renderer_cfg.renderer_type == renderer
         assert camera_cfg.update_latest_camera_pose
         assert isinstance(getattr(source_rig, camera_name).renderer_cfg, IsaacRtxRendererCfg)
-    assert rig.wrist_camera.renderer_cfg.depth_clipping_behavior == "max"
-    assert rig.wrist_camera.renderer_cfg.semantic_filter == "class:*"
+    assert not rig.wrist_camera.renderer_cfg.colorize_semantic_segmentation
+    if renderer is CameraRenderer.NEWTON_WARP:
+        assert rig.wrist_camera.renderer_cfg.depth_clipping_behavior == "max"
+        assert rig.wrist_camera.renderer_cfg.semantic_filter == "class:*"
     return True
 
 
-def test_camera_rig_selects_newton_warp_for_every_camera():
-    """Render every camera with Newton Warp, keeping its output settings, and leave the source rig reusable."""
-    assert run_function_with_persistent_simulation_app(_test_camera_rig_selects_newton_warp_for_every_camera)
+@pytest.mark.parametrize("renderer", [CameraRenderer.NEWTON_WARP, CameraRenderer.OVRTX])
+def test_camera_rig_selects_renderer_for_every_camera(renderer):
+    """Render every camera with the renderer, keeping its output settings, and leave the source rig reusable."""
+    assert run_function_with_persistent_simulation_app(
+        _test_camera_rig_selects_renderer_for_every_camera, renderer=renderer
+    )
 
 
-def _test_camera_rig_rejects_newton_warp_for_untiled_cameras(simulation_app):
+def _test_camera_rig_rejects_untiled_cameras(simulation_app, renderer):
     from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
 
     rig = DroidCameraCfg()
     rig.set_use_tiled_camera(False)
-    rig.set_renderer(CameraRenderer.NEWTON_WARP)
+    rig.set_renderer(renderer)
 
-    with pytest.raises(AssertionError, match="Newton Warp renders tiled cameras only"):
+    with pytest.raises(AssertionError, match=f"{renderer} renders tiled cameras only"):
         rig.get_cfg()
     return True
 
 
-def test_camera_rig_rejects_newton_warp_for_untiled_cameras():
-    """Reject Newton Warp for untiled cameras, which only the Isaac RTX renderer provides."""
-    assert run_function_with_persistent_simulation_app(_test_camera_rig_rejects_newton_warp_for_untiled_cameras)
+@pytest.mark.parametrize("renderer", [CameraRenderer.NEWTON_WARP, CameraRenderer.OVRTX])
+def test_camera_rig_rejects_untiled_cameras(renderer):
+    """Reject Newton Warp and OVRTX for untiled cameras, which only the Isaac RTX renderer provides."""
+    assert run_function_with_persistent_simulation_app(_test_camera_rig_rejects_untiled_cameras, renderer=renderer)
 
 
 def _test_camera_rig_rejects_newton_warp_for_other_renderers(simulation_app):
@@ -66,7 +72,7 @@ def _test_camera_rig_rejects_newton_warp_for_other_renderers(simulation_app):
     rig.wrist_camera.renderer_cfg = NewtonWarpRendererCfg()
     rig.set_renderer(CameraRenderer.NEWTON_WARP)
 
-    with pytest.raises(AssertionError, match="Newton Warp replaces the Isaac RTX renderer"):
+    with pytest.raises(AssertionError, match="newton_warp replaces the Isaac RTX renderer"):
         rig.get_cfg()
     return True
 

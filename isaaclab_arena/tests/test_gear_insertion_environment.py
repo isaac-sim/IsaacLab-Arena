@@ -9,7 +9,9 @@ from contextlib import contextmanager
 
 import pytest
 
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 GEAR_NAME = "gear_insertion_medium_gear"
 BASE_NAME = "gear_insertion_base"
@@ -254,12 +256,10 @@ def test_gear_insertion_cameras_survive_episode_reset():
     )
 
 
-def _test_gear_insertion_newton_warp_cameras_follow_the_arm(simulation_app):
+def _test_gear_insertion_cameras_follow_the_arm(simulation_app, camera_renderer):
     import torch
 
-    from isaaclab_newton.renderers import NewtonWarpRendererCfg
-
-    with _gear_environment(enable_cameras=True, camera_renderer="newton_warp") as (env, _, _):
+    with _gear_environment(enable_cameras=True, camera_renderer=camera_renderer) as (env, _, _):
         base = env.unwrapped
         robot, wrist_camera = base.scene["robot"], base.scene["wrist_camera"]
         # The wrist camera is mounted on the gripper's base link.
@@ -270,7 +270,7 @@ def _test_gear_insertion_newton_warp_cameras_follow_the_arm(simulation_app):
             env.step(hold)
             for name in CAMERA_NAMES:
                 camera = base.scene[name]
-                assert isinstance(camera.cfg.renderer_cfg, NewtonWarpRendererCfg)
+                assert camera.cfg.renderer_cfg.renderer_type == camera_renderer
                 for frame in camera.data.output["rgb"].torch:
                     assert frame[..., :3].max() > frame[..., :3].min(), f"Camera {name} returned a blank frame."
 
@@ -283,8 +283,6 @@ def _test_gear_insertion_newton_warp_cameras_follow_the_arm(simulation_app):
             gripper_motion = robot.data.body_link_pos_w.torch[:, gripper_ids[0]] - gripper_start
             wrist_motion = wrist_camera.data.pos_w.torch - wrist_start
     assert (gripper_motion.norm(dim=-1) > 0.04).all(), f"The arm did not move: {gripper_motion}"
-    # Newton Warp renders from the camera poses in the camera data, so they must follow the gripper; a camera left at
-    # its initial pose would be off by the whole motion.
     assert torch.allclose(wrist_motion, gripper_motion, atol=0.01), f"{wrist_motion} != {gripper_motion}"
     return True
 
@@ -293,5 +291,23 @@ def _test_gear_insertion_newton_warp_cameras_follow_the_arm(simulation_app):
 @pytest.mark.with_cameras
 def test_gear_insertion_newton_warp_cameras_follow_the_arm():
     assert run_function_with_persistent_simulation_app(
-        _test_gear_insertion_newton_warp_cameras_follow_the_arm, enable_cameras=True
+        _test_gear_insertion_cameras_follow_the_arm, enable_cameras=True, camera_renderer="newton_warp"
     )
+
+
+@pytest.mark.with_newton
+def test_gear_insertion_ovrtx_cameras_follow_the_arm_without_kit():
+    """OVRTX cannot share a process with Kit, so it renders in a child process that starts no Kit."""
+    run_subprocess([TestConstants.python_path, __file__])
+
+
+if __name__ == "__main__":
+    from isaaclab.utils.version import has_kit
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+    args = ["--presets", "newton", "--enable_cameras", "--camera_renderer", "ovrtx"]
+    with SimulationAppContext(get_isaaclab_arena_cli_parser().parse_args(args)):
+        assert _test_gear_insertion_cameras_follow_the_arm(None, "ovrtx")
+        assert not has_kit()

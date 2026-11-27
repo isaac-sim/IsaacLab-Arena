@@ -47,9 +47,9 @@ def get_all_rigid_body_prim_paths(usd_path: str) -> list[str]:
         List of prim paths of all rigid bodies in the USD file
     """
     # Avoid loading pxr at module scope before SimulationApp starts, which happens in unit tests.
-    from pxr import Usd
+    from isaaclab_arena.utils.usd.helpers import open_usd_file
 
-    stage = Usd.Stage.Open(usd_path)
+    stage = open_usd_file(usd_path)
     if not stage:
         raise ValueError(f"Error: Could not open USD file at {usd_path}")
     return get_all_rigid_body_prim_paths_from_stage(stage)

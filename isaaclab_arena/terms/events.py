@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 import torch
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,19 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body, is_rigid_body
 from isaaclab_arena.utils.usd.prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
+
+logger = logging.getLogger(__name__)
+
+
+def _prim_path_on_stage(env: ManagerBasedEnv, prim_path: str, env_id: int) -> str:
+    """Return the prim's path, or the same prim's path in the first environment if this one has no USD prims.
+
+    Without Kit, only the first environment has USD prims. Newton copies its bodies into all the others.
+    """
+    if env.scene.stage.GetPrimAtPath(prim_path).IsValid():
+        return prim_path
+    env_prim_paths = env.scene.env_prim_paths
+    return prim_path.replace(env_prim_paths[env_id], env_prim_paths[0], 1)
 
 
 def _deformable_nodal_state_for_pose(
@@ -178,9 +192,7 @@ class ResetBackgroundPhysics(ManagerTermBase):
             # type for that case, so accept only their known error signatures.
             if not ResetBackgroundPhysics._is_unavailable_backend_error(exc):
                 raise
-            import carb
-
-            carb.log_warn(f"Skipping unavailable background {asset_kind} '{prim_path}': {exc}")
+            logger.warning("Skipping unavailable background %s '%s': %s", asset_kind, prim_path, exc)
             return None
         return asset
 
@@ -303,7 +315,8 @@ def write_root_velocity_to_sim(
         else:
             assert asset.__backend_name__ == "newton", f"Unsupported rigid backend: {asset.__backend_name__}"
             articulation_ids = wp.to_torch(view.articulation_ids).flatten()[env_ids].tolist()
-            prim_paths = [view.model.articulation_label[index] for index in articulation_ids]
+            labels = [view.model.articulation_label[index] for index in articulation_ids]
+            prim_paths = [_prim_path_on_stage(env, label, env_id) for label, env_id in zip(labels, env_ids.tolist())]
         dynamic_rows = []
         for row, prim_path in enumerate(prim_paths):
             rigid_prim = env.scene.stage.GetPrimAtPath(prim_path)

@@ -272,13 +272,10 @@ def load_usd_physics_roots(
     Returns:
         Physics object types keyed by sorted default-prim-relative paths.
     """
-    from isaaclab.utils.assets import retrieve_file_path
-
     from isaaclab_arena.utils.usd.helpers import open_stage, relative_path_from_default_prim
 
-    local_usd_path = retrieve_file_path(usd_path)
     roots: dict[str, ObjectType] = {}
-    with open_stage(local_usd_path) as stage:
+    with open_stage(usd_path) as stage:
         stage.Load()
         default_prim = stage.GetDefaultPrim()
         default_prim_path = str(default_prim.GetPath())
@@ -360,12 +357,9 @@ def load_usd_prim_tree(usd_path: str, prim_path: str | None = None) -> list[UsdP
     Returns:
         Sorted prim records with paths relative to the selected root.
     """
-    from isaaclab.utils.assets import retrieve_file_path
-
     from isaaclab_arena.utils.usd.helpers import open_stage
 
-    local_usd_path = retrieve_file_path(usd_path)
-    with open_stage(local_usd_path) as stage:
+    with open_stage(usd_path) as stage:
         stage.Load()
         if prim_path and prim_path.startswith("/"):
             absolute_path = prim_path

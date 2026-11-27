@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 import warp as wp
+from mujoco_warp import OverflowType
 
 from isaaclab_arena.utils.newton_buffer_monitor import NewtonBufferMonitor
 
@@ -51,6 +52,13 @@ def test_newton_buffer_limits(
     else:
         with pytest.raises(AssertionError, match=message):
             monitor.check()
+
+
+def test_solver_iteration_limits_do_not_abort() -> None:
+    monitor, data, _ = _make_monitor()
+    data.overflow.assign([OverflowType.ITERATIONS, OverflowType.LS_ITERATIONS])
+    monitor.record_solver_status()
+    monitor.check()
 
 
 def test_newton_collision_pipeline_capacity() -> None:

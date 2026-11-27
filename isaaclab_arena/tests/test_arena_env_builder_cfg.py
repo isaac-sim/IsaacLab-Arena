@@ -117,7 +117,7 @@ def test_builder_configuration_rejects_unknown_camera_resolution_modes(camera_re
         ArenaEnvBuilderCfg(camera_resolution_mode=camera_resolution_mode)
 
 
-@pytest.mark.parametrize("camera_renderer", ["isaac_rtx", "newton_warp"])
+@pytest.mark.parametrize("camera_renderer", ["isaac_rtx", "newton_warp", "ovrtx"])
 def test_builder_configuration_accepts_camera_renderer_strings(camera_renderer):
     """Convert plain value strings into the CameraRenderer enum, as done for the physics backend."""
     assert ArenaEnvBuilderCfg(camera_renderer=camera_renderer).camera_renderer is CameraRenderer(camera_renderer)
@@ -236,9 +236,14 @@ def _test_builder_applies_camera_renderer(simulation_app):
 
     with pytest.raises(AssertionError, match="requires the Newton physics backend"):
         ArenaEnvBuilder(arena_environment(PhysicsBackend.PHYSX), newton_warp_cfg)._apply_camera_renderer()
+    # This test runs in Kit, which OVRTX cannot share a process with.
+    with pytest.raises(ValueError, match="cannot run with Kit"):
+        ArenaEnvBuilder(
+            arena_environment(PhysicsBackend.NEWTON), ArenaEnvBuilderCfg(camera_renderer="ovrtx")
+        )._apply_camera_renderer()
     return True
 
 
 def test_builder_applies_camera_renderer():
-    """Pass the selected renderer to the embodiment camera rig, and reject Newton Warp without Newton physics."""
+    """Pass the selected renderer to the camera rig; reject Newton Warp without Newton physics and OVRTX in Kit."""
     assert run_function_with_persistent_simulation_app(_test_builder_applies_camera_renderer)

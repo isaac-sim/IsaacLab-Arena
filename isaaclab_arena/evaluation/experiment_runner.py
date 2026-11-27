@@ -130,7 +130,8 @@ def main():
         experiment_output_directory = Path(timestamped_run_dir(args_cli.output_base_dir))
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
-    with SimulationAppContext(args_cli):
+    # Each Run ends with teardown_simulation_app, which resets Kit's timeline and USD context.
+    with SimulationAppContext(args_cli, require_kit=True):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
         from isaaclab_arena.evaluation.arena_run import build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment

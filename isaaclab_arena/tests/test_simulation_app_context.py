@@ -79,3 +79,26 @@ def test_persistent_simulation_app_force_exit_preserves_test_result(
         persistent_simulation_app._close_persistent()
 
     assert exc_info.value.code == expected_exit_code
+
+
+NEWTON = ["--presets", "newton"]
+
+
+@pytest.mark.parametrize(
+    ("argv", "needs_kit"),
+    [
+        (NEWTON, False),
+        (NEWTON + ["--enable_cameras", "--camera_renderer", "newton_warp"], False),
+        (NEWTON + ["--enable_cameras", "--camera_renderer", "ovrtx"], False),
+        ([], True),
+        (["--presets", "physx"], True),
+        (NEWTON + ["--enable_cameras"], True),
+        (NEWTON + ["--viz", "kit"], True),
+        (NEWTON + ["--xr"], True),
+    ],
+)
+def test_launch_starts_kit_only_when_needed(argv, needs_kit):
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import _needs_kit
+
+    assert _needs_kit(get_isaaclab_arena_cli_parser().parse_args(argv), require_kit=False) == needs_kit
