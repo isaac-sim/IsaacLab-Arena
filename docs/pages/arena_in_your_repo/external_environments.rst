@@ -90,10 +90,6 @@ class ``MyEnvironment`` in ``my_package/my_environment.py``, it is
 ``my_package.my_environment.MyEnvironment``. The module must be importable, for example because your
 package is installed or on ``PYTHONPATH``.
 
-Each config field becomes a flag with the same name, such as ``--object``. Flags work for ``bool``,
-``int``, ``float``, and ``str`` fields, a ``Literal``, a ``str`` enum, an optional of these, and a
-list of ``int``, ``float``, or ``str``.
-
 The flag works the same way with the Environment Runner
 (``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
 environments through
