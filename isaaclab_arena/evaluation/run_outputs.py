@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Write the graph spec an Arena Run builds its environment from to the Run's output directory."""
+"""Write the files of an Arena Run's output directory."""
 
 from __future__ import annotations
 
@@ -12,10 +12,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
+from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg, load_graph_spec_from_graph
 
 if TYPE_CHECKING:
-    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+
+
+def write_run_outputs(run_cfg: ArenaRunCfg, run_output_dir: Path, result: ArenaRunResult) -> None:
+    """Write a completed Run's environment definition and timings to its output directory."""
+    write_run_environment_definition(run_cfg, run_output_dir)
+    write_run_timings(run_output_dir)
 
 
 def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path) -> Path | None:
