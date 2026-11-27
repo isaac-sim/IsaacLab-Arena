@@ -32,6 +32,7 @@ Guidelines for modifications:
 
 ## Contributors
 
+* Andras Polgar <azazdeaz, azazdeaz@gmail.com> (Artefacts)
 * Ashley Chow <ashchow@nvidia.com> (NVIDIA)
 * Hui Kang <hkang@nvidia.com> (NVIDIA)
 * Lance Li <Nyquist0, lancel@nvidia.com> (NVIDIA)
