@@ -354,6 +354,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert first_run_result["environment"] == {
         "name": "first-environment",
         "definition": "definitions/first-environment.yaml",
+        "tags": [],
     }
     assert first_run_result["policy_variant"] == "pi05"
     assert first_run_result["status"] == "completed"

@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_replicator_g_shape_mustard_on_wooden_block
+tags:
+- pick_and_place
+- stack
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

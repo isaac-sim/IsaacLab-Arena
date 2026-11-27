@@ -94,6 +94,16 @@ def test_graph_spec_parses_default_physics_backend():
     assert spec.default_physics_backend is PhysicsBackend.NEWTON
 
 
+def test_graph_spec_tags_default_empty_and_round_trip():
+    data = _minimal_env_graph_data()
+    assert ArenaEnvGraphSpec.from_dict(data).tags == []
+
+    data["tags"] = ["pick_and_place", "spatial_reasoning"]
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.tags == ["pick_and_place", "spatial_reasoning"]
+    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()).tags == spec.tags
+
+
 @pytest.mark.parametrize("object_type", [ObjectType.BASE, ObjectType.RIGID])
 def test_graph_spec_rejects_joint_defaults_on_non_articulation_reference(object_type):
     data = _minimal_env_graph_data()

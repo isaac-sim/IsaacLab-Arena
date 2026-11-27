@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_lightwheel_pick_apple_shelf_in_bowl_u_shaped_with_island_farmhouse2
+tags:
+- pick_and_place
+- multi_level
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

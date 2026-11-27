@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_replicator_l_island_bowl_sink
+tags:
+- pick_and_place
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos

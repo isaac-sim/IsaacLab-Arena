@@ -261,6 +261,7 @@ runs:
     assert run_result["environment"] == {
         "name": "pick_and_place_maple_table",
         "definition": "pick_and_place_maple_table",
+        "tags": [],
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"

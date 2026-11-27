@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: kitchen_bench_lightwheel_stack_soup_on_cracker_box_one_wall_coastal
+tags:
+- pick_and_place
+- stack
 embodiment:
   id: droid
   registry_name: droid_abs_joint_pos
