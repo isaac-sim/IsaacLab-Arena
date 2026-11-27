@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,9 +30,7 @@ def write_run_environment_definition(run_cfg: ArenaRunCfg, run_output_dir: Path)
     # Their config is already recorded in the Experiment definition.
     if not isinstance(run_cfg.environment, LegacyGraphEnvironmentCfg):
         return None
-    environment_definition = load_graph_spec_from_graph(run_cfg.environment).to_dict()
     run_output_dir.mkdir(parents=True, exist_ok=True)
     environment_definition_path = run_output_dir / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
-    with environment_definition_path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(environment_definition, f, sort_keys=False)
+    load_graph_spec_from_graph(run_cfg.environment).write_yaml(environment_definition_path)
     return environment_definition_path

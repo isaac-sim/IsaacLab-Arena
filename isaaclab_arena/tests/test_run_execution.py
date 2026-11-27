@@ -16,7 +16,7 @@ import pytest
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation import legacy_graph_environment_cli, run_execution
+from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
@@ -566,19 +566,7 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
 def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(monkeypatch, tmp_path):
     """A completed graph-YAML Run keeps its spec with overrides applied; a Python Run writes none."""
-    import argparse
-
-    from isaaclab_arena_environments.cli import add_cli_override_args
-
     graph_yaml_path = Path(__file__).parent / "test_data" / "pick_and_place_maple_table_env_graph.yaml"
-
-    def get_parser():
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--env_spec")
-        add_cli_override_args(parser, ArenaEnvGraphSpec.read_cli_override_specs(graph_yaml_path))
-        return parser
-
-    monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", get_parser)
 
     def build_and_run(run_cfg, output_dir, video_cfg):
         return ArenaRunResult(

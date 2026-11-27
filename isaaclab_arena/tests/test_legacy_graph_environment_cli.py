@@ -5,8 +5,8 @@
 
 """Test the argparse compatibility path that builds graph-spec environments for Runs."""
 
+import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.evaluation import legacy_graph_environment_cli
@@ -27,17 +27,11 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     environment_builder_cfg = ArenaEnvBuilderCfg()
     policy_cfg = ZeroActionPolicyCfg()
     hydra_overrides = ["light.intensity.enabled=true"]
-    parsed_args = SimpleNamespace(env_spec=str(graph_path))
     expected_arena_env = object()
     expected_builder = object()
     captured = {}
-
-    class _Parser:
-        def parse_args(self, arguments):
-            captured["arguments"] = arguments
-            return parsed_args
-
-    monkeypatch.setattr(legacy_graph_environment_cli, "get_isaaclab_arena_environments_cli_parser", lambda: _Parser())
+    # The Experiment Runner's command line names the Experiment, not the graph YAML.
+    monkeypatch.setattr(sys, "argv", ["experiment_runner.py", "--experiment_cfg", "experiment.yaml"])
 
     def get_arena_env(env_spec, args_cli):
         captured["env_spec"] = env_spec
@@ -67,9 +61,10 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     )
 
     assert builder is expected_builder
-    # True becomes a bare flag, other values a flag and value, and False is left out.
-    assert captured["arguments"] == ["--env_spec", str(graph_path), "--enable_cameras", "--object", "box"]
-    assert captured["args_cli"] is parsed_args
+    # The YAML's override flag parses although sys.argv has no --env_spec.
+    assert captured["args_cli"].object == "box"
+    assert captured["args_cli"].enable_cameras
+    assert not captured["args_cli"].mimic
     assert captured["env_spec"] == str(graph_path)
     # The typed builder config crosses the boundary directly instead of round-tripping through the argparse namespace.
     assert captured["builder_cfg"] is environment_builder_cfg
