@@ -19,13 +19,13 @@ from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
-from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
 )
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.evaluation.rollout import rollout_policy
+from isaaclab_arena.evaluation.run_outputs import write_run_outputs
 from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
@@ -95,14 +95,9 @@ def execute_experiment(
             continue
 
         print_timer_stats()
-        _write_run_outputs(run_output_dir, result)
+        write_run_outputs(run_cfg, run_output_dir, result)
         results.append(result)
     return results
-
-
-def _write_run_outputs(run_output_dir: Path, result: ArenaRunResult) -> None:
-    """Write a completed Run's timings to its output directory."""
-    write_run_timings(run_output_dir)
 
 
 def build_and_run(

@@ -5,17 +5,21 @@
 
 import json
 import time
+import yaml
 from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
     ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME,
     ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
@@ -558,6 +562,37 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+def test_execute_experiment_writes_the_graph_environment_definition_of_each_run(monkeypatch, tmp_path):
+    """A completed graph-YAML Run keeps its spec with overrides applied; a Python Run writes none."""
+    graph_yaml_path = Path(__file__).parent / "test_data" / "pick_and_place_maple_table_env_graph.yaml"
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        return ArenaRunResult(
+            run_name=run_cfg.name,
+            status=RunStatus.COMPLETED,
+            start_timestamp_ns=time.time_ns(),
+            end_timestamp_ns=time.time_ns(),
+        )
+
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    graph_environment_cfg = LegacyGraphEnvironmentCfg(
+        env_spec_path=str(graph_yaml_path), per_run_overrides={"object": "dex_cube"}
+    )
+    run_execution.execute_experiment(
+        _experiment(_run(name="graph", environment=graph_environment_cfg), _run(name="python")),
+        output_dir=tmp_path,
+    )
+
+    written_definition = yaml.safe_load(
+        (tmp_path / "graph" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).read_text(encoding="utf-8")
+    )
+    written_spec = ArenaEnvGraphSpec.from_dict(written_definition)
+    overridden_object = next(obj for obj in written_spec.objects if obj.id == "rubiks_cube_hot3d_robolab")
+    assert overridden_object.registry_name == "dex_cube"
+    assert not (tmp_path / "python" / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME).exists()
 
 
 def test_execute_experiment_writes_the_placement_diagnostics_that_built_the_rebuilds_of_each_run(monkeypatch, tmp_path):

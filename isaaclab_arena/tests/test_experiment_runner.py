@@ -13,7 +13,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME, ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_EXPERIMENT_RESULT_FILENAME,
+    ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME,
+    ArenaExperimentResult,
+)
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -489,6 +493,19 @@ def test_experiment_runner_graph_spec_camera_run_and_camera_less_run(tmp_path):
         str(experiment_config_path),
         extra_args=["--experiment_output_directory", str(experiment_output_directory)],
     )
+
+    environment_definition_path = (
+        experiment_output_directory
+        / "maple_table_graph_spec_camera_variation"
+        / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
+    )
+    environment_definition = yaml.safe_load(environment_definition_path.read_text(encoding="utf-8"))
+    assert environment_definition["env_name"] == "pick_and_place_maple_table_default"
+    assert not (
+        experiment_output_directory
+        / "kitchen_pick_and_place_no_cameras"
+        / ARENA_SINGLE_RUN_ENVIRONMENT_DEFINITION_FILENAME
+    ).exists()
 
 
 def _test_run_variation_lands_in_events_cfg(simulation_app):

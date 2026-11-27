@@ -10,10 +10,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena_environments.cli import arena_env_from_graph_spec, get_isaaclab_arena_environments_cli_parser
+from isaaclab_arena_environments.cli import (
+    add_cli_override_args,
+    arena_env_from_graph_spec,
+    load_graph_spec_with_cli_overrides,
+)
 
 if TYPE_CHECKING:
+    import argparse
+
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -58,9 +66,7 @@ def build_arena_builder_from_legacy_graph(
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    assert cfg.env_spec_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
-    parser = get_isaaclab_arena_environments_cli_parser()
-    args_cli = parser.parse_args(_graph_environment_cli_args(cfg))
+    args_cli = parse_graph_environment_cli_args(cfg)
     arena_env = arena_env_from_graph_spec(args_cli.env_spec, args_cli)
     return ArenaEnvBuilder(
         arena_env,
@@ -69,6 +75,22 @@ def build_arena_builder_from_legacy_graph(
         rebuild_index=rebuild_index,
         policy_cfg=policy_cfg,
     )
+
+
+def load_graph_spec_from_graph(cfg: LegacyGraphEnvironmentCfg) -> ArenaEnvGraphSpec:
+    """Load a Run's graph spec with its per-run overrides applied, as the environment is built from it."""
+    args_cli = parse_graph_environment_cli_args(cfg)
+    return load_graph_spec_with_cli_overrides(args_cli.env_spec, args_cli)
+
+
+def parse_graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> argparse.Namespace:
+    """Parse the command-line arguments that build this graph-spec environment."""
+    assert cfg.env_spec_path.endswith((".yaml", ".yml")), "legacy graph config must select a graph YAML"
+    parser = get_isaaclab_arena_cli_parser()
+    # Read the override flags from the Run's YAML. The environments CLI parser reads them only when
+    # --env_spec is in sys.argv, which the Experiment Runner's command line doesn't have.
+    add_cli_override_args(parser, ArenaEnvGraphSpec.read_cli_override_specs(cfg.env_spec_path))
+    return parser.parse_args(_graph_environment_cli_args(cfg))
 
 
 def _graph_environment_cli_args(cfg: LegacyGraphEnvironmentCfg) -> list[str]:
