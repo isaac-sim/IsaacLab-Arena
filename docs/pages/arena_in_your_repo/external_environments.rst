@@ -9,9 +9,6 @@ changing Arena. Like a built-in environment, it has two classes:
 * A factory class that subclasses ``ArenaEnvironmentFactory[YourCfg]``, sets a unique ``name``,
   and builds the environment in ``build(cfg)``.
 
-Arena registers the factory when it loads it by its class path, so it doesn't need the
-``@register_environment`` decorator that the built-in environments use.
-
 This example places one object on a table:
 
 .. code-block:: python
@@ -88,11 +85,14 @@ environment name and its flags. For example, with a zero-action policy:
      franka_table \
      --object tomato_soup_can
 
-The ``--external_environment_class_path`` flag takes the module path and the class name of the
-factory, joined by a dot as in a Python import. The module must be importable, for example because your package is
-installed or on ``PYTHONPATH``. The runner imports the class and registers it under its ``name``.
-The environment name is the first positional argument, and the flags after it set the fields of the
-environment's config.
+The class path is the module path and the class name, joined by a dot as in a Python import. For a
+class ``MyEnvironment`` in ``my_package/my_environment.py``, it is
+``my_package.my_environment.MyEnvironment``. The module must be importable, for example because your
+package is installed or on ``PYTHONPATH``.
+
+Each config field becomes a flag with the same name, such as ``--object``. Flags work for ``bool``,
+``int``, ``float``, and ``str`` fields, a ``Literal``, a ``str`` enum, an optional of these, and a
+list of ``int``, ``float``, or ``str``.
 
 The flag works the same way with the Environment Runner
 (``isaaclab_arena/scripts/environment_runner.py``) and with Isaac Lab scripts that register Arena
@@ -128,90 +128,6 @@ stops with an error that names that class.
        :width: 50%
        :alt: External environment example
        :align: center
-
-Config Fields and Flags
------------------------
-
-Each field of the config becomes a flag with the field's name, such as ``--object``.
-Flags work for fields of these types:
-
-* ``bool``, ``int``, ``float``, and ``str``. A ``bool`` field that defaults to ``False`` becomes a
-  switch such as ``--rl_training_mode``. Other ``bool`` fields get ``--name`` and ``--no-name``.
-* A ``Literal`` whose values are all ``str`` or all ``int``, such as ``Literal["left", "right"]``.
-* A string-valued enum, such as ``class Mode(str, Enum)``.
-* An optional of these types, such as ``str | None``.
-* A list of ``int``, ``float``, or ``str``, such as ``list[str]``. The flag takes zero or more values.
-
-Other field types are not supported. Some, such as ``tuple[float, float]`` or ``dict[str, float]``,
-stop the runner with an error. Others get a flag that rejects or misreads the value, for example
-``list[bool]`` reads ``False`` as ``True``.
-
-Fields named ``enable_cameras``, ``num_envs``, and ``mimic`` get no flag of their own. They take the
-value of the runner's flag with the same name. A field named ``auto`` gets no flag.
-
-Migrating from ``ExampleEnvironmentBase``
------------------------------------------
-
-``ExampleEnvironmentBase`` and its ``get_env(args_cli)`` and ``add_cli_args(parser)`` methods have
-been removed. To migrate an environment defined in your repository:
-
-#. Move each flag declared in ``add_cli_args()`` into a field of a new dataclass that subclasses
-   ``ArenaEnvironmentCfg``. Use the flag's name as the field name, its default as the field
-   default, and a type from the list above.
-#. Replace the ``ExampleEnvironmentBase`` base class with ``ArenaEnvironmentFactory[YourCfg]``.
-#. Rename ``get_env(self, args_cli)`` to ``build(self, cfg)``, and read values from ``cfg`` instead
-   of ``args_cli``. If ``get_env()`` read ``args_cli.num_envs`` or ``args_cli.mimic``, add a field
-   with that name to the config.
-#. Delete ``add_cli_args()``. The flags are now generated from the config fields.
-#. In commands, write the value of ``--external_environment_class_path`` with a dot,
-   ``module_path.ClassName``, instead of ``module_path:ClassName``.
-
-The flags after the environment name stay the same.
-
-Before:
-
-.. code-block:: python
-
-   import argparse
-
-   from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
-
-
-   class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
-
-       name: str = "franka_table"
-
-       def get_env(self, args_cli: argparse.Namespace):
-           ...
-           pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-           ...
-
-       @staticmethod
-       def add_cli_args(parser: argparse.ArgumentParser) -> None:
-           parser.add_argument("--object", type=str, default="cracker_box")
-
-After:
-
-.. code-block:: python
-
-   from dataclasses import dataclass
-
-   from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-
-
-   @dataclass
-   class ExternalFrankaTableEnvironmentCfg(ArenaEnvironmentCfg):
-       object: str = "cracker_box"
-
-
-   class ExternalFrankaTableEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableEnvironmentCfg]):
-
-       name: str = "franka_table"
-
-       def build(self, cfg: ExternalFrankaTableEnvironmentCfg):
-           ...
-           pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
-           ...
 
 Next Steps
 ----------

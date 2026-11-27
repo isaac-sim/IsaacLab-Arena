@@ -165,10 +165,8 @@ environment name and its flags. For example, with a zero-action policy:
      franka_table_with_task \
      --object tomato_soup_can
 
-As in :doc:`external_environments`, the flag ``--external_environment_class_path`` imports the
-module, the environment name is the first positional argument, and the flags after it set the
-fields of ``ExternalFrankaTableWithTaskEnvironmentCfg``. Importing the module also registers the
-custom embodiment, because ``@register_asset`` runs when the module is imported.
+Importing the module also registers the custom embodiment, because ``@register_asset`` runs on
+import.
 
 .. note::
 
