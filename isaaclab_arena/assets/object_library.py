@@ -853,7 +853,7 @@ class RedContainer(LibraryObject):
 
     registry_name = "red_container"
     tags = ["object"]
-    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red.usd"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_red_box_colliders.usd"
     scale = (0.5, 0.5, 0.5)
 
 
@@ -865,7 +865,7 @@ class GreenContainer(LibraryObject):
 
     registry_name = "green_container"
     tags = ["object"]
-    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green.usd"
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/isaac_container/container_h20_green_box_colliders.usd"
     scale = (0.5, 0.5, 0.5)
 
 
